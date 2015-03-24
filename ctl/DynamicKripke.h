@@ -39,7 +39,7 @@ public:
 
 	// This represents the labels of states, which are sets of atomic propositions
 	// Access via statelabel[stateID][AP]
-	vec<vec<bool>> statelabel;
+	vector<vector<int>> statelabel;
 
 	bool adaptive_history_clear = false;
 	long historyClearInterval = 1000;
@@ -207,19 +207,19 @@ public:
 		}
 	}
 	int addEmptyState(){
-		vec<bool> empty;
+		vector<int> empty;
 		return addNode(empty);
 	}
-	int addState(vec<bool>& v){
+	int addState(vector<int>& v){
 		return addNode(v);
 	}
-	int addNode(vec<bool> v) {
+	int addNode(vector<int> v) {
 
 		g.addNode();
 		modifications++;
 		additions = modifications;
 		deletions = modifications;
-		statelabel.push(v);
+		statelabel.push_back(v);
 		markChanged();
 		clearHistory(true);
 
@@ -336,14 +336,37 @@ public:
 		g.clearChanged();
 	}
 
-	void draw(int source=-1, int dest=-1){
-
-		printf("digraph{\n");
-		if(source>=0){
-			printf("start->%d\n",source);
+	// Turns a state label into a human readable string
+	string statelabelToString(int state) {
+		string s = "";
+		for (int i = 0; i < statelabel[state].size(); i++) {
+			if (statelabel[state][i] == true) {
+				s += "1";
+			} else if (statelabel[state][i] == false) {
+				s += "0";
+			} else {
+				s += "E";
+			}
 		}
-		if(dest>=0){
-			printf("%d [shape=doublecircle]\n",dest);
+		return s;
+	}
+
+	void draw(int source=-1, int dest=-1){
+		printf("digraph{\n");
+
+		for (int i = 0; i < g.nodes(); i++) {
+			string s = "node [label=\"" + std::to_string(i) + std::string(": {") + statelabelToString(i) + "}\"] ";
+			if(i == dest){
+				cout << s << "[shape=doublecircle] " << i << ";\n";
+			} else {
+				cout << s << i << ";\n";
+			}
+		}
+
+
+		if(source>=0){
+			printf("node [label=\"start\",shape=plaintext] start;\n");
+			printf("start->%d\n",source);
 		}
 		for(int i = 0;i<transitions.size();i++){
 			bool any_enabled=false;
@@ -354,6 +377,10 @@ public:
 				}
 			}
 			if (any_enabled){
+				// Ignore transition labels, we don't need them for kripke structures.
+				printf("%d->%d\n", g.getEdge(i).from,g.getEdge(i).to);
+
+				/*
 				printf("%d->%d [label=\"", g.getEdge(i).from,g.getEdge(i).to);
 
 				for(int in = 0;in<inAlphabet();in++){
@@ -378,8 +405,9 @@ public:
 					}
 				}
 
-
 				printf("\"]\n");
+				*/
+
 			}
 		}
 

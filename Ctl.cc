@@ -69,27 +69,39 @@ int main(int argc, char** argv) {
 
 	DynamicKripke myKripke;
 	std::vector<int> states;
-	states.oush_back(true);
-	states.push_Back(false);
+	states.push_back(true);
+	states.push_back(false);
 
-	statelabel[stateid][labelid] = false;
+	//statelabel[stateid][labelid] = false;
 
 	int node0 = myKripke.addState(states);
 	states.clear();
 	states.push_back(false);
-	int node1 = myKripke.addState({false, true, true});
-	int node2 = myKripke.addState({true, false, true});
-	int node3 = myKripke.addState({false, false, false});
-	myKripke.addInCharacter();
-	myKripke.addOutCharacter();
-	myKripke.addInCharacter();
-	myKripke.addOutCharacter();
-	myKripke.addTransition(node1, node2, -1, 1, 2, true);
-	myKripke.addTransition(node2, node3, -1, 1, 1, true);
-	myKripke.addTransition(node1, node3, -1, 2, 1, true);
+	states.push_back(true);
+	int node1 = myKripke.addState(states);
+	states.clear();
+	states.push_back(true);
+	states.push_back(true);
+	int node2 = myKripke.addState(states);
+	states.clear();
+	states.push_back(false);
+	states.push_back(false);
+	int node3 = myKripke.addState(states);
+	myKripke.addTransition(node1, node2, -1, 0, 0, true);
+	myKripke.addTransition(node2, node3, -1, 0, 0, true);
+	myKripke.addTransition(node1, node3, -1, 0, 0, true);
+	//myKripke.disableTransition(2, 0, 0); // node1 -> node3
 	myKripke.draw(node1, node3);
 
+
 	int nodecount = myKripke.nodes();
+
+
+
+
+
+
+
 
 
 }
