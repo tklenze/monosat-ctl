@@ -23,7 +23,10 @@
 using namespace dgl;
 namespace Monosat {
 
-
+/*
+ * setAPCount(int) has to be called BEFORE adding any states during initialization.
+ *
+ */
 
 class DynamicKripke{
 	DynamicGraph g;
@@ -39,6 +42,7 @@ public:
 	// This represents the labels of states, which are sets of atomic propositions
 	// Access via statelabel[stateID][AP]
 	vector<vector<int>> statelabel;
+	int apcount = 0;
 
 	bool adaptive_history_clear = false;
 	long historyClearInterval = 1000;
@@ -84,17 +88,25 @@ public:
 	}
 
 
-
-/*
-	void setStateLabel(int state, vec<bool> label) {
-		statelabel[state]. label;
-	}
-	*/
-
-	/*
-	void setAP(int apcount) {
+	void setStateLabel(int state, vector<int> label) {
 		statelabel[state] = label;
-	}*/
+	}
+
+	vector<int> getStateLabel(int state) {
+		return statelabel[state];
+	}
+
+	int isAPinStateLabel(int state, int ap) {
+		assert(state < statelabel.size());
+		assert(ap < statelabel[state].size());
+		return statelabel[state][ap];
+	}
+
+	void setAPCount(int apc) {
+		apcount = apc;
+	}
+
+
 
 	// Is ap in the label of state?
 	// 1: Yes, 0: No, -1: AP not present
@@ -121,7 +133,8 @@ public:
 
 	int addTransition(int from, int to,int edgeID, bool defaultEnabled=true){
 		while(from>=g.nodes() || to>=g.nodes())
-			g.addNode();
+			assert(false); // for now, we just don't want this to happen
+			addEmptyState();
 		if(edgeID==-1){
 			edgeID = g.addEdge(from, to, edgeID);
 		}
