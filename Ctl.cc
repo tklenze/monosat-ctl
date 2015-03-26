@@ -87,21 +87,14 @@ int main(int argc, char** argv) {
 	states.push_back(false);
 	states.push_back(false);
 	int node3 = myKripke.addState(states);
-	myKripke.addTransition(node1, node2, -1, 0, 0, true);
-	myKripke.addTransition(node2, node3, -1, 0, 0, true);
-	myKripke.addTransition(node1, node3, -1, 0, 0, true);
-	//myKripke.disableTransition(2, 0, 0); // node1 -> node3
+	myKripke.addTransition(node1, node2, -1, true);
+	myKripke.addTransition(node2, node3, -1, true);
+	myKripke.addTransition(node1, node3, -1, true);
+	myKripke.disableTransition(2); // node1 -> node3
 	myKripke.draw(node1, node3);
 
 
 	int nodecount = myKripke.nodes();
-
-
-
-
-
-
-
 
 
 }

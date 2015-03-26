@@ -29,13 +29,12 @@ class DynamicKripke{
 	DynamicGraph g;
 	//std::vector<Bitset> edge_status;
 	int id;
-	bool has_epsilon=true;
 	bool is_changed = true;
 	bool is_generator=true;
 	bool is_acceptor=true;
 	bool is_linear=true;
 public:
-	vec<Bitset> transitions;
+	vector<bool> transitions;
 
 	// This represents the labels of states, which are sets of atomic propositions
 	// Access via statelabel[stateID][AP]
@@ -46,15 +45,12 @@ public:
 	int modifications=0;
 	int additions=0;
 	int deletions=0;
-	int in_alphabet =1;
-	int out_alphabet=1;
 	long historyclears=0;
 	struct EdgeChange {
 		bool addition;
+		bool APchange;
 
 		int id;
-		int input;
-		int output;
 		int mod;
 		int prev_mod;
 
@@ -82,51 +78,9 @@ public:
 	int getID(){
 		return id;
 	}
-	void setEmovesEnabled(bool enabled){
-		has_epsilon=enabled;
-	}
 
-	bool emovesEnabled()const{
-		return has_epsilon;
-	}
-
-/*
-	bool emove(int edgeID)const{
-		return emovesEnabled() && transitions[edgeID][0];
-	}
-*/
-
-	int inAlphabet()const{
-		return in_alphabet;
-	}
-	int outAlphabet()const{
-		return out_alphabet;
-	}
-	void addInCharacter(){
-		in_alphabet++;
-	}
-	void addOutCharacter(){
-		out_alphabet++;
-	}
-	bool transitionEnabled(int edgeID, int input, int output)const{
-		assert(input<inAlphabet());
-		assert(output<outAlphabet());
-		if(output<0){
-			for(int i = 0;i<out_alphabet;i++){
-				if(transitionEnabled(edgeID,input,i))
-					return true;
-			}
-			return false;
-		}else if (input<0){
-			for(int i = 0;i<in_alphabet;i++){
-				if(transitionEnabled(edgeID,i,output))
-					return true;
-			}
-			return false;
-		}else{
-			int pos = input +output*inAlphabet();
-			return transitions[edgeID][pos];
-		}
+	bool transitionEnabled(int edgeID)const{
+			return transitions[edgeID];
 	}
 
 
@@ -165,44 +119,36 @@ public:
 
 
 
-	int addTransition(int from, int to,int edgeID, int input,int output, bool defaultEnabled=true){
-		assert(input<inAlphabet());
-		assert(output<outAlphabet());
+	int addTransition(int from, int to,int edgeID, bool defaultEnabled=true){
 		while(from>=g.nodes() || to>=g.nodes())
 			g.addNode();
 		if(edgeID==-1){
 			edgeID = g.addEdge(from, to, edgeID);
 		}
-		transitions.growTo(edgeID+1);
-		transitions[edgeID].growTo(inAlphabet()*outAlphabet());
-		int pos = input +output*inAlphabet();
-		if(defaultEnabled)
-			transitions[edgeID].set(pos);
+		transitions.resize(edgeID+1);
+		transitions[edgeID] = defaultEnabled;
 		return edgeID;
 	}
 
-	void enableTransition(int edgeID, int input,int output) {
+	void enableTransition(int edgeID) {
 		assert(edgeID >= 0);
 		assert(edgeID < g.edges());
 		assert(isEdge(edgeID));
-		int pos = input +output*inAlphabet();
-		if (!transitions[edgeID][pos]) {
-			transitions[edgeID].set(pos);
-			//edge_status.setStatus(id,true);
+		if (!transitions[edgeID]) {
+			transitions[edgeID] = true;
 			modifications++;
 			additions = modifications;
-			history.push_back( { true, edgeID,input,output, modifications, additions });
+			history.push_back( { true, edgeID, modifications, additions });
 		}
 	}
-	void disableTransition(int edgeID, int input,int output) {
+	void disableTransition(int edgeID) {
 		assert(edgeID >= 0);
 		assert(edgeID < g.edges());
 		assert(isEdge(edgeID));
-		int pos = input +output*inAlphabet();
-		if (transitions[edgeID][pos]) {
-			transitions[edgeID].clear(pos);
+		if (transitions[edgeID]) {
+			transitions[edgeID] = false;
 			modifications++;
-			history.push_back( { false, edgeID,input,output, modifications, deletions });
+			history.push_back( { false, edgeID, modifications, deletions });
 			deletions = modifications;
 		}
 	}
@@ -244,7 +190,7 @@ public:
 		markChanged();
 
 		if(transitions.size()<=id){
-			transitions.growTo(id+1);
+			transitions.resize(id+1);
 		}
 
 		return id;
@@ -369,384 +315,21 @@ public:
 			printf("start->%d\n",source);
 		}
 		for(int i = 0;i<transitions.size();i++){
-			bool any_enabled=false;
-			for(int l= 0;l<transitions[i].size();l++){
-				if(transitions[i][l]){
-					any_enabled=true;
-					break;
-				}
-			}
-			if (any_enabled){
-				// Ignore transition labels, we don't need them for kripke structures.
+			if (transitions[i]){
 				printf("%d->%d\n", g.getEdge(i).from,g.getEdge(i).to);
-
-				/*
-				printf("%d->%d [label=\"", g.getEdge(i).from,g.getEdge(i).to);
-
-				for(int in = 0;in<inAlphabet();in++){
-					for(int out = 0;out<outAlphabet();out++){
-						int pos = in + inAlphabet()*out;
-						if(transitions[i][pos]){
-							if(out==0){
-								if(in==0){
-									printf("{},");
-								}else{
-									printf("%c:,",'a'+in-1);
-								}
-							}else{
-								if(in==0){
-									printf(":%c,",'a'+out-1);
-								}else{
-									printf("%c:%c,",'a'+in-1,'a'+out-1);
-								}
-							}
-
-						}
-					}
-				}
-
-				printf("\"]\n");
-				*/
-
 			}
 		}
-
 
 		printf("}\n");
 
 	}
 
 
-	bool buildPrefixTable(int startState, int finalState, vec<int> & string, vec<Bitset> & table){
-		table.growTo(string.size());
-		for(int i = 0;i<table.size();i++){
-			table[i].clear();
-			table[i].growTo(this->states());
-		}
-		if(string.size()==0)
-			return startState==finalState;//this isn't quite correct, because there may be emoves connecting start to final state...
-		static vec<int> curStates;
-		static vec<int> nextStates;
-		nextStates.clear();
-		curStates.clear();
-		curStates.push(startState);
-		int pos = 0;
-		table[pos].set(startState);
-
-		//initial emove pass:
-		if(emovesEnabled()){
-			for(int i = 0;i<curStates.size();i++){
-				int s = curStates[i];
-				for(int j = 0;j<nIncident(s);j++){
-					//now check if the label is active
-					int edgeID= incident(s,j).id;
-					int to = incident(s,j).node;
-					if(!table[pos][to] && transitionEnabled(edgeID,0,-1)){
-						table[pos].set(to);
-						curStates.push(to);
-					}
-
-				}
-			}
-		}
-
-		for(;pos<string.size();pos++)
-		{
-			int l = string[pos];
-			assert(l>0);
-			for(int i = 0;i<curStates.size();i++){
-				int s = curStates[i];
-				for(int j = 0;j<nIncident(s);j++){
-					//now check if the label is active
-					int edgeID= incident(s,j).id;
-					int to = incident(s,j).node;
-					if(!table[pos][to] && transitionEnabled(edgeID,0,-1)){
-						table[pos].set(to);
-						curStates.push(to);
-					}
-
-					if (pos+1<string.size() && !table[pos+1][to] && transitionEnabled(edgeID,l,-1)){
-						table[pos+1].set(to);
-						nextStates.push(to);
-					}
-				}
-			}
-
-			nextStates.swap(curStates);
-			nextStates.clear();
-		}
-
-		pos = string.size()-1;
-		//final emove pass:
-		if(emovesEnabled()){
-			for(int i = 0;i<curStates.size();i++){
-				int s = curStates[i];
-				for(int j = 0;j<nIncident(s);j++){
-					//now check if the label is active
-					int edgeID= incident(s,j).id;
-					int to = incident(s,j).node;
-					if(!table[pos][to] && transitionEnabled(edgeID,0,-1)){
-						table[pos].set(to);
-						curStates.push(to);
-					}
-				}
-			}
-		}
-		return table[pos][finalState];
-	}
-
-	bool buildSuffixTable(int startState, int finalState, vec<int> & string, vec<Bitset> & table){
-
-		table.growTo(string.size()+1);
-		for(int i = 0;i<table.size();i++){
-			table[i].clear();
-			table[i].growTo(this->states()+1);
-		}
-		if(string.size()==0)
-			return startState==finalState;//this isn't quite correct, because there may be emoves connecting start to final state...
-		static vec<int> curStates;
-		static vec<int> nextStates;
-		nextStates.clear();
-		curStates.clear();
-		curStates.push(finalState);
-		int pos = string.size();
-		table[pos].set(finalState);
-
-		//initial emove pass:
-		if(emovesEnabled()){
-			for(int i = 0;i<curStates.size();i++){
-				int s = curStates[i];
-				for(int j = 0;j<nIncoming(s);j++){
-					//now check if the label is active
-					int edgeID= incoming(s,j).id;
-					int to = incoming(s,j).node;
-					if(!table[pos][to] && transitionEnabled(edgeID,0,-1)){
-						table[pos].set(to);
-						curStates.push(to);
-					}
-
-				}
-			}
-		}
-
-		for(;pos>0;pos--)
-		{
-			int l = string[pos-1];
-			assert(l>0);
-			for(int i = 0;i<curStates.size();i++){
-				int s = curStates[i];
-				for(int j = 0;j<nIncoming(s);j++){
-					//now check if the label is active
-					int edgeID= incoming(s,j).id;
-					int to = incoming(s,j).node;
-					if(!table[pos][to] && transitionEnabled(edgeID,0,-1)){
-						table[pos].set(to);
-						curStates.push(to);
-						//status.reaches(str,to,edgeID,0);
-					}
-
-					if (pos>0 && !table[pos-1][to] && transitionEnabled(edgeID,l,-1)){
-						//status.reaches(str,to,edgeID,l);
-						table[pos-1].set(to);
-						nextStates.push(to);
-					}
-				}
-			}
-
-			nextStates.swap(curStates);
-			nextStates.clear();
-
-		}
-		pos = 0;
-		//final emove pass:
-		if(emovesEnabled()){
-			for(int i = 0;i<curStates.size();i++){
-				int s = curStates[i];
-				for(int j = 0;j<nIncoming(s);j++){
-					//now check if the label is active
-					int edgeID= incoming(s,j).id;
-					int to = incoming(s,j).node;
-					if(!table[pos][to] && transitionEnabled(edgeID,0,-1)){
-						table[pos].set(to);
-						curStates.push(to);
-					}
-				}
-			}
-		}
-
-		return table[0][startState];
-	}
-private:
-	vec<int> next;
-	vec<int> cur;
-
-	vec<bool> next_seen;
-	vec<bool> cur_seen;
-
-	bool generates_path_rec(int s,int final,int emove_count, vec<NFATransition> & path){
-			if(s==final){
-				return true;
-			}
-			if (emove_count>=states()){
-				return false;//this is not a great way to solve the problem of avoiding infinite e-move cycles...
-			}
-
-
-			for(int j = 0;j<nIncident(s);j++){
-				//now check if the label is active
-				int edgeID= incident(s,j).id;
-				int to = incident(s,j).node;
-				if( transitionEnabled(edgeID,0,0)){
-
-
-						path.push({edgeID,0,0});
-						if(generates_path_rec(to,final,emove_count+1,path)){//str_pos is NOT incremented!
-
-							return true;
-						}else{
-
-							path.pop();
-						}
-
-				}
-				for(int l = 0;l<outAlphabet();l++){
-					if (transitionEnabled(edgeID,0,l)){
-						bool set_transition=false;
-
-
-						path.push({edgeID,0,l});
-						if(generates_path_rec(to,final,0,path)){//str_pos is incremented
-
-							return true;
-						}else{
-
-							path.pop();
-						}
-
-					}
-				}
-
-			}
-			return false;
-		}
-
-public:
-	bool generates(int source, int final, vec<NFATransition> & path){
-		return generates_path_rec(source,final,0,path);
-	}
-
-
-	bool accepts(int source, int final, vec<int> & string){
-		return accepts_prefix(source,final,string)==string.size();
-	}
-	int accepts_prefix(int source, int final, vec<int> & string){
-		cur_seen.growTo(states());
-		next_seen.growTo(states());
-		for(int s:cur){
-			assert(cur_seen);
-			cur_seen[s]=false;
-		}
-		cur.clear();
-		assert(next.size()==0);
-		cur_seen[source]=true;
-		cur.push(source);
-
-		int largest_prefix=0;
-
-		//initial emove pass:
-		if(emovesEnabled()){
-			for(int i = 0;i<cur.size();i++){
-				int s = cur[i];
-				for(int j = 0;j<nIncident(s);j++){
-					//now check if the label is active
-					int edgeID= incident(s,j).id;
-					int to = incident(s,j).node;
-					if(!cur_seen[to] && transitionEnabled(edgeID,0,-1)){
-						cur_seen[to]=true;
-						cur.push(to);
-
-					}
-
-				}
-			}
-		}
-		if(string.size()){
-			for(int k = 0;k<string.size();k++)
-			{
-				int l = string[k];
-				assert(l>0);
-				for(int i = 0;i<cur.size();i++){
-					int s = cur[i];
-					for(int j = 0;j<nIncident(s);j++){
-						//now check if the label is active
-						int edgeID= incident(s,j).id;
-						int to = incident(s,j).node;
-						if(!cur_seen[to] && transitionEnabled(edgeID,0,-1)){
-							cur_seen[to]=true;
-							cur.push(to);
-							//status.reaches(str,to,edgeID,0);
-						}
-
-						if (!next_seen[to] && transitionEnabled(edgeID,l,-1)){
-							//status.reaches(str,to,edgeID,l);
-							next_seen[to]=true;
-							next.push(to);
-						}
-					}
-				}
-
-				next.swap(cur);
-				next_seen.swap(cur_seen);
-
-				for(int s:next){
-					assert(next_seen[s]);
-					next_seen[s]=false;
-				}
-				next.clear();
-
-				if(cur.size()){
-					largest_prefix=k;
-				}
-			}
-
-			//final emove pass:
-			if(emovesEnabled()){
-				for(int i = 0;i<cur.size();i++){
-					int s = cur[i];
-					for(int j = 0;j<nIncident(s);j++){
-						//now check if the label is active
-						int edgeID= incident(s,j).id;
-						int to = incident(s,j).node;
-						if(!cur_seen[to] && transitionEnabled(edgeID,0,-1)){
-							cur_seen[to]=true;
-							cur.push(to);
-						}
-
-					}
-				}
-			}
-		}
-		if( cur_seen[final]){
-			return string.size();
-		}else{
-			return largest_prefix;
-		}
-
-	}
 	void clear(){
 		g.clear();
-		has_epsilon=true;
 		is_changed=true;
 		transitions.clear();
 
-		in_alphabet =1;
-		out_alphabet=1;
-
-
-		next.clear();
-		cur.clear();
-		next_seen.clear();
-		cur_seen.clear();
 
 		invalidate();
 		clearHistory(true);
@@ -754,13 +337,11 @@ public:
 	void copyTo(DynamicKripke & to){
 		to.clear();
 		g.copyTo(to.g);
-		to.has_epsilon=has_epsilon;
-		to.in_alphabet=in_alphabet;
-		to.out_alphabet=out_alphabet;
-		for(Bitset & b:transitions){
-			to.transitions.push();
-			b.copyTo(to.transitions.last());
-		}
+		// TODO Does this actually make a copy? This suggests so: http://www.cplusplus.com/reference/vector/vector/operator=/
+		vector<bool> transcopy = transitions;
+		to.transitions = transcopy;
+		vector<vector<int>> statelabelcopy = statelabel;
+		to.statelabel = statelabelcopy;
 	}
 
 };
