@@ -21,10 +21,12 @@ namespace Monosat {
 
 class CTLSolver {
 public:
-	CTLSolver() {};
+	DynamicKripke k;
+	CTLSolver(DynamicKripke myk) {
+		k = myk;
+	};
 	~CTLSolver() {};
 
-	DynamicKripke g;
 
 	// This represents the extra labels of states, which are sets of temporarily added atomic propositions
 	// They are generated during the evaluation of a CTL formula.
@@ -45,18 +47,43 @@ public:
 		int value;
 	};
 
+	Bitset* solveID(CTLFormula& f) {
+		assert(f.op == ID);
+		Bitset *st = new Bitset(k.states());
+		for (int i=0; i<k.states();i++) {
+			if (k.statelabel[i][f.value])
+				st->set(i);
+		}
+		return st;
+	}
+
 
 	void funwithctl() {
-		CTLFormula a {ID, NULL, NULL, 3};
+		CTLFormula a {ID, NULL, NULL, 0};
 		CTLFormula b {ID, NULL, NULL, 7};
 		CTLFormula c {ID, NULL, NULL, 8};
 		CTLFormula EXa {EX, &a, NULL, 1};
 		CTLFormula EUEXab {EU, &EXa, &b, 0};
 		CTLFormula complicated {AF, &EUEXab, NULL, 0};
 
-		printFormula(complicated);
+		printFormula(complicated); printf("\n");
+
+		Bitset* foo = solveID(a);
+		printStateSet(*foo);
+		delete foo;
 	}
-	void printFormula(CTLFormula f) {
+
+	void printStateSet(Bitset& s) {
+		printf("{");
+		for (int i=0; i<s.size(); i++) {
+			if (s[i]) {
+				printf("%d, ", i);
+			}
+		}
+		printf("}");
+	}
+
+	void printFormula(CTLFormula &f) {
 		switch (f.op) {
 		case EX : printf("EX "); printFormula(*f.operand1); break;
 		case EF : printf("EF "); printFormula(*f.operand1); break;

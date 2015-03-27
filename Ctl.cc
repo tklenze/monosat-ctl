@@ -64,10 +64,6 @@ using namespace std;
 
 int main(int argc, char** argv) {
 
-
-	// git test change
-
-
 	DynamicKripke myKripke;
 	std::vector<bool> states;
 	states.push_back(true);
@@ -111,11 +107,11 @@ int main(int argc, char** argv) {
 
 
 
-	CTLSolver mySolver;
+	CTLSolver mySolver(myKripke);
+
 
 
 	mySolver.funwithctl();
-
 
 
 
