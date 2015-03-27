@@ -47,6 +47,24 @@ public:
 		int value;
 	};
 
+	Bitset* pre(Bitset& st) {
+		Bitset *prest = new Bitset(k.states());
+		for (int i=0; i<k.nEdgeIDs();i++) {
+			if (st[k.getEdge(i).to]) {
+				prest->set(k.getEdge(i).from);
+			}
+		}
+		return prest;
+	}
+
+	Bitset* solve(CTLFormula& f) {
+		switch (f.op) {
+		case ID : return solveID(f);
+		case EX : return solveEX(f);
+		default : return new Bitset(k.states());
+		}
+	}
+
 	Bitset* solveID(CTLFormula& f) {
 		assert(f.op == ID);
 		Bitset *st = new Bitset(k.states());
@@ -55,6 +73,12 @@ public:
 				st->set(i);
 		}
 		return st;
+	}
+
+	Bitset* solveEX(CTLFormula& f) {
+		assert(f.op == EX);
+		Bitset *st = solve(*f.operand1);
+		return pre(*st);
 	}
 
 
@@ -70,6 +94,10 @@ public:
 
 		Bitset* foo = solveID(a);
 		printStateSet(*foo);
+
+		Bitset* bar = pre(*foo);
+		printStateSet(*bar);
+
 		delete foo;
 	}
 
@@ -80,7 +108,7 @@ public:
 				printf("%d, ", i);
 			}
 		}
-		printf("}");
+		printf("}\n");
 	}
 
 	void printFormula(CTLFormula &f) {
