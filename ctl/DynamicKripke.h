@@ -58,7 +58,7 @@ public:
 				// Edge change (APchange==false) or a change in the AP assignment.
 		int ap; // Ignored if it is not an APchange, if it is an APchange, this will be the AP id.
 		int mod;
-		// int prev_mod; not needed, apparently
+		// int prev_mod; // not needed, apparently
 
 	};
 	std::vector<EdgeChange> history;

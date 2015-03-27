@@ -55,6 +55,7 @@
 #include "geometry/GeometryTheory.h"
 #include "geometry/GeometryParser.h"
 #include "ctl/DynamicKripke.h"
+#include "ctl/CTLSolver.h"
 
 
 
@@ -104,11 +105,20 @@ int main(int argc, char** argv) {
 	myKripke.disableAPinStateLabel(node4,0);
 	myKripke.draw(node1, node3);
 	//printf("%d, %d, %d, %d", node0, node1, node2, node3);
-
-
-
-
 	int nodecount = myKripke.nodes();
+
+
+
+
+
+	CTLSolver mySolver;
+
+
+	mySolver.funwithctl();
+
+
+
+
 
 
 }
