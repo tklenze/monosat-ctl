@@ -99,6 +99,7 @@ int main(int argc, char** argv) {
 	myKripke.addTransition(node3, node4, -1, true);
 	myKripke.addTransition(node4, node0, -1, true);
 	myKripke.addTransition(node0, node2, -1, true);
+	myKripke.addTransition(node3, node1, -1, true);
 	myKripke.disableTransition(2); // node1 -> node3
 	myKripke.enableTransition(0); // node1 -> node2
 	myKripke.enableAPinStateLabel(node3,1);
@@ -116,6 +117,7 @@ int main(int argc, char** argv) {
 
 
 	mySolver.funwithctl();
+
 
 
 

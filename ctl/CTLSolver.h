@@ -64,6 +64,7 @@ public:
 		case OR : return solveOR(f);
 		case AND : return solveAND(f);
 		case EX : return solveEX(f);
+		case EG : return solveEG(f);
 		default : return new Bitset(k.states());
 		}
 	}
@@ -114,6 +115,34 @@ public:
 		return pre(*st);
 	}
 
+	/*
+	 * This is where it gets interesting. We look for the largest solution of X = μ(p) ∩ pre(X).
+	 * Luckily for us, we can simply compute the fixpoint
+	 */
+	Bitset* solveEG(CTLFormula& f) {
+		assert(f.op == EG);
+		// μ(p)
+		Bitset *st = solve(*f.operand1);
+		// Auxiliary bitsets
+		Bitset *andst = new Bitset(k.states());
+		Bitset *prest = new Bitset(k.states());
+
+		while (true) { // fixpoint guaranteed to exist, therefore this will terminate
+			// pre(X)
+			prest->copyFrom(*st);
+			prest = pre(*prest);
+
+			// μ(p) ∩ pre(X).
+			st->And(*prest, *andst); // andst := st ∩ prest
+
+			if (st->Equiv(*andst))
+				return andst; // fixpoint reached
+
+			st->copyFrom(*andst);
+		}
+
+	}
+
 
 	void funwithctl() {
 		CTLFormula a {ID, NULL, NULL, 0};
@@ -125,6 +154,7 @@ public:
 		CTLFormula complicated {AF, &EUEXab, NULL, 0};
 		CTLFormula NEGEXaORb {OR, &NEGEXa, &b, 0};
 		CTLFormula NEGEXaORc {OR, &NEGEXa, &c, 0};
+		CTLFormula EGb {EG, &b, NULL, 0};
 
 		//printFormula(complicated); printf("\n");
 
@@ -139,6 +169,9 @@ public:
 
 		foo = solve(NEGEXaORc);
 		printFormula(NEGEXaORc); printStateSet(*foo);
+
+		foo = solve(EGb);
+		printFormula(EGb); printStateSet(*foo);
 
 		delete foo;
 	}

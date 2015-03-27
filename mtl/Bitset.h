@@ -185,6 +185,19 @@ public:
         	}
         	out.sz=sz;
         }
+
+    bool Equiv(const Bitset & with){
+          	int max = size();
+          	if(max != with.size()){
+          		return false;
+          	}
+          	int max_i=max/BITSET_ELEMENT_SIZE+1;
+          	for(int i = 0;i<max_i;i++){
+          		if (buf[i] != with.buf[i])
+          			return false;
+          	}
+          	return true;
+    	}
 };
 //=================================================================================================
 }
