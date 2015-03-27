@@ -57,6 +57,16 @@ public:
 		return prest;
 	}
 
+	// Pass
+	Bitset* pre(Bitset& st, Bitset& out) {
+		for (int i=0; i<k.nEdgeIDs();i++) {
+			if (st[k.getEdge(i).to]) {
+				out.set(k.getEdge(i).from);
+			}
+		}
+		return out;
+	}
+
 	Bitset* solve(CTLFormula& f) {
 		switch (f.op) {
 		case ID : return solveID(f);
@@ -65,6 +75,7 @@ public:
 		case AND : return solveAND(f);
 		case EX : return solveEX(f);
 		case EG : return solveEG(f);
+		case EU : return solveEU(f);
 		default : return new Bitset(k.states());
 		}
 	}
@@ -135,14 +146,49 @@ public:
 			// μ(p) ∩ pre(X).
 			st->And(*prest, *andst); // andst := st ∩ prest
 
-			if (st->Equiv(*andst))
+			if (st->Equiv(*andst)) {
+				delete st;
+				delete prest;
 				return andst; // fixpoint reached
-
+			}
 			st->copyFrom(*andst);
 		}
-
 	}
 
+
+	// X = μ(q) ∪ (μ(p) ∩ pre(X)).
+	Bitset* solveEU(CTLFormula& f) {
+		assert(f.op == EU);
+		// μ(p)
+		Bitset *st1 = solve(*f.operand1);
+		Bitset *st2 = solve(*f.operand2);
+		// Auxiliary bitsets
+		Bitset *andst = new Bitset(k.states());
+		Bitset *orst = new Bitset(k.states());
+		Bitset *prest;// = new Bitset(k.states());
+		Bitset *x = new Bitset(k.states());
+		x->copyFrom(*st2); // start out with X as μ(q)
+
+		while (true) { // fixpoint guaranteed to exist, therefore this will terminate
+			// pre(X)
+			prest = pre(*x);
+
+			// μ(p) ∩ pre(X).
+			st1->And(*prest, *andst); // andst := st1 ∩ prest
+
+			andst->Or(*st2, *orst); // orst := andset ∪ st2
+
+			if (x->Equiv(*orst)) {
+				delete st1;
+				delete st2;
+				delete andst;
+				delete x;
+				return orst; // fixpoint reached
+			}
+
+			x->copyFrom(*orst);
+		}
+	}
 
 	void funwithctl() {
 		CTLFormula a {ID, NULL, NULL, 0};
@@ -155,6 +201,7 @@ public:
 		CTLFormula NEGEXaORb {OR, &NEGEXa, &b, 0};
 		CTLFormula NEGEXaORc {OR, &NEGEXa, &c, 0};
 		CTLFormula EGb {EG, &b, NULL, 0};
+		CTLFormula EUbc {EU, &b, &c, 0};
 
 		//printFormula(complicated); printf("\n");
 
@@ -172,6 +219,9 @@ public:
 
 		foo = solve(EGb);
 		printFormula(EGb); printStateSet(*foo);
+
+		foo = solve(EUbc);
+		printFormula(EUbc); printStateSet(*foo);
 
 		delete foo;
 	}
