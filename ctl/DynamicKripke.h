@@ -41,7 +41,7 @@ public:
 
 	// This represents the labels of states, which are sets of atomic propositions
 	// Access via statelabel[stateID][AP]
-	vector<vector<int>> statelabel;
+	vector<vector<bool>> statelabel;
 	int apcount = 0;
 
 	bool adaptive_history_clear = false;
@@ -54,9 +54,11 @@ public:
 		bool addition;
 		bool APchange;
 
-		int id;
+		int id; // Either EdgeID or StateID, depending on whether it is an
+				// Edge change (APchange==false) or a change in the AP assignment.
+		int ap; // Ignored if it is not an APchange, if it is an APchange, this will be the AP id.
 		int mod;
-		int prev_mod;
+		// int prev_mod; not needed, apparently
 
 	};
 	std::vector<EdgeChange> history;
@@ -88,11 +90,11 @@ public:
 	}
 
 
-	void setStateLabel(int state, vector<int> label) {
+	void setStateLabel(int state, vector<bool> label) {
 		statelabel[state] = label;
 	}
 
-	vector<int> getStateLabel(int state) {
+	vector<bool> getStateLabel(int state) {
 		return statelabel[state];
 	}
 
@@ -102,14 +104,38 @@ public:
 		return statelabel[state][ap];
 	}
 
+	void enableAPinStateLabel(int state, int ap) {
+		assert(state < statelabel.size());
+		assert(ap < statelabel[state].size());
+		if (!statelabel[state][ap]) {
+			statelabel[state][ap] = true;
+			modifications++;
+			additions = modifications;
+			history.push_back( { true, true, state, ap, modifications });
+		}
+	}
+
+	void disableAPinStateLabel(int state, int ap) {
+		assert(state < statelabel.size());
+		assert(ap < statelabel[state].size());
+		if (statelabel[state][ap]) {
+			statelabel[state][ap] = false;
+			modifications++;
+			deletions = modifications;
+			history.push_back( { true, true, state, ap, modifications });
+		}
+	}
+
+	// Note that this is not reliable information, vectors might have different
+	// lengths if initialization messes up
 	void setAPCount(int apc) {
 		apcount = apc;
 	}
 
-
-
 	// Is ap in the label of state?
 	// 1: Yes, 0: No, -1: AP not present
+	//// Commented out, we use booleans in statelabel
+	/*
 	int stateAPAssignment(int state, int ap) {
 		if (statelabel[state].size() > ap) {
 			if (statelabel[state][ap])
@@ -118,23 +144,14 @@ public:
 				return 0;
 		}
 		return -1;
-	}
-
-
-
-
-
-
-
-
-
-
+	}*/
 
 
 	int addTransition(int from, int to,int edgeID, bool defaultEnabled=true){
-		while(from>=g.nodes() || to>=g.nodes())
+		while(from>=g.nodes() || to>=g.nodes()) {
 			assert(false); // for now, we just don't want this to happen
 			addEmptyState();
+		}
 		if(edgeID==-1){
 			edgeID = g.addEdge(from, to, edgeID);
 		}
@@ -151,7 +168,7 @@ public:
 			transitions[edgeID] = true;
 			modifications++;
 			additions = modifications;
-			history.push_back( { true, edgeID, modifications, additions });
+			history.push_back( { true, false, edgeID, 0, modifications });
 		}
 	}
 	void disableTransition(int edgeID) {
@@ -161,19 +178,18 @@ public:
 		if (transitions[edgeID]) {
 			transitions[edgeID] = false;
 			modifications++;
-			history.push_back( { false, edgeID, modifications, deletions });
+			history.push_back( { false, false, edgeID, 0, modifications });
 			deletions = modifications;
 		}
 	}
 	int addEmptyState(){
-		vector<int> empty;
+		vector<bool> empty;
 		return addNode(empty);
 	}
-	int addState(vector<int>& v){
+	int addState(vector<bool>& v){
 		return addNode(v);
 	}
-	int addNode(vector<int> v) {
-
+	int addNode(vector<bool>& v) {
 		g.addNode();
 		modifications++;
 		additions = modifications;
@@ -353,7 +369,7 @@ public:
 		// TODO Does this actually make a copy? This suggests so: http://www.cplusplus.com/reference/vector/vector/operator=/
 		vector<bool> transcopy = transitions;
 		to.transitions = transcopy;
-		vector<vector<int>> statelabelcopy = statelabel;
+		vector<vector<bool>> statelabelcopy = statelabel;
 		to.statelabel = statelabelcopy;
 	}
 

@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
 
 
 	DynamicKripke myKripke;
-	std::vector<int> states;
+	std::vector<bool> states;
 	states.push_back(true);
 	states.push_back(false);
 
@@ -87,12 +87,24 @@ int main(int argc, char** argv) {
 	states.push_back(false);
 	states.push_back(false);
 	int node3 = myKripke.addState(states);
+	int node4 = myKripke.addEmptyState();
+	std::vector<bool> state2(2, true);
+	myKripke.setStateLabel(node4, state2);
+	//printf("State label: %d %d", myKripke.getStateLabel(node0)[0], myKripke.getStateLabel(node0)[1]);
+	//printf("%d, %d\n", myKripke.stateAPAssignment(node1, 0), myKripke.stateAPAssignment(node1, 1));
 	myKripke.addTransition(node1, node2, -1, false);
 	myKripke.addTransition(node2, node3, -1, true);
 	myKripke.addTransition(node1, node3, -1, true);
+	myKripke.addTransition(node3, node4, -1, true);
+	myKripke.addTransition(node4, node0, -1, true);
+	myKripke.addTransition(node0, node2, -1, true);
 	myKripke.disableTransition(2); // node1 -> node3
 	myKripke.enableTransition(0); // node1 -> node2
+	myKripke.enableAPinStateLabel(node3,1);
+	myKripke.disableAPinStateLabel(node4,0);
 	myKripke.draw(node1, node3);
+	//printf("%d, %d, %d, %d", node0, node1, node2, node3);
+
 
 
 
