@@ -68,6 +68,7 @@ int main(int argc, char** argv) {
 	std::vector<bool> states;
 	states.push_back(true);
 	states.push_back(false);
+	states.push_back(false);
 
 	//statelabel[stateid][labelid] = false;
 
@@ -75,17 +76,20 @@ int main(int argc, char** argv) {
 	states.clear();
 	states.push_back(false);
 	states.push_back(true);
+	states.push_back(false);
 	int node1 = myKripke.addState(states);
 	states.clear();
 	states.push_back(true);
 	states.push_back(true);
+	states.push_back(false);
 	int node2 = myKripke.addState(states);
 	states.clear();
 	states.push_back(false);
 	states.push_back(false);
+	states.push_back(false);
 	int node3 = myKripke.addState(states);
 	int node4 = myKripke.addEmptyState();
-	std::vector<bool> state2(2, true);
+	std::vector<bool> state2(3, true);
 	myKripke.setStateLabel(node4, state2);
 	//printf("State label: %d %d", myKripke.getStateLabel(node0)[0], myKripke.getStateLabel(node0)[1]);
 	//printf("%d, %d\n", myKripke.stateAPAssignment(node1, 0), myKripke.stateAPAssignment(node1, 1));
@@ -112,8 +116,6 @@ int main(int argc, char** argv) {
 
 
 	mySolver.funwithctl();
-
-
 
 
 
