@@ -109,9 +109,6 @@ int main(int argc, char** argv) {
 	int nodecount = myKripke.nodes();
 
 
-
-
-
 	CTLSolver mySolver(myKripke);
 
 

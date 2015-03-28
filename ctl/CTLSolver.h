@@ -94,6 +94,12 @@ public:
 	// FIXME it's not optimal that we create a new bitset every time we negate
 	Bitset* solveNEG(CTLFormula& f) {
 		assert(f.op == NEG);
+
+		// Be smart about double negations and cancel them out
+		if (f.operand1->op == NEG) {
+			return solve(*f.operand1->operand1);
+		}
+
 		Bitset *st = solve(*f.operand1);
 		Bitset *negst = new Bitset(k.states());
 		st->Not(*negst);
