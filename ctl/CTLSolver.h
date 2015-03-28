@@ -36,7 +36,7 @@ public:
 	// CTL Formula representation
 
 	// CTL Operators, plus ID (identity operator, for formulas that are atomic) and NEG, OR, AND.
-	enum CTLOp { ID, NEG, OR, AND, EX, EF, EG, EU, AX, AF, AG, AU};
+	enum CTLOp { ID, NEG, OR, AND, EX, EF, EG, EW, EU, AX, AF, AG, AW, AU};
 
 	// CTL Formula tree. Everything besides "op" is only considered in some cases.
 	// For instance, operand1 and operand2 are needed for AU, but value is only needed for ID
@@ -57,14 +57,14 @@ public:
 		return prest;
 	}
 
-	// Pass
-	Bitset* pre(Bitset& st, Bitset& out) {
+	// Use st as input and store pre(st) in out. Out does not need to be clean
+	void pre(Bitset& st, Bitset& out) {
+		out.memset(false);
 		for (int i=0; i<k.nEdgeIDs();i++) {
 			if (st[k.getEdge(i).to]) {
 				out.set(k.getEdge(i).from);
 			}
 		}
-		return out;
 	}
 
 	Bitset* solve(CTLFormula& f) {
@@ -76,6 +76,7 @@ public:
 		case EX : return solveEX(f);
 		case EG : return solveEG(f);
 		case EU : return solveEU(f);
+		case AX : return solveAX(f);
 		default : return new Bitset(k.states());
 		}
 	}
@@ -140,8 +141,7 @@ public:
 
 		while (true) { // fixpoint guaranteed to exist, therefore this will terminate
 			// pre(X)
-			prest->copyFrom(*st);
-			prest = pre(*prest);
+			pre(*st, *prest); // prest := pre(st)
 
 			// μ(p) ∩ pre(X).
 			st->And(*prest, *andst); // andst := st ∩ prest
@@ -155,6 +155,13 @@ public:
 		}
 	}
 
+	// φ 1 EW φ 2 ≡ EG φ 1 ∨ (φ 1 EU φ 2 )
+	Bitset* solveEW(CTLFormula& f) {
+		CTLFormula phi1 = {EG, f.operand1, NULL, 0};
+		CTLFormula phi2 = {EU, f.operand1, f.operand2, 0};
+		CTLFormula phi3 = {OR, &phi1, &phi2, 0};
+		return solve(phi3);
+	}
 
 	// X = μ(q) ∪ (μ(p) ∩ pre(X)).
 	Bitset* solveEU(CTLFormula& f) {
@@ -165,17 +172,18 @@ public:
 		// Auxiliary bitsets
 		Bitset *andst = new Bitset(k.states());
 		Bitset *orst = new Bitset(k.states());
-		Bitset *prest;// = new Bitset(k.states());
+		Bitset *prest = new Bitset(k.states());
 		Bitset *x = new Bitset(k.states());
 		x->copyFrom(*st2); // start out with X as μ(q)
 
 		while (true) { // fixpoint guaranteed to exist, therefore this will terminate
 			// pre(X)
-			prest = pre(*x);
+			pre(*x, *prest);
 
 			// μ(p) ∩ pre(X).
 			st1->And(*prest, *andst); // andst := st1 ∩ prest
 
+			// μ(q) ∪ (μ(p) ∩ pre(X)).
 			andst->Or(*st2, *orst); // orst := andset ∪ st2
 
 			if (x->Equiv(*orst)) {
@@ -190,6 +198,47 @@ public:
 		}
 	}
 
+	// AX φ ≡ ¬ EX ¬φ
+	Bitset* solveAX(CTLFormula& f) {
+		CTLFormula phi1 = {NEG, f.operand1, NULL, 0};
+		CTLFormula phi2 = {EX, &phi1, NULL, 0};
+		CTLFormula phi3 = {NEG, &phi2, NULL, 0};
+		return solve(phi3);
+	}
+
+	// AF φ ≡ ¬ EG ¬φ
+	Bitset* solveAF(CTLFormula& f) {
+		CTLFormula phi1 = {NEG, f.operand1, NULL, 0};
+		CTLFormula phi2 = {EG, &phi1, NULL, 0};
+		CTLFormula phi3 = {NEG, &phi2, NULL, 0};
+		return solve(phi3);
+	}
+
+	// AG φ ≡ ¬ EF ¬φ
+	Bitset* solveAG(CTLFormula& f) {
+		CTLFormula phi1 = {NEG, f.operand1, NULL, 0};
+		CTLFormula phi2 = {EF, &phi1, NULL, 0};
+		CTLFormula phi3 = {NEG, &phi2, NULL, 0};
+		return solve(phi3);
+	}
+
+	// φ 1 AW φ 2 ≡ ¬(¬φ 2 EU ¬(φ 1 ∨ φ 2 ))
+	Bitset* solveAW(CTLFormula& f) {
+		CTLFormula phi1 = {OR, f.operand1, f.operand2, 0};
+		CTLFormula phi2 = {NEG, &phi1, NULL, 0};
+		CTLFormula phi3 = {NEG, f.operand2, NULL, 0};
+		CTLFormula phi4 = {EU, &phi3, &phi2, 0};
+		CTLFormula phi5 = {NEG, &phi4, NULL, 0};
+		return solve(phi5);
+	}
+	// φ 1 AU φ 2 ≡ AF φ 2 ∧ (φ 1 AW φ 2 ))
+	Bitset* solveAU(CTLFormula& f) {
+		CTLFormula phi1 = {AF, f.operand2, NULL, 0};
+		CTLFormula phi2 = {AW, f.operand1, f.operand2, 0};
+		CTLFormula phi3 = {AND, &phi1, &phi2, 0};
+		return solve(phi3);
+	}
+
 	void funwithctl() {
 		CTLFormula a {ID, NULL, NULL, 0};
 		CTLFormula b {ID, NULL, NULL, 1};
@@ -202,6 +251,9 @@ public:
 		CTLFormula NEGEXaORc {OR, &NEGEXa, &c, 0};
 		CTLFormula EGb {EG, &b, NULL, 0};
 		CTLFormula EUbc {EU, &b, &c, 0};
+		CTLFormula AXb {AX, &b, NULL, 0};
+		CTLFormula AUbc {AU, &b, &c, 0};
+		CTLFormula AUbcOREGb {OR, &AUbc, &EGb, 0};
 
 		//printFormula(complicated); printf("\n");
 
@@ -222,6 +274,18 @@ public:
 
 		foo = solve(EUbc);
 		printFormula(EUbc); printStateSet(*foo);
+
+		printf("All-quantified formulas:\n");
+
+		foo = solve(AXb);
+		printFormula(AXb); printStateSet(*foo);
+
+		foo = solve(AUbc);
+		printFormula(AUbc); printStateSet(*foo);
+
+		foo = solve(AUbcOREGb);
+		printFormula(AUbcOREGb); printStateSet(*foo);
+
 
 		delete foo;
 	}
@@ -246,11 +310,13 @@ public:
 		case EX : printf("EX "); printFormula(*f.operand1); break;
 		case EF : printf("EF "); printFormula(*f.operand1); break;
 		case EG : printf("EG "); printFormula(*f.operand1); break;
+		case EW : printf("("); printFormula(*f.operand1); printf(" EW "); printFormula(*f.operand2); printf(")"); break;
 		case EU : printf("("); printFormula(*f.operand1); printf(" EU "); printFormula(*f.operand2); printf(")"); break;
 
 		case AX : printf("AX "); printFormula(*f.operand1); break;
 		case AF : printf("AF "); printFormula(*f.operand1); break;
 		case AG : printf("AG "); printFormula(*f.operand1); break;
+		case AW : printf("("); printFormula(*f.operand1); printf(" AW "); printFormula(*f.operand2); printf(")"); break;
 		case AU : printf("("); printFormula(*f.operand1); printf(" AU "); printFormula(*f.operand2); printf(")"); break;
 
 		default : printf("bar");
