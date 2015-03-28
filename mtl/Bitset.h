@@ -125,9 +125,13 @@ public:
         	}
         	int max_i=max/BITSET_ELEMENT_SIZE+1;
         	for(int i = 0;i<max_i;i++){
-
+        		uint64_t a = buf[i];
         		uint64_t b = with.buf[i];
-        		buf[i]|=b;
+        		buf[i]=a&b;
+        	}
+        	for(int i = max_i;i<buf.size();i++){
+        		uint64_t a = buf[i];
+        		buf[i]=a;
         	}
 
         }

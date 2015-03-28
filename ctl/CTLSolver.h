@@ -27,19 +27,18 @@ public:
 	};
 	~CTLSolver() {};
 
-
-	// This represents the extra labels of states, which are sets of temporarily added atomic propositions
-	// They are generated during the evaluation of a CTL formula.
-	vector<vector<bool>> extralabel;
-
-
 	// CTL Formula representation
 
 	// CTL Operators, plus ID (identity operator, for formulas that are atomic) and NEG, OR, AND.
 	enum CTLOp { ID, NEG, OR, AND, EX, EF, EG, EW, EU, AX, AF, AG, AW, AU};
 
-	// CTL Formula tree. Everything besides "op" is only considered in some cases.
-	// For instance, operand1 and operand2 are needed for AU, but value is only needed for ID
+	/* CTL Formula tree. Everything besides "op" is only considered in some cases.
+	 * For instance, operand1 and operand2 are needed for AU, but value is only meaningful in case op=ID
+	 *
+	 * Sample formulas:
+	 *   {ID, NULL, NULL, 3} -- corresponds to the atomic proposition number 3. Note how operands are ignored.
+	 *   {EF, phi, NULL, 0} -- corresponds to "EF phi". Note that "value" and operand2 are ignored.
+	 */
 	struct CTLFormula {
 		CTLOp op;
 		CTLFormula *operand1;
@@ -47,6 +46,8 @@ public:
 		int value;
 	};
 
+	// Predecessors with respect to the Kripke structure's transition system.
+	// Note that this creates a new Bitset, you might want to reuse an existing bitset and use the next function below
 	Bitset* pre(Bitset& st) {
 		Bitset *prest = new Bitset(k.states());
 		for (int i=0; i<k.nEdgeIDs();i++) {
@@ -67,6 +68,7 @@ public:
 		}
 	}
 
+	// Main solve function.
 	Bitset* solve(CTLFormula& f) {
 		switch (f.op) {
 		case ID : return solveID(f);
@@ -75,9 +77,15 @@ public:
 		case AND : return solveAND(f);
 		case EX : return solveEX(f);
 		case EG : return solveEG(f);
+		case EF : return solveEF(f);
+		case EW : return solveEW(f);
 		case EU : return solveEU(f);
 		case AX : return solveAX(f);
-		default : return new Bitset(k.states());
+		case AG : return solveAG(f);
+		case AF : return solveAF(f);
+		case AW : return solveAW(f);
+		case AU : return solveAU(f);
+		default : return NULL;
 		}
 	}
 
@@ -158,6 +166,31 @@ public:
 				return andst; // fixpoint reached
 			}
 			st->copyFrom(*andst);
+		}
+	}
+
+	// X = μ(p) ∪ pre(X)
+	Bitset* solveEF(CTLFormula& f) {
+		assert(f.op == EF);
+		// μ(p)
+		Bitset *st = solve(*f.operand1);
+		// Auxiliary bitsets
+		Bitset *orst = new Bitset(k.states());
+		Bitset *prest = new Bitset(k.states());
+
+		while (true) { // fixpoint guaranteed to exist, therefore this will terminate
+			// pre(X)
+			pre(*st, *prest); // prest := pre(st)
+
+			// μ(p) ∩ pre(X).
+			st->Or(*prest, *orst); // andst := st ∩ prest
+
+			if (st->Equiv(*orst)) {
+				delete st;
+				delete prest;
+				return orst; // fixpoint reached
+			}
+			st->copyFrom(*orst);
 		}
 	}
 
@@ -258,12 +291,20 @@ public:
 		CTLFormula EGb {EG, &b, NULL, 0};
 		CTLFormula EUbc {EU, &b, &c, 0};
 		CTLFormula AXb {AX, &b, NULL, 0};
+		CTLFormula AFc {AF, &c, NULL, 0};
 		CTLFormula AUbc {AU, &b, &c, 0};
+		CTLFormula AUac {AU, &a, &c, 0};
+		CTLFormula AWbc {AW, &b, &c, 0};
 		CTLFormula AUbcOREGb {OR, &AUbc, &EGb, 0};
+		CTLFormula AXc {AX, &c, NULL, 0};
+		CTLFormula bAUAXc {AU, &b, &AXc, 0};
 
 		//printFormula(complicated); printf("\n");
 
-		Bitset* foo = solve(EXa);
+		Bitset* foo;
+
+		/*
+		foo = solve(EXa);
 		printStateSet(*foo);
 
 		foo = solve(NEGEXa);
@@ -285,13 +326,31 @@ public:
 
 		foo = solve(AXb);
 		printFormula(AXb); printStateSet(*foo);
+*/
+
 
 		foo = solve(AUbc);
 		printFormula(AUbc); printStateSet(*foo);
+		foo = solve(AWbc);
+		printFormula(AWbc); printStateSet(*foo);
+		foo = solve(AUac);
+		printFormula(AUac); printStateSet(*foo);
+		foo = solve(AFc);
+		printFormula(AFc); printStateSet(*foo);
 
+		/*
 		foo = solve(AUbcOREGb);
 		printFormula(AUbcOREGb); printStateSet(*foo);
 
+		foo = solve(AWbc);
+		printFormula(AWbc); printStateSet(*foo);
+
+		foo = solve(AXc);
+		printFormula(AXc); printStateSet(*foo);
+
+		foo = solve(bAUAXc);
+		printFormula(bAUAXc); printStateSet(*foo);
+		 */
 
 		delete foo;
 	}
