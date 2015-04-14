@@ -334,7 +334,7 @@ public:
 			if(i == dest){
 				cout << s << "[shape=doublecircle] " << i << ";\n";
 			} else {
-				cout << s << i << ";\n";
+				cout << s << "[shape=circle] " << i << ";\n";
 			}
 		}
 

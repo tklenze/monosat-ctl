@@ -140,15 +140,16 @@ public:
 		Bitset *st = solve(*f.operand1);
 		return pre(*st);
 	}
-
+	Bitset solve_eg_temp_bit;
 	/*
 	 * This is where it gets interesting. We look for the largest solution of X = μ(p) ∩ pre(X).
 	 * Luckily for us, we can simply compute the fixpoint
 	 */
-	Bitset* solveEG(CTLFormula& f) {
+	void solveEG(CTLFormula& f,Bitset & output) {
 		assert(f.op == EG);
+
 		// μ(p)
-		Bitset *st = solve(*f.operand1);
+		Bitset *st = solve(*f.operand1, temp_st);
 		// Auxiliary bitsets
 		Bitset *andst = new Bitset(k.states());
 		Bitset *prest = new Bitset(k.states());
