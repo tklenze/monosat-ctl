@@ -19,8 +19,8 @@
  OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  **************************************************************************************************/
 
-#ifndef FSM_THEORY_H_
-#define FSM_THEORY_H_
+#ifndef KRIPKE_THEORY_H_
+#define KRIPKE_THEORY_H_
 
 #include "utils/System.h"
 #include "core/Theory.h"
@@ -49,9 +49,9 @@ using namespace dgl;
 namespace Monosat {
 
 
-class FSMTheorySolver;
+class CTLTheorySolver;
 
-class FSMTheorySolver: public Theory {
+class CTLTheorySolver: public Theory {
 public:
 	struct Transition{
 		Var v=var_Undef;
@@ -81,16 +81,18 @@ public:
 
 	vec<lbool> assigns;
 
-	vec<int> n_in_alphabets;//number of transition labels. Transition labels start from 0 (which is the non-consuming epsilon transition) and go to n_labels-1.
-	vec<int> n_out_alphabets;
+	//vec<int> n_in_alphabets;//number of transition labels. Transition labels start from 0 (which is the non-consuming epsilon transition) and go to n_labels-1.
+	//vec<int> n_out_alphabets;
 
-	vec<vec<vec<Transition>>> edge_labels;
-	vec<DynamicFSM*> g_unders;
-	vec<DynamicFSM*> g_overs;
+	//vec<vec<vec<Transition>>> edge_labels;
+	DynamicFSM* g_unders;
+	DynamicFSM* g_overs;
 
-	vec<FSMAcceptDetector *> accepts;
-	vec<FSMGeneratesDetector *> generates;
-	vec<FSMTransducesDetector *> transduces;
+	CTLSolver ctl_under, ctl_over; //one for each over and under
+	vec<CTLFormulas> ;
+	//vec<FSMAcceptDetector *> accepts;
+	//vec<FSMGeneratesDetector *> generates;
+	//vec<FSMTransducesDetector *> transduces;
 	/**
 	 * The cutgraph is (optionally) used for conflict analysis by some graph theories.
 	 * It has two edges for every edge in the real graph (with indices edgeID*2 and edgeID*2+1).
@@ -161,13 +163,13 @@ public:
 	long stats_propagations_skipped = 0;
 
 
-	FSMTheorySolver(Solver * S_, int _id = -1) :
+	CTLTheorySolver(Solver * S_, int _id = -1) :
 			S(S_), id(_id){
 
 
 		rnd_seed = opt_random_seed;
 	}
-	~FSMTheorySolver(){
+	~CTLTheorySolver(){
 		for (DynamicFSM * f:g_unders){
 			delete(f);
 		}
