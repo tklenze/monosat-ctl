@@ -37,11 +37,11 @@ class DynamicKripke{
 	bool is_acceptor=true;
 	bool is_linear=true;
 public:
-	vector<bool> transitions;
+	std::vector<bool> transitions;
 
 	// This represents the labels of states, which are sets of atomic propositions
 	// Access via statelabel[stateID][AP]
-	vector<vector<bool>> statelabel;
+	std::vector<std::vector<bool>> statelabel;
 	int apcount = 0;
 
 	bool adaptive_history_clear = false;
@@ -90,11 +90,11 @@ public:
 	}
 
 
-	void setStateLabel(int state, vector<bool> label) {
+	void setStateLabel(int state, std::vector<bool> label) {
 		statelabel[state] = label;
 	}
 
-	vector<bool> getStateLabel(int state) {
+	std::vector<bool> getStateLabel(int state) {
 		return statelabel[state];
 	}
 
@@ -183,13 +183,13 @@ public:
 		}
 	}
 	int addEmptyState(){
-		vector<bool> empty;
+		std::vector<bool> empty;
 		return addNode(empty);
 	}
-	int addState(vector<bool>& v){
+	int addState(std::vector<bool>& v){
 		return addNode(v);
 	}
-	int addNode(vector<bool>& v) {
+	int addNode(std::vector<bool>& v) {
 		g.addNode();
 		modifications++;
 		additions = modifications;
@@ -312,8 +312,8 @@ public:
 	}
 
 	// Turns a state label into a human readable string
-	string statelabelToString(int state) {
-		string s = "";
+	std::string statelabelToString(int state) {
+		std::string s = "";
 		for (int i = 0; i < statelabel[state].size(); i++) {
 			if (statelabel[state][i] == true) {
 				s += "1";
@@ -330,11 +330,11 @@ public:
 		printf("digraph{\n");
 
 		for (int i = 0; i < g.nodes(); i++) {
-			string s = "node [label=\"" + std::to_string(i) + std::string(": {") + statelabelToString(i) + "}\"] ";
+			std::string s = "node [label=\"" + std::to_string(i) + std::string(": {") + statelabelToString(i) + "}\"] ";
 			if(i == dest){
-				cout << s << "[shape=doublecircle] " << i << ";\n";
+				std::cout << s << "[shape=doublecircle] " << i << ";\n";
 			} else {
-				cout << s << "[shape=circle] " << i << ";\n";
+				std::cout << s << "[shape=circle] " << i << ";\n";
 			}
 		}
 
@@ -367,9 +367,9 @@ public:
 		to.clear();
 		g.copyTo(to.g);
 		// TODO Does this actually make a copy? This suggests so: http://www.cplusplus.com/reference/vector/vector/operator=/
-		vector<bool> transcopy = transitions;
+		std::vector<bool> transcopy = transitions;
 		to.transitions = transcopy;
-		vector<vector<bool>> statelabelcopy = statelabel;
+		std::vector<std::vector<bool>> statelabelcopy = statelabel;
 		to.statelabel = statelabelcopy;
 	}
 

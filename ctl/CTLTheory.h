@@ -24,7 +24,8 @@
 
 #include "utils/System.h"
 #include "core/Theory.h"
-#include "dgl/DynamicGraph.h"
+#include "ctl/DynamicKripke.h"
+#include "ctl/CTLSolver.h"
 #include "DynamicKripke.h"
 #include "core/SolverTypes.h"
 #include "mtl/Map.h"
@@ -86,7 +87,8 @@ public:
 	vec<FSMGeneratesDetector *> generates;
 	vec<FSMTransducesDetector *> transduces;
 
-	CTLSolver ctl_under, ctl_over; //one for each over and under
+	CTLSolver* ctl_under; //one for each over and under
+	CTLSolver* ctl_over;
 
 	// Vector of CTL Formulas on the specific Kripke structure this solver deals with
 	vec<CTLFormula> formulas;
@@ -156,7 +158,8 @@ public:
 	~CTLTheorySolver(){
 		delete(g_under);
 		delete(g_over);
-		delete(CTLSolver);
+		delete(ctl_under);
+		delete(ctl_over);
 	}
 	
 	void writeTheoryWitness(std::ostream& write_to) {
@@ -637,48 +640,44 @@ public:
 	}
 
 	bool check_solved() {
-			if(!g_under)
+		for (int edgeID = 0; edgeID < edge_labels.size(); edgeID++) {
+			if (getTransition(edgeID).v < 0)
 				continue;
-			DynamicKripke & g_under = *g_under;
-			DynamicKripke & g_over = *g_over;
-			for (int edgeID = 0; edgeID < edge_labels.size(); edgeID++) {
-					if (getTransition(edgeID).v < 0)
-						continue;
-					Var v = getTransition(edgeID).v;
-					if(v==var_Undef)
-						continue;
-					lbool val = value(v);
-					if (val == l_Undef) {
-						return false;
-					}
+			Var v = getTransition(edgeID).v;
+			if(v==var_Undef)
+				continue;
+			lbool val = value(v);
+			if (val == l_Undef) {
+				return false;
+			}
 
-					if (val == l_True) {
-						/*	if(!g.hasEdge(e.from,e.to)){
+			if (val == l_True) {
+				/*	if(!g.hasEdge(e.from,e.to)){
 						 return false;
 						 }
 						 if(!antig.hasEdge(e.from,e.to)){
 						 return false;
 						 }*/
-						if (!g_under.transitionEnabled(edgeID)) {
-							return false;
-						}
-						if (!g_over.transitionEnabled(edgeID)) {
-							return false;
-						}
-					} else {
-						/*if(g.hasEdge(e.from,e.to)){
+				if (!g_under->transitionEnabled(edgeID)) {
+					return false;
+				}
+				if (!g_over->transitionEnabled(edgeID)) {
+					return false;
+				}
+			} else {
+				/*if(g.hasEdge(e.from,e.to)){
 						 return false;
 						 }*/
-						if (g_under.transitionEnabled(edgeID)) {
-							return false;
-						}
-						if (g_over.transitionEnabled(edgeID)) {
-							return false;
-						}
-						/*if(antig.hasEdge(e.from,e.to)){
+				if (g_under->transitionEnabled(edgeID)) {
+					return false;
+				}
+				if (g_over->transitionEnabled(edgeID)) {
+					return false;
+				}
+				/*if(antig.hasEdge(e.from,e.to)){
 						 return false;
 						 }*/
-					}
+			}
 		}
 		for (int i = 0; i < detectors.size(); i++) {
 			if (!detectors[i]->checkSatisfied()) {
@@ -757,7 +756,7 @@ public:
 		this->strings=strings;
 	}
 
-
+/*
 	void addAcceptLit(int source ,int reach, int strID, Var outer_var){
 		assert(g_under);
 		accepts.growTo(source+1);
@@ -790,6 +789,7 @@ public:
 		}
 		transduces[source]->addTransducesLit(dest,strID,strID2,outer_var);
 	}
+	*/
 };
 
 }

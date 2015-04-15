@@ -27,11 +27,11 @@
 #include "utils/ParseUtils.h"
 #include "core/SolverTypes.h"
 #include "ctl/CTLTheory.h"
-#include <algorithm>
+
 #include "core/Config.h"
-
+#include "pb/PbTheory.h"
 #include "core/Dimacs.h"
-
+#include <gmpxx.h>
 #include <set>
 #include <string>
 #include <sstream>
@@ -39,476 +39,193 @@ namespace Monosat {
 
 
 //=================================================================================================
-// GRAPH Parser:
+// Kripke Parser:
 template<class B, class Solver>
-class CTLParser: public Parser<B, Solver> {
-	vec<int> kripkeIDs;
+class KripkeParser: public Parser<B, Solver> {
 
-	struct Transition{
-		int fsm;
-		int from;
-		int to;
-		Var edgeVar;
-	};
-	vec<bool> hasEpsilonTransitions;
-	vec<vec<Transition> > transitions;
-	vec<bool> created_strings;
-	vec<vec<int>> strings;
-	vec<int> stringLabels;
-	struct Accepts{
-		int fsm;
-		int from;
-		int to;
-		int strID;
-		Var reachVar;
+	vec<CTLTheorySolver> kripkes;
 
-	};
-	vec<vec<Accepts> > accepts;
-
-	struct ComposeAccepts{
-		int kripkeID1;
-		int kripkeID2;
-		int from1;
-		int from2;
-		int to1;
-		int to2;
-		int strID;
-		Var reachVar;
-
-	};
-	vec<ComposeAccepts>  compose_accepts;
-	struct Generates{
-		int fsm;
-		int from;
-		int strID;
-		Var reachVar;
-	};
-
-	vec<vec<Generates> > generates;
-
-	struct Transduces{
-			int fsm;
-			int from;
-			int to;
-			int strID;
-			int strID2;
-			Var reachVar;
-		};
-
-	vec<vec<Transduces> > transduces;
-
+	vec<vec<SteinerStruct*>> steiners;
+	PbTheory * pbtheory = nullptr;
 
 	vec<Lit> lits;
-	int count = 0;
+	int edgeCount = 0;
+	int nodeCount = 0;
+	vec<char> tmp;
 
-	void readCTL(B& in,  Solver& S) {
+	void readKripke(B& in, Solver& S) {
 		if (opt_ignore_theories) {
 			skipLine(in);
 			return;
 		}
 
-		int kripkeID = parseInt(in);  //id of the fsm
-		int n_labels = parseInt(in);
-		bool hasEpsilon= parseInt(in)>0;
-		if (kripkeID < 0 ) {
-			printf("PARSE ERROR! Kripke id must be >=0, was %d\n", kripkeID), exit(1);
-		}
-		if (n_labels<0){
-			printf("PARSE ERROR! Number of transition labels must be >=0, was %d\n", n_labels), exit(1);
-		}
+		int a, g, n, e, ev;
 
-		kripkeIDs.growTo(kripkeID + 1,-1);
-		if(kripkeIDs[kripkeID]>=0){
-			printf("PARSE ERROR! Kripke id %d declared twice!\n", kripkeID), exit(1);
-		}
-		//fsms[kripkeID]= new CTLTheorySolver(&S);
-		kripkeIDs[kripkeID]=kripkeID;
-		//S.addTheory(fsms[kripkeID]);
-		transitions.growTo(kripkeID+1);
-		accepts.growTo(kripkeID+1);
-		generates.growTo(kripkeID+1);
-		transduces.growTo(kripkeID+1);
-		hasEpsilonTransitions.growTo(kripkeID+1);
-	}
-	
-	void readString(B& in, Solver & S){
-		if (opt_ignore_theories) {
-			skipLine(in);
-			return;
-		}
-
-		int strID = parseInt(in);
-		strings.growTo(strID+1);
-		created_strings.growTo(strID+1);
-		stringLabels.growTo(strID+1);
-		if(strID<0 || created_strings[strID]){
-			printf("PARSE ERROR! Bad string id %d\n", strID), exit(1);
-		}
-
-		created_strings[strID]=true;
-
-		//allow zero-length strings
-		if (isEof(in) || *in == '\n')
-			return;
-		while(int i = parseInt(in)){
-			if (i<=0){
-				printf("PARSE ERROR! CTL strings must contain only positive (non-zero) integers, found %d\n", i), exit(1);
-			}
-			strings[strID].push(i);
-			stringLabels[strID]= std::max(stringLabels[strID],i+1);
-			skipWhitespace(in);
-			if (isEof(in) || *in == '\n')
-				break;
-
-		}
-
+		n = parseInt(in); //num nodes
+		e = parseInt(in); //num edges (I'm ignoring this currently)
+		//  ev = parseInt(in);//the variable of the first graph edge.
+		a = parseInt(in);  //number of APs
+		g = parseInt(in);  //id of the graph
+		kripkes.growTo(g + 1);
+		GraphTheoryCTL *kripke = new GraphTheoryCTL(&S, g);
+		kripke->newNodes(n);
+		kripkes[g] = kripke;
+		S.addTheory(kripke);
+		//  return ev;
 	}
 
-	void readTransition(B& in, Solver& S) {
+	void readNodeAP(B& in, Solver& S) {
 		if (opt_ignore_theories) {
 			skipLine(in);
 			return;
 		}
-		
+
 		++in;
-		
+
+		int kripkeID = parseInt(in);
+		int node = parseInt(in);
+		int ap = parseInt(in);
+		if (isNumber(in)) {
+			// TODO
+			// Do nothing for now, should set Node-AP to true or false, depending on input
+		} else if (in.match('v')) {
+			int nodeVar = parseInt(in);
+			// TODO
+			// should set it to undecided
+		}
+	}
+
+	
+	void readEdge(B& in, Solver& S) {
+		if (opt_ignore_theories) {
+			skipLine(in);
+			return;
+		}
+
+		++in;
+
 		int kripkeID = parseInt(in);
 		int from = parseInt(in);
 		int to = parseInt(in);
-		int input = parseInt(in);
-		int output = parseInt(in);
 		int edgeVar = parseInt(in) - 1;
-		
-		if (kripkeID < 0 || kripkeID >= kripkeIDs.size()) {
-			printf("PARSE ERROR! Undeclared fsm identifier %d for edge %d\n", kripkeID, edgeVar), exit(1);
+
+		if (kripkeID < 0 || kripkeID >= kripkes.size()) {
+			printf("PARSE ERROR! Undeclared graph identifier %d for edge %d\n", kripkeID, edgeVar), exit(1);
 		}
-		if (input<0){
-			printf("PARSE ERROR! Transition inputs  must be >=0, was %d\n", input), exit(1);
-		}
-		if (output<0){
-				printf("PARSE ERROR! Transition outputs  must be >=0, was %d\n", output), exit(1);
-			}
 		if (edgeVar < 0) {
 			printf("PARSE ERROR! Edge variables must be >=0, was %d\n", edgeVar), exit(1);
 		}
-
-		if (input==0){
-			hasEpsilonTransitions[kripkeID]=true;
-		}
-
 		while (edgeVar >= S.nVars())
 			S.newVar();
-		
-		inAlphabets[kripkeID]=std::max(inAlphabets[kripkeID],input);
-		outAlphabets[kripkeID]=std::max(outAlphabets[kripkeID],output);
-		transitions[kripkeID].push({kripkeID,from,to,input,output,edgeVar});
+
+		skipWhitespace(in);
+		if(*in=='\n' || *in==0){
+			//this is an unweighted edge
+
+			if (kripkes[kripkeID]) {
+				// TODO not implemented yet
+				//kripkes[kripkeID]->newEdge(from, to, edgeVar);
+			} else {
+				printf("PARSE ERROR! Undeclared kripke identifier %d for edge %d\n", kripkeID, edgeVar), exit(1);
+				exit(1);
+			}
+
+		}
 	}
 
-	void readAccepts(B& in, Solver& S) {
+	void readReach(B& in, Solver& S) {
 		if (opt_ignore_theories) {
 			skipLine(in);
 			return;
 		}
-
+		//reach grachID u w var is a reach query: var is true if can u reach w in graph g, false otherwise
+		
 		++in;
 		
 		int kripkeID = parseInt(in);
 		int from = parseInt(in);
+		// int steps = parseInt(in);
 		int to = parseInt(in);
-		int strID = parseInt(in);
 		int reachVar = parseInt(in) - 1;
-
-		//now read in the string
-		accepts[kripkeID].push();
-
-		accepts[kripkeID].last().fsm=kripkeID;
-		accepts[kripkeID].last().from=from;
-		accepts[kripkeID].last().to=to;
-		accepts[kripkeID].last().strID = strID;
-		accepts[kripkeID].last().reachVar = reachVar;
-
-		if (kripkeID < 0 || kripkeID >= kripkeIDs.size()) {
-			printf("PARSE ERROR! Undeclared fsm identifier %d for edge %d\n", kripkeID, reachVar), exit(1);
-		}
-
-		if (from<0){
-				printf("PARSE ERROR! Source state must be a node id (a non-negative integer), was %d\n", from), exit(1);
-			}
-		if (to<0){
-			printf("PARSE ERROR! Accepting state must be a node id (a non-negative integer), was %d\n", to), exit(1);
+		if (kripkeID < 0 || kripkeID >= kripkes.size()) {
+			printf("PARSE ERROR! Undeclared graph identifier %d for edge %d\n", kripkeID, reachVar), exit(1);
 		}
 		if (reachVar < 0) {
 			printf("PARSE ERROR! Edge variables must be >=0, was %d\n", reachVar), exit(1);
 		}
+
+		while (reachVar >= S.nVars())
+			S.newVar();
 		
-		while (reachVar >= S.nVars())
-			S.newVar();
-
-
-	}
-	
-	void readCompositionAccepts(B& in, Solver& S) {
-		if (opt_ignore_theories) {
-			skipLine(in);
-			return;
+		if (kripkes[kripkeID]) {
+			// FIXME this, of course, does not work right now, since we have not implemented reaches
+			//kripkes[kripkeID]->reaches(from, to, reachVar);
+		} else {
+			printf("PARSE ERROR! Undeclared graph identifier %d\n", kripkeID), exit(1);
+			exit(1);
 		}
-
-		++in;
-
-		int kripkeID1 = parseInt(in);
-		int kripkeID2 = parseInt(in);
-		int from1 = parseInt(in);
-		int to1 = parseInt(in);
-		int from2 = parseInt(in);
-		int to2 = parseInt(in);
-		int strID = parseInt(in);
-		int reachVar = parseInt(in) - 1;
-
-		//now read in the string
-		compose_accepts.push();
-
-		compose_accepts.last().kripkeID1=kripkeID1;
-		compose_accepts.last().kripkeID2=kripkeID2;
-		compose_accepts.last().from1=from1;
-		compose_accepts.last().from2=from2;
-		compose_accepts.last().to1=to1;
-		compose_accepts.last().to2=to2;
-		compose_accepts.last().strID = strID;
-		compose_accepts.last().reachVar = reachVar;
-
-
-		if (from1<0){
-				printf("PARSE ERROR! Source state must be a node id (a non-negative integer), was %d\n", from1), exit(1);
-			}
-		if (to1<0){
-			printf("PARSE ERROR! Accepting state must be a node id (a non-negative integer), was %d\n", to1), exit(1);
-		}
-
-		if (kripkeID2 < 0 || kripkeID2 >= kripkeIDs.size()) {
-			printf("PARSE ERROR! Undeclared fsm identifier %d for edge %d\n", kripkeID2, reachVar), exit(1);
-		}
-
-		if (from2<0){
-				printf("PARSE ERROR! Source state must be a node id (a non-negative integer), was %d\n", from2), exit(1);
-			}
-		if (to2<0){
-			printf("PARSE ERROR! Accepting state must be a node id (a non-negative integer), was %d\n", to2), exit(1);
-		}
-
-		if (reachVar < 0) {
-			printf("PARSE ERROR! Edge variables must be >=0, was %d\n", reachVar), exit(1);
-		}
-
-		while (reachVar >= S.nVars())
-			S.newVar();
-
 	}
 
-	void readGenerates(B& in, Solver& S) {
-		if (opt_ignore_theories) {
-			skipLine(in);
-			return;
-		}
-
-		++in;
-
-		int kripkeID = parseInt(in);
-		int from = parseInt(in);
-
-		int strID = parseInt(in);
-		int reachVar = parseInt(in) - 1;
-
-		//now read in the string
-		generates[kripkeID].push();
-
-		generates[kripkeID].last().fsm=kripkeID;
-		generates[kripkeID].last().from=from;
-
-		generates[kripkeID].last().strID = strID;
-		generates[kripkeID].last().reachVar = reachVar;
-
-		if (kripkeID < 0 || kripkeID >= kripkeIDs.size()) {
-			printf("PARSE ERROR! Undeclared fsm identifier %d for edge %d\n", kripkeID, reachVar), exit(1);
-		}
-
-		if (from<0){
-				printf("PARSE ERROR! Source state must be a node id (a non-negative integer), was %d\n", from), exit(1);
-			}
-
-		if (reachVar < 0) {
-			printf("PARSE ERROR! Edge variables must be >=0, was %d\n", reachVar), exit(1);
-		}
-
-		while (reachVar >= S.nVars())
-			S.newVar();
-
-
-	}
-
-	void readTransduces(B& in, Solver& S) {
-		if (opt_ignore_theories) {
-			skipLine(in);
-			return;
-		}
-
-		++in;
-
-		int kripkeID = parseInt(in);
-		int from = parseInt(in);
-		int to = parseInt(in);
-		int strID = parseInt(in);
-		int strID2 = parseInt(in);
-		int reachVar = parseInt(in) - 1;
-
-		//now read in the string
-		transduces[kripkeID].push();
-
-		transduces[kripkeID].last().fsm=kripkeID;
-		transduces[kripkeID].last().from=from;
-		transduces[kripkeID].last().to=to;
-
-		transduces[kripkeID].last().strID = strID;
-		transduces[kripkeID].last().strID2 = strID2;
-		transduces[kripkeID].last().reachVar = reachVar;
-
-		if (kripkeID < 0 || kripkeID >= kripkeIDs.size()) {
-			printf("PARSE ERROR! Undeclared fsm identifier %d for edge %d\n", kripkeID, reachVar), exit(1);
-		}
-
-		if (from<0){
-				printf("PARSE ERROR! Source state must be a node id (a non-negative integer), was %d\n", from), exit(1);
-			}
-		if (to<0){
-				printf("PARSE ERROR! Accepting state must be a node id (a non-negative integer), was %d\n", to), exit(1);
-			}
-		if (reachVar < 0) {
-			printf("PARSE ERROR! Edge variables must be >=0, was %d\n", reachVar), exit(1);
-		}
-
-		while (reachVar >= S.nVars())
-			S.newVar();
-
-
-	}
 
 public:
-	CTLParser(){
+	KripkeParser(bool precise = true) :
+			precise(precise) {
 		
 	}
-
 	bool parseLine(B& in, Solver& S) {
 
 		skipWhitespace(in);
 		if (*in == EOF)
 			return false;
-
-		if (match(in, "fsm")) {
+		else if (*in == 'c') {
+			//just a comment
+			return false;
+		} else if (match(in, "kripke")) {
 			skipWhitespace(in);
-			readCTL(in,S);
+			readDiGraph(in, S);
 			skipWhitespace(in);
+			//if(*in=='d'){
+			//for now, only digraphs are supported
 
+			//}else{
+			//	printf("PARSE ERROR! Unexpected char: %c\n", *in), exit(1);
+			//}
 			return true;
-		} else if (match(in, "transition")) {
-			count++;
-			readTransition(in, S);
+		} else if (match(in, "edge")) {
+			edgeCount++;
+			readEdge(in, S);
 			return true;
-		}else if (match(in,"str")){
-			readString(in,S);
-			return true;
-		}else if (match(in, "accepts")) {
-			readAccepts(in, S);
-			return true;
-		}else if (match(in,"generates")){
-			readGenerates(in,S);
-			return true;
-		}else if (match(in,"transduces")){
-			readTransduces(in,S);
-			return true;
-		}else if (match(in,"composition_accepts")){
-			readCompositionAccepts(in,S);
+		} else if (match(in, "nodeap")) {
+			nodeCount++;
+			readNodeAP(in, S);
 			return true;
 		}
 		return false;
 	}
 	
-
 	void implementConstraints(Solver & S) {
-		CTLTheorySolver * theory=nullptr;
 
-		for(int i = 0;i<kripkeIDs.size();i++){
-			int kripkeID = kripkeIDs[i];
-			if(kripkeID<0)
-				continue;
-
-			if(!theory){
-				theory = new CTLTheorySolver(&S);
-				S.addTheory(theory);
-				theory->setStrings(&strings);
+		//not really implemented, yet!
+	/*	for (int gid = 0; gid < steiners.size(); gid++) {
+			for (auto & steiner : steiners[gid]) {
+				if (steiner) {
+					graphs[gid]->steinerTree(steiner->terminals, steiner->id);
+					for (auto & weight : steiner->weight_constraints) {
+						graphs[gid]->addSteinerWeightConstraint(steiner->id, weight.first, weight.second);
+					}
+					delete (steiner);
+				}
 			}
-				theory->newCTL(kripkeID);
+		}*/
 
-				theory->setAlphabets(kripkeID,inAlphabets[i],outAlphabets[i]);
-
-				for (auto &t:transitions[i]){
-					theory->newTransition(kripkeID,t.from,t.to,t.input,t.output,t.edgeVar);
-				}
-
-				for(auto & a: accepts[i]){
-
-					if (a.strID<0 || !created_strings[a.strID]){
-						printf("PARSE ERROR! String ID must be a non-negative integer, was %d\n", a.strID), exit(1);
-					}
-					if(a.from<0 || a.from>=theory->nNodes(kripkeID)){
-							printf("PARSE ERROR! %d is not a valid state\n", a.from), exit(1);
-						}
-					if(a.to<0 || a.to>=theory->nNodes(kripkeID)){
-						printf("PARSE ERROR! %d is not a valid state\n", a.to), exit(1);
-					}
-
-					theory->addAcceptLit(kripkeID,a.from, a.to,a.strID,a.reachVar);
-				}
-
-				for(auto & a: generates[i]){
-
-					if (a.strID<0 || !created_strings[a.strID]){
-						printf("PARSE ERROR! String ID must be a non-negative integer, was %d\n", a.strID), exit(1);
-					}
-					if(a.from<0 || a.from>=theory->nNodes(kripkeID)){
-							printf("PARSE ERROR! %d is not a valid state\n", a.from), exit(1);
-						}
-
-					theory->addGenerateLit(kripkeID,a.from, a.strID,a.reachVar);
-				}
-
-				for(auto & a: transduces[i]){
-
-					if (a.strID<0 || !created_strings[a.strID]){
-						printf("PARSE ERROR! String ID must be a non-negative integer, was %d\n", a.strID), exit(1);
-					}
-					if(a.from<0 || a.from>=theory->nNodes(kripkeID)){
-							printf("PARSE ERROR! %d is not a valid state\n", a.from), exit(1);
-						}
-					if(a.to<0 || a.to>=theory->nNodes(kripkeID)){
-									printf("PARSE ERROR! %d is not a valid state\n", a.from), exit(1);
-								}
-					theory->addTransduceLit(kripkeID,a.from,a.to, a.strID,a.strID2,a.reachVar);
-				}
-
-
-
-		}
-		for(auto & c: compose_accepts){
-			if(!theory){
-				printf("PARSE ERROR! No fsms declared!\n"), exit(1);
-				exit(1);
+		for (int i = 0; i < kripkes.size(); i++) {
+			if (kripkes[i]) {
+				// TODO not implemented
+				// kripkes[i]->implementConstraints();
 			}
-
-			theory->addComposeAcceptLit(c.kripkeID1,c.kripkeID2,c.from1,c.to1,c.from2,c.to2, c.strID,c.reachVar);
 		}
-
-
-
-
+		if (pbtheory)
+			pbtheory->implementConstraints();
 	}
 
 	
@@ -518,4 +235,4 @@ public:
 }
 ;
 
-#endif /* GRAPH_PARSER_H_ */
+#endif /* CTL_PARSER_H_ */
