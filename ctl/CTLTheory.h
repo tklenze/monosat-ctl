@@ -19,20 +19,16 @@
  OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  **************************************************************************************************/
 
-#ifndef KRIPKE_THEORY_H_
-#define KRIPKE_THEORY_H_
+#ifndef CTL_THEORY_H_
+#define CTL_THEORY_H_
 
 #include "utils/System.h"
 #include "core/Theory.h"
 #include "dgl/DynamicGraph.h"
-#include "DynamicFSM.h"
-#include "FSMAcceptDetector.h"
-#include "FSMGeneratesDetector.h"
-#include "FSMTransducesDetector.h"
-#include "FSMGeneratorAcceptorDetector.h"
-
+#include "DynamicKripke.h"
 #include "core/SolverTypes.h"
 #include "mtl/Map.h"
+#include "CTLFormula.h"
 
 
 #include "utils/System.h"
@@ -58,8 +54,6 @@ public:
 		Var outerVar=var_Undef;
 		int from=-1;
 		int to=-1;
-		int inputchar;
-		int outputchar;
 	};
 	struct Assignment {
 		bool isEdge :1;
@@ -72,7 +66,7 @@ public:
 	};
 
 	double rnd_seed;
-	vec<vec<int>> * strings=nullptr;
+	//vec<vec<int>> * strings=nullptr;
 private:
 	Solver * S;
 	int local_q = 0;
@@ -81,36 +75,23 @@ public:
 
 	vec<lbool> assigns;
 
-	//vec<int> n_in_alphabets;//number of transition labels. Transition labels start from 0 (which is the non-consuming epsilon transition) and go to n_labels-1.
-	//vec<int> n_out_alphabets;
 
 	//vec<vec<vec<Transition>>> edge_labels;
-	DynamicFSM* g_unders;
-	DynamicFSM* g_overs;
+	DynamicKripke* g_unders;
+	DynamicKripke* g_overs;
 
 	CTLSolver ctl_under, ctl_over; //one for each over and under
-	vec<CTLFormulas> ;
-	//vec<FSMAcceptDetector *> accepts;
-	//vec<FSMGeneratesDetector *> generates;
-	//vec<FSMTransducesDetector *> transduces;
-	/**
-	 * The cutgraph is (optionally) used for conflict analysis by some graph theories.
-	 * It has two edges for every edge in the real graph (with indices edgeID*2 and edgeID*2+1).
-	 * If edge ID is assigned to FALSE, then edge ID*2 is assigned to enabled in the cutgraph, and
-	 * edge ID*2+1 is disabled.
-	 * Otherwise, if edge ID is unassigned or true, then edge ID*2 is disabled in the cutgraph, and
-	 * edge ID*2+1 is enabled.
-	 */
-	//DynamicGraph cutGraph;
 
+	// Vector of CTL Formulas on the specific Kripke structure this solver deals with
+	vec<CTLFormula> formulas;
 	
 	vec<Assignment> trail;
 	vec<int> trail_lim;
 
 
 public:
-	vec<FSMDetector*> detectors;
-	vec<FSMAcceptDetector*> reach_detectors;
+	//vec<FSMDetector*> detectors;
+	//vec<FSMAcceptDetector*> reach_detectors;
 
 
 	vec<int> marker_map;
@@ -170,32 +151,11 @@ public:
 		rnd_seed = opt_random_seed;
 	}
 	~CTLTheorySolver(){
-		for (DynamicFSM * f:g_unders){
-			delete(f);
-		}
-		for (DynamicFSM * f:g_overs){
-			delete(f);
-		}
+		delete(g_unders);
+		delete(g_overs);
+		delete(CTLSolver);
 	}
 	
-	void printStats(int detailLevel) {
-		if (detailLevel > 0) {
-			for (FSMDetector * d : detectors)
-				d->printStats();
-		}
-		
-		printf("FSM %d stats:\n", getGraphID());
-
-		fflush(stdout);
-	}
-	
-	void writeTheoryWitness(std::ostream& write_to) {
-		
-		for (FSMDetector * d : detectors) {
-			write_to << "Graph " << this->getGraphID() << ", detector " << d->getID() << ":\n";
-			d->printSolution(write_to);
-		}
-	}
 	
 	inline int getTheoryIndex() {
 		return theory_index;
@@ -206,51 +166,7 @@ public:
 	inline int getGraphID() {
 		return id;
 	}
-	inline int inAlphabet(int fsmID)const{
-		return n_in_alphabets[fsmID];
-	}
-	inline int outAlphabet(int fsmID)const{
-		return n_out_alphabets[fsmID];
-	}
-	void setAlphabets(int fsmID,int inputs,int outputs){
-		assert(g_unders[fsmID]);
-		DynamicFSM & g_under = *g_unders[fsmID];
-		DynamicFSM & g_over = *g_overs[fsmID];
-		inputs+=1;
-		outputs+=1;
-		assert(inputs>=n_in_alphabets[fsmID]);
-		while (inputs>inAlphabet(fsmID)){
-			n_in_alphabets[fsmID]++;
-			g_under.addInCharacter();
-			g_over.addInCharacter();
-		}
-		while (outputs>outAlphabet(fsmID)){
-			n_out_alphabets[fsmID]++;
-			g_under.addOutCharacter();
-			g_over.addOutCharacter();
-		}
-		for(int i =0;i<edge_labels[fsmID].size();i++){
-			edge_labels[fsmID][i].growTo(inAlphabet(fsmID)*outAlphabet(fsmID));
-		}
-	}
-/*	void addInCharacter(){
-		n_in_alphabet++;
-		g_under.addInCharacter();
-		g_over.addInCharacter();
-		//this is not great...
-		for(int i =0;i<edge_labels.size();i++){
-			edge_labels[i].growTo(inAlphabet()*outAlphabet());
-		}
-	}
-	void addOutCharacter(){
-		n_out_alphabet++;
-		g_under.addInCharacter();
-		g_over.addInCharacter();
-		//this is not great...
-		for(int i =0;i<edge_labels.size();i++){
-			edge_labels[i].growTo(inAlphabet()*outAlphabet());
-		}
-	}*/
+
 	inline bool isEdgeVar(Var v) const{
 		assert(v < vars.size());
 		return vars[v].isEdge;
@@ -259,35 +175,7 @@ public:
 		assert(isEdgeVar(v));
 		return vars[v].detector_edge;
 	}
-	inline int getFsmID(Var v) const{
 
-		return vars[v].fsmID;
-	}
-	inline Transition & getTransition(int fsmID,int edgeID, int input,int output){
-			return edge_labels[fsmID][edgeID][input+output*inAlphabet(fsmID)];
-		}
-	inline int getInput(Var v) const{
-		assert(isEdgeVar(v));
-		return vars[v].input;
-	}
-	inline int getOutput(Var v)const{
-		assert(isEdgeVar(v));
-		return vars[v].output;
-	}
-	inline int getDetector(Var v) const {
-		assert(!isEdgeVar(v));
-		return vars[v].detector_edge;
-	}
-	
-	inline Var getTransitionVar(int fsmID,int edgeID, int inputChar, int outputChar) {
-		assert(inputChar>=0);
-		assert(outputChar>=0);
-		Var v = getTransition(fsmID,edgeID,inputChar,outputChar).v;
-		assert(v < vars.size());
-		//assert(vars[v].isEdge);
-		return v;
-	}
-	
 	void makeEqual(Lit l1, Lit l2) {
 		Lit o1 = toSolver(l1);
 		Lit o2 = toSolver(l2);
@@ -415,27 +303,7 @@ public:
 		}
 	}
 
-
-	int newNode(int fsmID) {
-		assert(g_overs[fsmID]);
-		g_overs[fsmID]->addNode();
-
-		seen.growTo(nNodes(fsmID));
-		
-		return g_unders[fsmID]->addNode();
-	}
-	void newNodes(int fsmID,int n) {
-		for (int i = 0; i < n; i++)
-			newNode(fsmID);
-	}
-	int nNodes(int fsmID) {
-		return g_overs[fsmID]->nodes();
-	}
-	bool isNode(int fsmID,int n) {
-		return n >= 0 && n < nNodes(fsmID);
-	}
-
-	void backtrackUntil(int level) {
+	void backtrackUntil(int level) { // FIXME important
 		static int it = 0;
 		
 		bool changed = false;
@@ -449,22 +317,19 @@ public:
 				assert(assigns[e.var]!=l_Undef);
 				if (e.isEdge) {
 					assert(dbg_value(e.var)==l_Undef);
-					int fsmID = getFsmID(e.var);
 					int edgeID = getEdgeID(e.var); //e.var-min_edge_var;
-					int input = getInput(e.var);
-					int output = getOutput(e.var);
 					assert(edgeID==e.edgeID);
 
 					if (e.assign) {
-						g_unders[fsmID]->disableTransition(edgeID, input,output);
+						g_unders->disableTransition(edgeID);
 
 					} else {
-						g_overs[fsmID]->enableTransition(edgeID,input,output);
+						g_overs->enableTransition(edgeID);
 
 					}
 				} else {
-					//This is a reachability literal				  
-					detectors[getDetector(e.var)]->unassign(mkLit(e.var, !e.assign));
+					//This is a CTL or a State AP assignment literal
+					//FIXME do nothing for now
 				}
 				assigns[e.var] = l_Undef;
 				changed = true;
@@ -480,12 +345,7 @@ public:
 				 cutGraph.markChanged();*/
 			}
 			
-			for (FSMDetector * d : detectors) {
-				d->backtrack(level);
-			}
 		}
-
-		assert(dbg_graphsUpToDate());
 		
 	};
 
@@ -508,7 +368,7 @@ public:
 		return lit_Undef;
 	}
 	
-	void backtrackUntil(Lit p) {
+	void backtrackUntil(Lit p) { // FIXME important
 		//need to remove and add edges in the two graphs accordingly.
 		assert(value(p)==l_True);
 		int i = trail.size() - 1;
@@ -519,21 +379,17 @@ public:
 				break;
 			}
 			if (e.isEdge) {
-				int fsmID = getFsmID(e.var);
 				int edgeID = getEdgeID(e.var); //e.var-min_edge_var;
-				int input = getInput(e.var);
-				int output = getOutput(e.var);
 				assert(assigns[e.var]!=l_Undef);
 				assigns[e.var] = l_Undef;
 				if (e.assign) {
-					g_unders[fsmID]->disableTransition(edgeID,input,output);
+					g_unders->disableTransition(edgeID);
 				} else {
-					g_overs[fsmID]->enableTransition(edgeID,input,output);
+					g_overs->enableTransition(edgeID);
 				}
 			} else {
 
 				assigns[e.var] = l_Undef;
-				detectors[getDetector(e.var)]->unassign(mkLit(e.var, !e.assign));
 			}
 		}
 		
@@ -544,9 +400,6 @@ public:
 		 antig.markChanged();
 		 cutGraph.markChanged();*/
 		//}
-		for (FSMDetector * d : detectors) {
-			d->backtrack(this->decisionLevel());
-		}
 		//while(trail_lim.size() && trail_lim.last()>=trail.size())
 		//	trail_lim.pop();
 
@@ -586,30 +439,7 @@ public:
 
 
 	
-	bool dbg_graphsUpToDate() {
-
-		return true;
-	}
-
-	void preprocess() {
-		for (int i = 0; i < detectors.size(); i++) {
-			detectors[i]->preprocess();
-		}
-	}
-	void setLiteralOccurs(Lit l, bool occurs) {
-		if (isEdgeVar(var(l))) {
-			//don't do anything
-		} else {
-			//this is a graph property detector var
-			if (!sign(l) && vars[var(l)].occursPositive != occurs)
-				detectors[getDetector(var(l))]->setOccurs(l, occurs);
-			else if (sign(l) && vars[var(l)].occursNegative != occurs)
-				detectors[getDetector(var(l))]->setOccurs(l, occurs);
-		}
-		
-	}
-	
-	void enqueueTheory(Lit l) {
+	void enqueueTheory(Lit l) { // FIXME important
 		Var v = var(l);
 		
 		int lev = level(v);
@@ -641,30 +471,25 @@ public:
 		if (isEdgeVar(var(l))) {
 			
 			//this is an edge assignment
-			int fsmID = getFsmID(var(l));
 			int edgeID = getEdgeID(var(l)); //v-min_edge_var;
-			int input = getInput(var(l));
-			int output = getOutput(var(l));
 			assert(getTransition(fsmID,edgeID,input,output).v == var(l));
 
 			trail.push( { true, !sign(l),edgeID, v });
 
 			if (!sign(l)) {
-				g_unders[fsmID]->enableTransition(edgeID,input,output);
+				g_unders->enableTransition(edgeID);
 			} else {
-				g_overs[fsmID]->disableTransition(edgeID,input,output);
+				g_overs->disableTransition(edgeID);
 			}
 			
 		} else {
 			
 			trail.push( { false, !sign(l),-1, v });
-			//this is an assignment to a non-edge atom. (eg, a reachability assertion)
-			detectors[getDetector(var(l))]->assign(l);
 		}
 		
 	}
 	;
-	bool propagateTheory(vec<Lit> & conflict) {
+	bool propagateTheory(vec<Lit> & conflict) { // FIXME important
 		static int itp = 0;
 		if (++itp == 62279) {
 			int a = 1;
@@ -673,7 +498,7 @@ public:
 
 		if (!requiresPropagation) {
 			stats_propagations_skipped++;
-			assert(dbg_graphsUpToDate());
+			//assert(dbg_graphsUpToDate());
 			return true;
 		}
 		
@@ -689,7 +514,7 @@ public:
 		
 		//stats_initial_propagation_time += rtime(1) - startproptime;
 
-		assert(dbg_graphsUpToDate());
+		//assert(dbg_graphsUpToDate());
 		
 		for (int d = 0; d < detectors.size(); d++) {
 			assert(conflict.size() == 0);
@@ -705,13 +530,11 @@ public:
 
 		
 		requiresPropagation = false;
-		for(int i = 0;i<nFsms();i++){
-			g_unders[i]->clearChanged();
-			g_overs[i]->clearChanged();
+		g_unders->clearChanged();
+		g_overs->clearChanged();
 
-			g_unders[i]->clearHistory();
-			g_overs[i]->clearHistory();
-		}
+		g_unders->clearHistory();
+		g_overs->clearHistory();
 
 		//detectors_to_check.clear();
 		
@@ -722,6 +545,7 @@ public:
 	}
 	;
 
+
 	bool solveTheory(vec<Lit> & conflict) {
 		requiresPropagation = true;		//Just to be on the safe side... but this shouldn't really be required.
 		bool ret = propagateTheory(conflict);
@@ -731,228 +555,6 @@ public:
 	}
 	;
 
-	void drawFull(int from, int to) {
-		
-	}
-	
-	bool check_solved() {
-		for(int fsmID = 0;fsmID<nFsms();fsmID++){
-			if(!g_unders[fsmID])
-				continue;
-			DynamicFSM & g_under = *g_unders[fsmID];
-			DynamicFSM & g_over = *g_overs[fsmID];
-			for (int edgeID = 0; edgeID < edge_labels[fsmID].size(); edgeID++) {
-				for (int input = 0;input<inAlphabet(fsmID);input++){
-					for (int output = 0;output<outAlphabet(fsmID);output++){
-					if (getTransition(fsmID,edgeID,input,output).v < 0)
-						continue;
-					Var v = getTransition(fsmID,edgeID,input,output).v;
-					if(v==var_Undef)
-						continue;
-					lbool val = value(v);
-					if (val == l_Undef) {
-						return false;
-					}
-
-					if (val == l_True) {
-						/*	if(!g.hasEdge(e.from,e.to)){
-						 return false;
-						 }
-						 if(!antig.hasEdge(e.from,e.to)){
-						 return false;
-						 }*/
-						if (!g_under.transitionEnabled(edgeID,input,output)) {
-							return false;
-						}
-						if (!g_over.transitionEnabled(edgeID,input,output)) {
-							return false;
-						}
-					} else {
-						/*if(g.hasEdge(e.from,e.to)){
-						 return false;
-						 }*/
-						if (g_under.transitionEnabled(edgeID,input,output)) {
-							return false;
-						}
-						if (g_over.transitionEnabled(edgeID,input,output)) {
-							return false;
-						}
-						/*if(antig.hasEdge(e.from,e.to)){
-						 return false;
-						 }*/
-					}
-					}
-				}
-			}
-		}
-		for (int i = 0; i < detectors.size(); i++) {
-			if (!detectors[i]->checkSatisfied()) {
-				return false;
-			}
-		}
-		return true;
-	}
-	
-	bool dbg_solved() {
-
-		return true;
-	}
-	
-	void drawCurrent() {
-		
-	}
-	int nFsms()const{
-		return g_overs.size();
-	}
-	int nEdges(int fsmID) {
-		return edge_labels[fsmID].size();
-	}
-	CRef newReasonMarker(int detectorID) {
-		CRef reasonMarker = S->newReasonMarker(this);
-		int mnum = CRef_Undef - reasonMarker;
-		marker_map.growTo(mnum + 1);
-		marker_map[mnum] = detectorID;
-		return reasonMarker;
-	}
-	void newFSM(int fsmID){
-		g_unders.growTo(fsmID+1,nullptr);
-		g_overs.growTo(fsmID+1,nullptr);
-		if(g_unders[fsmID]){
-			assert(false);
-			fprintf(stderr,"Redefined fsm, Aborting!");
-			exit(1);
-		}
-		edge_labels.growTo(fsmID+1);
-		g_unders[fsmID]=new DynamicFSM(fsmID);
-		g_overs[fsmID]=new DynamicFSM(fsmID);
-		n_in_alphabets.growTo(fsmID+1,1);//number of transition labels. Transition labels start from 0 (which is the non-consuming epsilon transition) and go to n_labels-1.
-		n_out_alphabets.growTo(fsmID+1,1);
-	}
-
-	Lit newTransition(int fsmID,int from, int to,int input,int output, Var outerVar = var_Undef) {
-		assert(outerVar!=var_Undef);
-		assert(input>=0);assert(outerVar!=var_Undef);
-		if(from==to && input==0){
-			//don't add this transition; self-looping e transitions have no effect.
-			return lit_Undef;
-		}
-		assert(g_unders[fsmID]);
-		DynamicFSM & g_under = *g_unders[fsmID];
-		DynamicFSM & g_over = *g_overs[fsmID];
-		int edgeID=-1;
-		if(g_under.states()>from && g_under.states()>to && (edgeID=g_under.getEdge(from,to))>-1){
-			if(g_over.inAlphabet()>input && g_over.outAlphabet()>output && g_over.transitionEnabled(edgeID,input,output)){
-				//we already have this transition implemented
-				Var ov =getTransition(fsmID,edgeID,input,output).outerVar;
-				assert(ov!=var_Undef);
-				assert(getTransition(fsmID,edgeID,input,output).from ==from);
-				assert(getTransition(fsmID,edgeID,input,output).to ==to);
-				makeEqualInSolver(mkLit(outerVar),mkLit(ov));
-				return lit_Undef;
-			}
-
-		}else{
-
-
-		}
-
-
-
-		g_under.addTransition(from,to,edgeID,input,output,false);
-		edgeID =g_over.addTransition(from,to,edgeID,input,output,true);
-		Var v = newVar(outerVar,edgeID,fsmID,input,output, true);
-		assert(input<inAlphabet(fsmID));
-		assert(output<outAlphabet(fsmID));
-
-
-		edge_labels[fsmID].growTo(edgeID+1);
-		edge_labels[fsmID][edgeID].growTo(inAlphabet(fsmID)*outAlphabet(fsmID));
-
-
-		getTransition(fsmID,edgeID,input,output).v = v;
-		getTransition(fsmID,edgeID,input,output).outerVar = outerVar;
-		getTransition(fsmID,edgeID,input,output).from = from;
-		getTransition(fsmID,edgeID,input,output).to = to;
-
-		return mkLit(v, false);
-	}
-
-	void printSolution() {
-		
-		for (auto * d : detectors) {
-			assert(d);
-			d->printSolution();
-		}
-	}
-	
-	void setStrings(vec<vec<int>>* strings){
-		assert(!this->strings);
-		this->strings=strings;
-	}
-
-
-	void addAcceptLit(int fsmID,int source ,int reach, int strID, Var outer_var){
-		assert(g_unders[fsmID]);
-		DynamicFSM & g_under = *g_unders[fsmID];
-		DynamicFSM & g_over = *g_overs[fsmID];
-		accepts.growTo(source+1);
-		if(!accepts[source]){
-			accepts[source] = new FSMAcceptDetector(detectors.size(), this, g_under,g_over, source,*strings,drand(rnd_seed));
-			detectors.push(accepts[source]);
-		}
-		accepts[source]->addAcceptLit(reach,strID,outer_var);
-	}
-
-	void addGenerateLit(int fsmID,int source, int strID, Var outer_var){
-		assert(g_unders[fsmID]);
-		DynamicFSM & g_under = *g_unders[fsmID];
-		DynamicFSM & g_over = *g_overs[fsmID];
-		generates.growTo(source+1);
-		if(!generates[source]){
-			generates[source] = new FSMGeneratesDetector(detectors.size(), this, g_under,g_over, source,*strings,drand(rnd_seed));
-			detectors.push(generates[source]);
-		}
-		generates[source]->addGeneratesLit(strID,outer_var);
-	}
-	void addTransduceLit(int fsmID, int source,int dest, int strID, int strID2, Var outer_var){
-		assert(g_unders[fsmID]);
-		DynamicFSM & g_under = *g_unders[fsmID];
-		DynamicFSM & g_over = *g_overs[fsmID];
-		transduces.growTo(source+1);
-		if(!transduces[source]){
-			transduces[source] = new FSMTransducesDetector(detectors.size(), this, g_under,g_over, source,*strings,drand(rnd_seed));
-			detectors.push(transduces[source]);
-		}
-		transduces[source]->addTransducesLit(dest,strID,strID2,outer_var);
-	}
-	void addComposeAcceptLit(int fsmID1,int fsmID2,int from1,int to1,int from2,int to2, int strID,Var reachVar){
-		//for now, only linear generator/acceptor compositions are supported
-		if(strID>=0){
-			fprintf(stderr,"String inputs are not yet supported in compositions, aborting\n");
-			exit(1);
-		}
-
-		if(!g_overs[fsmID1] || !g_overs[fsmID2]){
-				fprintf(stderr,"Undefined FSM, aborting\n");
-				exit(1);
-		}
-
-		if(!g_overs[fsmID1]->isGenerator()){
-			fprintf(stderr,"Only compositions of linear generators with FSAs are supported, aborting\n");
-			exit(1);
-		}
-		if(!g_overs[fsmID1]->isLinear()){
-			fprintf(stderr,"Only compositions of linear generators with FSAs are supported, aborting\n");
-			exit(1);
-		}
-		if(!g_overs[fsmID2]->isAcceptor()){
-			fprintf(stderr,"Only compositions of linear generators with FSAs are supported, aborting\n");
-			exit(1);
-		}
-		FSMGeneratorAcceptorDetector * d = new FSMGeneratorAcceptorDetector(detectors.size(), this, *g_unders[fsmID1],*g_overs[fsmID1], *g_unders[fsmID2],*g_overs[fsmID2], from1,from2,drand(rnd_seed));
-		detectors.push(d);
-		d->addAcceptLit(to1,to2,reachVar);
-	}
 };
 
 }

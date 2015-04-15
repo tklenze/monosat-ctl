@@ -2,7 +2,10 @@
  * CTLSolver.h
  *
  *  Created on: Mar 26, 2015
- *      Author: saibot
+ *      Author: tobias k
+ *
+ *      TODO Implement changes outlined in fbb8e4d. Basically, only have a constant
+ *      number of Bitsets, instead of creating and deleting them on the fly.
  */
 
 #ifndef CTL_CTLSOLVER_H_
@@ -15,7 +18,8 @@
 #include <cassert>
 #include "alg/NFATypes.h"
 #include "dgl/DynamicGraph.h"
-#include "ctl/DynamicKripke.h"
+#include "DynamicKripke.h"
+#include "CTLFormula.h"
 using namespace dgl;
 namespace Monosat {
 
@@ -26,25 +30,6 @@ public:
 		k = myk;
 	};
 	~CTLSolver() {};
-
-	// CTL Formula representation
-
-	// CTL Operators, plus ID (identity operator, for formulas that are atomic) and NEG, OR, AND.
-	enum CTLOp { ID, NEG, OR, AND, EX, EF, EG, EW, EU, AX, AF, AG, AW, AU};
-
-	/* CTL Formula tree. Everything besides "op" is only considered in some cases.
-	 * For instance, operand1 and operand2 are needed for AU, but value is only meaningful in case op=ID
-	 *
-	 * Sample formulas:
-	 *   {ID, NULL, NULL, 3} -- corresponds to the atomic proposition number 3. Note how operands are ignored.
-	 *   {EF, phi, NULL, 0} -- corresponds to "EF phi". Note that "value" and operand2 are ignored.
-	 */
-	struct CTLFormula {
-		CTLOp op;
-		CTLFormula *operand1;
-		CTLFormula *operand2;
-		int value;
-	};
 
 	// Predecessors with respect to the Kripke structure's transition system.
 	// Note that this creates a new Bitset, you might want to reuse an existing bitset and use the next function below
@@ -140,16 +125,15 @@ public:
 		Bitset *st = solve(*f.operand1);
 		return pre(*st);
 	}
-	Bitset solve_eg_temp_bit;
+
 	/*
-	 * This is where it gets interesting. We look for the largest solution of X = μ(p) ∩ pre(X).
+	 * This is where it gets interesting. We look for the largest solution of X = Î¼(p) âˆ© pre(X).
 	 * Luckily for us, we can simply compute the fixpoint
 	 */
-	void solveEG(CTLFormula& f,Bitset & output) {
+	Bitset* solveEG(CTLFormula& f) {
 		assert(f.op == EG);
-
-		// μ(p)
-		Bitset *st = solve(*f.operand1, temp_st);
+		// Î¼(p)
+		Bitset *st = solve(*f.operand1);
 		// Auxiliary bitsets
 		Bitset *andst = new Bitset(k.states());
 		Bitset *prest = new Bitset(k.states());
@@ -158,8 +142,8 @@ public:
 			// pre(X)
 			pre(*st, *prest); // prest := pre(st)
 
-			// μ(p) ∩ pre(X).
-			st->And(*prest, *andst); // andst := st ∩ prest
+			// Î¼(p) âˆ© pre(X).
+			st->And(*prest, *andst); // andst := st âˆ© prest
 
 			if (st->Equiv(*andst)) {
 				delete st;
@@ -170,10 +154,10 @@ public:
 		}
 	}
 
-	// X = μ(p) ∪ pre(X)
+	// X = Î¼(p) âˆª pre(X)
 	Bitset* solveEF(CTLFormula& f) {
 		assert(f.op == EF);
-		// μ(p)
+		// Î¼(p)
 		Bitset *st = solve(*f.operand1);
 		// Auxiliary bitsets
 		Bitset *orst = new Bitset(k.states());
@@ -183,8 +167,8 @@ public:
 			// pre(X)
 			pre(*st, *prest); // prest := pre(st)
 
-			// μ(p) ∩ pre(X).
-			st->Or(*prest, *orst); // andst := st ∩ prest
+			// Î¼(p) âˆ© pre(X).
+			st->Or(*prest, *orst); // andst := st âˆ© prest
 
 			if (st->Equiv(*orst)) {
 				delete st;
@@ -195,7 +179,7 @@ public:
 		}
 	}
 
-	// φ 1 EW φ 2 ≡ EG φ 1 ∨ (φ 1 EU φ 2 )
+	// Ï† 1 EW Ï† 2 â‰¡ EG Ï† 1 âˆ¨ (Ï† 1 EU Ï† 2 )
 	Bitset* solveEW(CTLFormula& f) {
 		CTLFormula phi1 = {EG, f.operand1, NULL, 0};
 		CTLFormula phi2 = {EU, f.operand1, f.operand2, 0};
@@ -203,10 +187,10 @@ public:
 		return solve(phi3);
 	}
 
-	// X = μ(q) ∪ (μ(p) ∩ pre(X)).
+	// X = Î¼(q) âˆª (Î¼(p) âˆ© pre(X)).
 	Bitset* solveEU(CTLFormula& f) {
 		assert(f.op == EU);
-		// μ(p)
+		// Î¼(p)
 		Bitset *st1 = solve(*f.operand1);
 		Bitset *st2 = solve(*f.operand2);
 		// Auxiliary bitsets
@@ -214,17 +198,17 @@ public:
 		Bitset *orst = new Bitset(k.states());
 		Bitset *prest = new Bitset(k.states());
 		Bitset *x = new Bitset(k.states());
-		x->copyFrom(*st2); // start out with X as μ(q)
+		x->copyFrom(*st2); // start out with X as Î¼(q)
 
 		while (true) { // fixpoint guaranteed to exist, therefore this will terminate
 			// pre(X)
 			pre(*x, *prest);
 
-			// μ(p) ∩ pre(X).
-			st1->And(*prest, *andst); // andst := st1 ∩ prest
+			// Î¼(p) âˆ© pre(X).
+			st1->And(*prest, *andst); // andst := st1 âˆ© prest
 
-			// μ(q) ∪ (μ(p) ∩ pre(X)).
-			andst->Or(*st2, *orst); // orst := andset ∪ st2
+			// Î¼(q) âˆª (Î¼(p) âˆ© pre(X)).
+			andst->Or(*st2, *orst); // orst := andset âˆª st2
 
 			if (x->Equiv(*orst)) {
 				delete st1;
@@ -238,7 +222,7 @@ public:
 		}
 	}
 
-	// AX φ ≡ ¬ EX ¬φ
+	// AX Ï† â‰¡ Â¬ EX Â¬Ï†
 	Bitset* solveAX(CTLFormula& f) {
 		CTLFormula phi1 = {NEG, f.operand1, NULL, 0};
 		CTLFormula phi2 = {EX, &phi1, NULL, 0};
@@ -246,7 +230,7 @@ public:
 		return solve(phi3);
 	}
 
-	// AF φ ≡ ¬ EG ¬φ
+	// AF Ï† â‰¡ Â¬ EG Â¬Ï†
 	Bitset* solveAF(CTLFormula& f) {
 		CTLFormula phi1 = {NEG, f.operand1, NULL, 0};
 		CTLFormula phi2 = {EG, &phi1, NULL, 0};
@@ -254,7 +238,7 @@ public:
 		return solve(phi3);
 	}
 
-	// AG φ ≡ ¬ EF ¬φ
+	// AG Ï† â‰¡ Â¬ EF Â¬Ï†
 	Bitset* solveAG(CTLFormula& f) {
 		CTLFormula phi1 = {NEG, f.operand1, NULL, 0};
 		CTLFormula phi2 = {EF, &phi1, NULL, 0};
@@ -262,7 +246,7 @@ public:
 		return solve(phi3);
 	}
 
-	// φ 1 AW φ 2 ≡ ¬(¬φ 2 EU ¬(φ 1 ∨ φ 2 ))
+	// Ï† 1 AW Ï† 2 â‰¡ Â¬(Â¬Ï† 2 EU Â¬(Ï† 1 âˆ¨ Ï† 2 ))
 	Bitset* solveAW(CTLFormula& f) {
 		CTLFormula phi1 = {OR, f.operand1, f.operand2, 0};
 		CTLFormula phi2 = {NEG, &phi1, NULL, 0};
@@ -271,7 +255,7 @@ public:
 		CTLFormula phi5 = {NEG, &phi4, NULL, 0};
 		return solve(phi5);
 	}
-	// φ 1 AU φ 2 ≡ AF φ 2 ∧ (φ 1 AW φ 2 ))
+	// Ï† 1 AU Ï† 2 â‰¡ AF Ï† 2 âˆ§ (Ï† 1 AW Ï† 2 ))
 	Bitset* solveAU(CTLFormula& f) {
 		CTLFormula phi1 = {AF, f.operand2, NULL, 0};
 		CTLFormula phi2 = {AW, f.operand1, f.operand2, 0};
