@@ -127,12 +127,12 @@ public:
 	}
 
 	/*
-	 * This is where it gets interesting. We look for the largest solution of X = Î¼(p) âˆ© pre(X).
+	 * This is where it gets interesting. We look for the largest solution of X = μ(p) ∩ pre(X).
 	 * Luckily for us, we can simply compute the fixpoint
 	 */
 	Bitset* solveEG(CTLFormula& f) {
 		assert(f.op == EG);
-		// Î¼(p)
+		// μ(p)
 		Bitset *st = solve(*f.operand1);
 		// Auxiliary bitsets
 		Bitset *andst = new Bitset(k.states());
@@ -142,8 +142,8 @@ public:
 			// pre(X)
 			pre(*st, *prest); // prest := pre(st)
 
-			// Î¼(p) âˆ© pre(X).
-			st->And(*prest, *andst); // andst := st âˆ© prest
+			// μ(p) ∩ pre(X).
+			st->And(*prest, *andst); // andst := st ∩ prest
 
 			if (st->Equiv(*andst)) {
 				delete st;
@@ -154,10 +154,10 @@ public:
 		}
 	}
 
-	// X = Î¼(p) âˆª pre(X)
+	// X = μ(p) ∪ pre(X)
 	Bitset* solveEF(CTLFormula& f) {
 		assert(f.op == EF);
-		// Î¼(p)
+		// μ(p)
 		Bitset *st = solve(*f.operand1);
 		// Auxiliary bitsets
 		Bitset *orst = new Bitset(k.states());
@@ -167,8 +167,8 @@ public:
 			// pre(X)
 			pre(*st, *prest); // prest := pre(st)
 
-			// Î¼(p) âˆ© pre(X).
-			st->Or(*prest, *orst); // andst := st âˆ© prest
+			// μ(p) ∩ pre(X).
+			st->Or(*prest, *orst); // andst := st ∩ prest
 
 			if (st->Equiv(*orst)) {
 				delete st;
@@ -179,7 +179,7 @@ public:
 		}
 	}
 
-	// Ï† 1 EW Ï† 2 â‰¡ EG Ï† 1 âˆ¨ (Ï† 1 EU Ï† 2 )
+	// φ 1 EW φ 2 ≡ EG φ 1 ∨ (φ 1 EU φ 2 )
 	Bitset* solveEW(CTLFormula& f) {
 		CTLFormula phi1 = {EG, f.operand1, NULL, 0};
 		CTLFormula phi2 = {EU, f.operand1, f.operand2, 0};
@@ -187,10 +187,10 @@ public:
 		return solve(phi3);
 	}
 
-	// X = Î¼(q) âˆª (Î¼(p) âˆ© pre(X)).
+	// X = μ(q) ∪ (μ(p) ∩ pre(X)).
 	Bitset* solveEU(CTLFormula& f) {
 		assert(f.op == EU);
-		// Î¼(p)
+		// μ(p)
 		Bitset *st1 = solve(*f.operand1);
 		Bitset *st2 = solve(*f.operand2);
 		// Auxiliary bitsets
@@ -198,17 +198,17 @@ public:
 		Bitset *orst = new Bitset(k.states());
 		Bitset *prest = new Bitset(k.states());
 		Bitset *x = new Bitset(k.states());
-		x->copyFrom(*st2); // start out with X as Î¼(q)
+		x->copyFrom(*st2); // start out with X as μ(q)
 
 		while (true) { // fixpoint guaranteed to exist, therefore this will terminate
 			// pre(X)
 			pre(*x, *prest);
 
-			// Î¼(p) âˆ© pre(X).
-			st1->And(*prest, *andst); // andst := st1 âˆ© prest
+			// μ(p) ∩ pre(X).
+			st1->And(*prest, *andst); // andst := st1 ∩ prest
 
-			// Î¼(q) âˆª (Î¼(p) âˆ© pre(X)).
-			andst->Or(*st2, *orst); // orst := andset âˆª st2
+			// μ(q) ∪ (μ(p) ∩ pre(X)).
+			andst->Or(*st2, *orst); // orst := andset ∪ st2
 
 			if (x->Equiv(*orst)) {
 				delete st1;
@@ -222,7 +222,7 @@ public:
 		}
 	}
 
-	// AX Ï† â‰¡ Â¬ EX Â¬Ï†
+	// AX φ ≡ ¬ EX ¬φ
 	Bitset* solveAX(CTLFormula& f) {
 		CTLFormula phi1 = {NEG, f.operand1, NULL, 0};
 		CTLFormula phi2 = {EX, &phi1, NULL, 0};
@@ -230,7 +230,7 @@ public:
 		return solve(phi3);
 	}
 
-	// AF Ï† â‰¡ Â¬ EG Â¬Ï†
+	// AF φ ≡ ¬ EG ¬φ
 	Bitset* solveAF(CTLFormula& f) {
 		CTLFormula phi1 = {NEG, f.operand1, NULL, 0};
 		CTLFormula phi2 = {EG, &phi1, NULL, 0};
@@ -238,7 +238,7 @@ public:
 		return solve(phi3);
 	}
 
-	// AG Ï† â‰¡ Â¬ EF Â¬Ï†
+	// AG φ ≡ ¬ EF ¬φ
 	Bitset* solveAG(CTLFormula& f) {
 		CTLFormula phi1 = {NEG, f.operand1, NULL, 0};
 		CTLFormula phi2 = {EF, &phi1, NULL, 0};
@@ -246,7 +246,7 @@ public:
 		return solve(phi3);
 	}
 
-	// Ï† 1 AW Ï† 2 â‰¡ Â¬(Â¬Ï† 2 EU Â¬(Ï† 1 âˆ¨ Ï† 2 ))
+	// φ 1 AW φ 2 ≡ ¬(¬φ 2 EU ¬(φ 1 ∨ φ 2 ))
 	Bitset* solveAW(CTLFormula& f) {
 		CTLFormula phi1 = {OR, f.operand1, f.operand2, 0};
 		CTLFormula phi2 = {NEG, &phi1, NULL, 0};
@@ -255,7 +255,7 @@ public:
 		CTLFormula phi5 = {NEG, &phi4, NULL, 0};
 		return solve(phi5);
 	}
-	// Ï† 1 AU Ï† 2 â‰¡ AF Ï† 2 âˆ§ (Ï† 1 AW Ï† 2 ))
+	// φ 1 AU φ 2 ≡ AF φ 2 ∧ (φ 1 AW φ 2 ))
 	Bitset* solveAU(CTLFormula& f) {
 		CTLFormula phi1 = {AF, f.operand2, NULL, 0};
 		CTLFormula phi2 = {AW, f.operand1, f.operand2, 0};
