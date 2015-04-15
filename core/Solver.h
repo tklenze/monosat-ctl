@@ -37,6 +37,7 @@
 template<unsigned int D, class T> class GeometryTheorySolver;
 template<typename Weight> class GraphTheorySolver;
 class FSMTheorySolver;
+class CTLTheorySolver;
 namespace Monosat {
 
 //=================================================================================================
@@ -49,6 +50,7 @@ public:
 	template<typename Weight> friend class GraphTheorySolver;
 	template<unsigned int D, class T> friend class GeometryTheorySolver;
 	friend class FSMTheorySolver;
+	friend class CTLTheorySolver;
 	friend class LSystemSolver;
 #ifdef DEBUG_SOLVER
 	Solver * dbg_solver;

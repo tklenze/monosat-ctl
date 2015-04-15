@@ -35,6 +35,7 @@
 #include "utils/Options.h"
 #include "graph/GraphParser.h"
 #include "fsm/FSMParser.h"
+#include "ctl/CTLParser.h"
 #include "core/Dimacs.h"
 #include "core/AssumptionParser.h"
 #include "fsm/LSystemParser.h"
@@ -384,6 +385,8 @@ int main(int argc, char** argv) {
 
 		FSMParser<char*,SimpSolver> fsmParser;
 		parser.addParser(&fsmParser);
+		CTLParser<char*,SimpSolver> ctlParser;
+		parser.addParser(&ctlParser);
 		LSystemParser<char*,SimpSolver>  lparser;
 		parser.addParser(&lparser);
 
