@@ -332,7 +332,6 @@ public:
 
 
 	int newNode() {
-		assert(g_over);
 		g_over->addEmptyState(); // FIXME should add with bitset
 
 		seen.growTo(nNodes());
@@ -708,7 +707,6 @@ public:
 
 	Lit newTransition(int from, int to, Var outerVar = var_Undef) {
 		assert(outerVar!=var_Undef);
-		assert(g_under);
 		int edgeID=-1;
 		if(g_under->states()>from && g_under->states()>to && (edgeID=g_under->getEdge(from,to))>-1){
 			if(g_over->transitionEnabled(edgeID)){

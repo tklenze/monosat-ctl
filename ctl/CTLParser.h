@@ -41,9 +41,9 @@ namespace Monosat {
 //=================================================================================================
 // Kripke Parser:
 template<class B, class Solver>
-class KripkeParser: public Parser<B, Solver> {
+class CTLParser: public Parser<B, Solver> {
 
-	vec<CTLTheorySolver> kripkes;
+	vec<CTLTheorySolver*> kripkes;
 
 	vec<vec<SteinerStruct*>> steiners;
 	PbTheory * pbtheory = nullptr;
@@ -66,11 +66,16 @@ class KripkeParser: public Parser<B, Solver> {
 		//  ev = parseInt(in);//the variable of the first graph edge.
 		a = parseInt(in);  //number of APs
 		g = parseInt(in);  //id of the graph
+
 		kripkes.growTo(g + 1);
-		GraphTheoryCTL *kripke = new GraphTheoryCTL(&S, g);
+
+		CTLTheorySolver *kripke = new CTLTheorySolver(&S, g);
+		printf("CTLParser.readKripke: Adding %d nodes...\n", n);  fflush(stdout);
 		kripke->newNodes(n);
+		printf("CTLParser.readKripke: Success\n");  fflush(stdout);
 		kripkes[g] = kripke;
 		S.addTheory(kripke);
+
 		//  return ev;
 	}
 
@@ -85,6 +90,7 @@ class KripkeParser: public Parser<B, Solver> {
 		int kripkeID = parseInt(in);
 		int node = parseInt(in);
 		int ap = parseInt(in);
+		/*
 		if (isNumber(in)) {
 			// TODO
 			// Do nothing for now, should set Node-AP to true or false, depending on input
@@ -93,6 +99,7 @@ class KripkeParser: public Parser<B, Solver> {
 			// TODO
 			// should set it to undecided
 		}
+		*/
 	}
 
 	
@@ -120,8 +127,7 @@ class KripkeParser: public Parser<B, Solver> {
 
 		skipWhitespace(in);
 		if(*in=='\n' || *in==0){
-			//this is an unweighted edge
-
+			/*
 			if (kripkes[kripkeID]) {
 				// TODO not implemented yet
 				//kripkes[kripkeID]->newEdge(from, to, edgeVar);
@@ -129,7 +135,7 @@ class KripkeParser: public Parser<B, Solver> {
 				printf("PARSE ERROR! Undeclared kripke identifier %d for edge %d\n", kripkeID, edgeVar), exit(1);
 				exit(1);
 			}
-
+			*/
 		}
 	}
 
@@ -166,13 +172,32 @@ class KripkeParser: public Parser<B, Solver> {
 		}
 	}
 
+	void readCTL(B& in, Solver& S) {
+		if (opt_ignore_theories) {
+			skipLine(in);
+			return;
+		}
+		// TODO
+
+		// this is just test code
+		printf("Test code! Printing Kripke structures\n");
+		for (int i = 0; i<kripkes.size(); i++) {
+			printf("\n\nKripke structure:\n");
+			kripkes[i]->g_over->draw();
+		}
+
+		return;
+	}
 
 public:
-	KripkeParser(bool precise = true) :
-			precise(precise) {
-		
-	}
 	bool parseLine(B& in, Solver& S) {
+		printf("Parse line: ");
+
+		for (int i = 0; in[i] != '\0'; i++) {
+			printf("%c", in[i]);
+		}
+		printf("\n");
+
 
 		skipWhitespace(in);
 		if (*in == EOF)
@@ -182,14 +207,8 @@ public:
 			return false;
 		} else if (match(in, "kripke")) {
 			skipWhitespace(in);
-			readDiGraph(in, S);
+			readKripke(in, S);
 			skipWhitespace(in);
-			//if(*in=='d'){
-			//for now, only digraphs are supported
-
-			//}else{
-			//	printf("PARSE ERROR! Unexpected char: %c\n", *in), exit(1);
-			//}
 			return true;
 		} else if (match(in, "edge")) {
 			edgeCount++;
@@ -198,6 +217,9 @@ public:
 		} else if (match(in, "nodeap")) {
 			nodeCount++;
 			readNodeAP(in, S);
+			return true;
+		}else if (match(in, "ctl")) {
+			readCTL(in, S);
 			return true;
 		}
 		return false;
@@ -219,10 +241,12 @@ public:
 		}*/
 
 		for (int i = 0; i < kripkes.size(); i++) {
+			/*
 			if (kripkes[i]) {
 				// TODO not implemented
 				// kripkes[i]->implementConstraints();
 			}
+			*/
 		}
 		if (pbtheory)
 			pbtheory->implementConstraints();

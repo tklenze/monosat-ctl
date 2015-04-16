@@ -141,9 +141,9 @@ static bool match(B& in, const char* str) {
 	for (i = 0; str[i] != '\0'; i++)
 		if (in[i] != str[i])
 			return false;
-	
+
 	in += i;
-	
+
 	return true;
 }
 

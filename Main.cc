@@ -256,6 +256,8 @@ void selectAlgorithms(){
 	}
 }
 
+
+
 int main(int argc, char** argv) {
 	try {
 		setUsageHelp(
@@ -389,6 +391,11 @@ int main(int argc, char** argv) {
 		parser.addParser(&ctlParser);
 		LSystemParser<char*,SimpSolver>  lparser;
 		parser.addParser(&lparser);
+
+
+
+
+
 
 
 

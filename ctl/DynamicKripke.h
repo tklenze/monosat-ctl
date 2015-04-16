@@ -326,7 +326,7 @@ public:
 		return s;
 	}
 
-	void draw(int source=-1, int dest=-1){
+public: void draw(int source=-1, int dest=-1){
 		printf("digraph{\n");
 
 		for (int i = 0; i < g.nodes(); i++) {
