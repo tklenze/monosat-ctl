@@ -93,24 +93,25 @@ These are the graph properties that are currently well-supported by MonoSAT; man
 
 The format for using Kripke structures and CTL formulas is as follows:
 kripke 3 4 2 0 -- means three nodes, four edges, two atomic propositions, kripke structure ID is 0.
-nodeap 0 2 1 v 5-- means in kripke structure 0, node 2, the second AP is variable and tied to the CNF variable 5.
-nodeap 0 2 1 0 -- means in kripke structure 0, node 2, the second AP is fixed to false.
+nodeap 0 2 1 5-- means in kripke structure 0, node 2, the second AP is tied to the CNF variable 5.
+kedge 0 1 2 7 -- kripke ID, from, to, edgevar
 
 
 Warning: the input is NOT checked for correctness
 
 ```
-p cnf 5 3
+p cnf 5 6
 5 6 0
 -5 -6 0
+1 0
+2 3 0
+-2 -3 0
 kripke 3 4 2 0
-nodeap 
-edge 0 0 1 1
-edge 0 1 0 2
-edge 0 1 2 3 
-edge 0 0 2 4 4
-reach 0 0 2 5
-weighted_distance_leq 0 0 2 6 3 
+knodeap 0 2 1 5
+kedge 0 0 1 1
+kedge 0 1 0 2
+kedge 0 1 2 3 
+kctl
 ```
 
 

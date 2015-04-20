@@ -147,9 +147,7 @@ public:
 	
 	int addNode() {
 
-		printf("DynamicGraph.addNode: To add a node, I am calling adjacency_list.push_back( { })... afterwards I am going to print success\n"); fflush(stdout); //FIXME Debug
 		adjacency_list.push_back( { }); //adj list
-		printf("DynamicGraph.addNode: Success\n"); fflush(stdout); // FIXME Debug
 		adjacency_undirected_list.push_back( { });
 		inverted_adjacency_list.push_back( { });
 		modifications++;

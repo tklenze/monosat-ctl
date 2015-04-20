@@ -50,13 +50,12 @@ class CTLTheorySolver;
 
 class CTLTheorySolver: public Theory {
 public:
+
 	struct Transition{
 		Var v=var_Undef;
 		Var outerVar=var_Undef;
 		int from=-1;
 		int to=-1;
-		int inputchar;
-		int outputchar;
 	};
 	struct Assignment {
 		bool isEdge :1;
@@ -68,9 +67,11 @@ public:
 		}
 	};
 
+	enum VarType { EDGE, NODEAP, DETECTOR};
+
 	double rnd_seed;
 	vec<vec<int>> * strings=nullptr;
-private:
+public: // FIXME was private before!
 	Solver * S;
 	int local_q = 0;
 public:
@@ -113,10 +114,10 @@ public:
 	vec<Lit> tmp_clause;
 	//Data about local theory variables, and how they connect to the sat solver's variables
 	struct VarData {
-		int isEdge :1;
+		VarType type :1;
 		int occursPositive :1;
 		int occursNegative :1;
-		int detector_edge :29;	//the detector this variable belongs to, or its edge number, if it is an edge variable
+		int detector_node_edge :29;	//the detector this variable belongs to, or its edge number, if it is an edge variable
 		Var solverVar;
 	};
 
@@ -151,7 +152,10 @@ public:
 
 	CTLTheorySolver(Solver * S_, int _id = -1) :
 			S(S_), id(_id){
-
+		g_under = new DynamicKripke(id);
+		g_over = new DynamicKripke(id);
+		ctl_under = new CTLSolver(id, *g_under);
+		ctl_over = new CTLSolver(id, *g_over);
 
 		rnd_seed = opt_random_seed;
 	}
@@ -182,11 +186,11 @@ public:
 
 	inline bool isEdgeVar(Var v) const{
 		assert(v < vars.size());
-		return vars[v].isEdge;
+		return vars[v].type == EDGE;
 	}
 	inline int getEdgeID(Var v) const {
 		assert(isEdgeVar(v));
-		return vars[v].detector_edge;
+		return vars[v].detector_node_edge;
 	}
 
 	// FIXME do we need this?
@@ -196,7 +200,7 @@ public:
 
 	inline int getDetector(Var v) const {
 		assert(!isEdgeVar(v));
-		return vars[v].detector_edge;
+		return vars[v].detector_node_edge;
 	}
 
 	inline Var getTransitionVar(int edgeID) {
@@ -245,30 +249,30 @@ public:
 		S->addClauseSafely(tmp_clause);
 	}
 	
-	Var newAuxVar(int forDetector = -1, bool connectToTheory = false) {
+	Var newAuxVar(int forDetector = -1, VarType type = DETECTOR, bool connectToTheory = false) {
 		Var s = S->newVar();
-		return newVar(s, forDetector,-1, -1,-1,false, connectToTheory);
+		return newVar(s, forDetector,type, connectToTheory);
 	}
-	Var newVar(Var solverVar,  int detector_edge,int fsmID=-1, int label=-1,int output=-1, bool isEdge = false, bool connectToTheory = true) {
+	Var newVar(Var solverVar,  int detector_node_edge, VarType type, bool connectToTheory = true) {
 		while (S->nVars() <= solverVar)
 			S->newVar();
 		Var v = vars.size();
 
 		vars.push();
-		vars[v].isEdge = isEdge;
-		vars[v].detector_edge = detector_edge;
+		vars[v].type = type;
+		vars[v].detector_node_edge = detector_node_edge;
 		vars[v].solverVar = solverVar;
 		assigns.push(l_Undef);
 		if (connectToTheory) {
 			S->setTheoryVar(solverVar, getTheoryIndex(), v);
 			assert(toSolver(v) == solverVar);
 		}
-		if(isEdge){
-			assert(label>-1);
-			assert(detector_edge>-1);
+
+		if(type == EDGE){
+			assert(detector_node_edge>-1);
 		}
-		if (!isEdge && detector_edge >= 0)
-			detectors[detector_edge]->addVar(v);
+		if ((type == DETECTOR) && detector_node_edge >= 0)
+			detectors[detector_node_edge]->addVar(v);
 		return v;
 	}
 	inline int level(Var v) {
@@ -718,18 +722,11 @@ public:
 				makeEqualInSolver(mkLit(outerVar),mkLit(ov));
 				return lit_Undef;
 			}
-
-		}else{
-
-
 		}
-
-
 
 		g_under->addTransition(from,to,edgeID,false);
 		edgeID =g_over->addTransition(from,to,edgeID,true);
-		Var v = newVar(outerVar,edgeID, true);
-
+		Var v = newVar(outerVar,edgeID, EDGE, true);
 
 		edge_labels.growTo(edgeID+1);
 
@@ -740,6 +737,17 @@ public:
 
 		return mkLit(v, false);
 	}
+
+	Lit newNodeAP(int node, int ap, Var outerVar = var_Undef) {
+		g_under->disableAPinStateLabel(node,ap);
+		g_over->enableAPinStateLabel(node,ap);
+
+		Var nodeap = newVar(outerVar, node, NODEAP, true);
+
+		return mkLit(nodeap, false);
+	}
+
+
 
 	void printSolution() {
 

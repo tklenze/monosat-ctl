@@ -27,6 +27,7 @@
 #include "utils/ParseUtils.h"
 #include "core/SolverTypes.h"
 #include "ctl/CTLTheory.h"
+#include "ctl/CTLFormula.h"
 
 #include "core/Config.h"
 #include "pb/PbTheory.h"
@@ -70,11 +71,11 @@ class CTLParser: public Parser<B, Solver> {
 		kripkes.growTo(g + 1);
 
 		CTLTheorySolver *kripke = new CTLTheorySolver(&S, g);
-		printf("CTLParser.readKripke: Adding %d nodes...\n", n);  fflush(stdout);
 		kripke->newNodes(n);
-		printf("CTLParser.readKripke: Success\n");  fflush(stdout);
 		kripkes[g] = kripke;
 		S.addTheory(kripke);
+
+		printf("Kripkes.size: %d\n", kripkes.size());
 
 		//  return ev;
 	}
@@ -90,16 +91,11 @@ class CTLParser: public Parser<B, Solver> {
 		int kripkeID = parseInt(in);
 		int node = parseInt(in);
 		int ap = parseInt(in);
-		/*
-		if (isNumber(in)) {
-			// TODO
-			// Do nothing for now, should set Node-AP to true or false, depending on input
-		} else if (in.match('v')) {
-			int nodeVar = parseInt(in);
+		int nodeVar = parseInt(in);
 			// TODO
 			// should set it to undecided
-		}
-		*/
+		kripkes[kripkeID]->newNodeAP(node, ap, nodeVar);
+
 	}
 
 	
@@ -117,6 +113,7 @@ class CTLParser: public Parser<B, Solver> {
 		int edgeVar = parseInt(in) - 1;
 
 		if (kripkeID < 0 || kripkeID >= kripkes.size()) {
+			printf("DEBUG: kripkeID %d\n", kripkeID);
 			printf("PARSE ERROR! Undeclared graph identifier %d for edge %d\n", kripkeID, edgeVar), exit(1);
 		}
 		if (edgeVar < 0) {
@@ -127,49 +124,17 @@ class CTLParser: public Parser<B, Solver> {
 
 		skipWhitespace(in);
 		if(*in=='\n' || *in==0){
-			/*
+
 			if (kripkes[kripkeID]) {
 				// TODO not implemented yet
-				//kripkes[kripkeID]->newEdge(from, to, edgeVar);
+				kripkes[kripkeID]->newTransition(from, to, edgeVar);
 			} else {
 				printf("PARSE ERROR! Undeclared kripke identifier %d for edge %d\n", kripkeID, edgeVar), exit(1);
 				exit(1);
 			}
-			*/
-		}
-	}
 
-	void readReach(B& in, Solver& S) {
-		if (opt_ignore_theories) {
-			skipLine(in);
-			return;
-		}
-		//reach grachID u w var is a reach query: var is true if can u reach w in graph g, false otherwise
-		
-		++in;
-		
-		int kripkeID = parseInt(in);
-		int from = parseInt(in);
-		// int steps = parseInt(in);
-		int to = parseInt(in);
-		int reachVar = parseInt(in) - 1;
-		if (kripkeID < 0 || kripkeID >= kripkes.size()) {
-			printf("PARSE ERROR! Undeclared graph identifier %d for edge %d\n", kripkeID, reachVar), exit(1);
-		}
-		if (reachVar < 0) {
-			printf("PARSE ERROR! Edge variables must be >=0, was %d\n", reachVar), exit(1);
 		}
 
-		while (reachVar >= S.nVars())
-			S.newVar();
-		
-		if (kripkes[kripkeID]) {
-			// FIXME this, of course, does not work right now, since we have not implemented reaches
-			//kripkes[kripkeID]->reaches(from, to, reachVar);
-		} else {
-			printf("PARSE ERROR! Undeclared graph identifier %d\n", kripkeID), exit(1);
-			exit(1);
-		}
 	}
 
 	void readCTL(B& in, Solver& S) {
@@ -177,13 +142,72 @@ class CTLParser: public Parser<B, Solver> {
 			skipLine(in);
 			return;
 		}
-		// TODO
 
-		// this is just test code
-		printf("Test code! Printing Kripke structures\n");
+		CTLFormula* f = parseCTL(in);
+
+		printf("\nSuddenly, this becomes:\n");
+
+		printFormula(f);
+		printf("\n\n");
+
+		return;
+	}
+
+	CTLFormula* parseCTL(B& in) {
+		skipWhitespace(in);
+		if (match(in, "EX")) {
+			CTLFormula* f = newCTLFormula();
+			CTLFormula* inside = parseCTL(in);
+			f->op = EX;
+			f->operand1 = inside;
+			//printf("inside parseCTL:\n"); // if I uncomment this line, suddenly printFormula does not output "EX 4" but "Unknown formula". Dafuq?
+			printFormula(f);
+			return f;
+		}
+		// ... TODO, other matches
+
+		// No other matches, must be a number.
+		int n = parseInt(in);
+		CTLFormula* f = newCTLFormula();
+		f->op = ID;
+		f->value = n;
+		return f;
+	}
+
+	// Draws all Kripke structures for debugging purposes
+	void readDraw(B& in, Solver& S) {
+		if (opt_ignore_theories) {
+			skipLine(in);
+			return;
+		}
+		printf("Printing Kripke structures\n");
 		for (int i = 0; i<kripkes.size(); i++) {
-			printf("\n\nKripke structure:\n");
+			printf("Kripke structure, ID: %d, under\n", i);
+			kripkes[i]->g_under->draw();
+			printf("Kripke structure, ID: %d, over\n", i);
 			kripkes[i]->g_over->draw();
+
+			printf("\n\n");
+		}
+
+		enum VarType { EDGE, NODEAP, DETECTOR}; // FIXME needs to be synchronized with CTLTheory.VarType
+		//enum VarType = kripkes[0].VarType; // does not work
+
+		for (int i = 0; i<kripkes.size(); i++) {
+				printf("Kripke structure %d, Vars:\n", i);
+			for (int j = 0; j<kripkes[i]->vars.size(); j++) {
+				switch (kripkes[i]->vars[j].type) {
+				case EDGE :  printf(" Edge, EdgeID: %d, solverVar: %d\n", kripkes[i]->vars[j].detector_node_edge, kripkes[i]->vars[j].solverVar); break;
+				case NODEAP :  printf(" NodeAP, NodeID: %d, solverVar: %d\n", kripkes[i]->vars[j].detector_node_edge, kripkes[i]->vars[j].solverVar); break;
+				case DETECTOR :  printf(" Detector, DetectorID: %d, solverVar: %d\n", kripkes[i]->vars[j].detector_node_edge, kripkes[i]->vars[j].solverVar); break;
+				}
+			}
+			//kripkes[i]->S->all_theory_vars
+			for (int j = 0; j < kripkes[i]->S->all_theory_vars.size(); j++) {
+				printf("%d ", kripkes[i]->S->all_theory_vars[j]);
+			}
+			printf("\n");
+
 		}
 
 		return;
@@ -191,13 +215,14 @@ class CTLParser: public Parser<B, Solver> {
 
 public:
 	bool parseLine(B& in, Solver& S) {
+		/* DEBUG */
 		printf("Parse line: ");
 
 		for (int i = 0; in[i] != '\0'; i++) {
 			printf("%c", in[i]);
 		}
 		printf("\n");
-
+		// */
 
 		skipWhitespace(in);
 		if (*in == EOF)
@@ -210,16 +235,19 @@ public:
 			readKripke(in, S);
 			skipWhitespace(in);
 			return true;
-		} else if (match(in, "edge")) {
+		} else if (match(in, "kedge")) {
 			edgeCount++;
 			readEdge(in, S);
 			return true;
-		} else if (match(in, "nodeap")) {
+		} else if (match(in, "knodeap")) {
 			nodeCount++;
 			readNodeAP(in, S);
 			return true;
-		}else if (match(in, "ctl")) {
+		} else if (match(in, "kctl")) {
 			readCTL(in, S);
+			return true;
+		} else if (match(in, "kdraw")) {
+			readDraw(in, S);
 			return true;
 		}
 		return false;

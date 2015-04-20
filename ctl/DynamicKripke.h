@@ -105,6 +105,12 @@ public:
 	}
 
 	void enableAPinStateLabel(int state, int ap) {
+		if (state >= statelabel.size()) {
+			statelabel.resize(state+1);
+		}
+		if (ap >= statelabel[state].size()) {
+			statelabel[state].resize(ap+1);
+		}
 		assert(state < statelabel.size());
 		assert(ap < statelabel[state].size());
 		if (!statelabel[state][ap]) {
@@ -116,6 +122,12 @@ public:
 	}
 
 	void disableAPinStateLabel(int state, int ap) {
+		if (state >= statelabel.size()) {
+			statelabel.resize(state+1);
+		}
+		if (ap >= statelabel[state].size()) {
+			statelabel[state].resize(ap+1);
+		}
 		assert(state < statelabel.size());
 		assert(ap < statelabel[state].size());
 		if (statelabel[state][ap]) {
@@ -157,6 +169,7 @@ public:
 		}
 		transitions.resize(edgeID+1);
 		transitions[edgeID] = defaultEnabled;
+
 		return edgeID;
 	}
 

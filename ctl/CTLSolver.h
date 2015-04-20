@@ -26,8 +26,10 @@ namespace Monosat {
 class CTLSolver {
 public:
 	DynamicKripke k;
-	CTLSolver(DynamicKripke myk) {
+	int id;
+	CTLSolver(int myid, DynamicKripke myk) {
 		k = myk;
+		id = myid;
 	};
 	~CTLSolver() {};
 
@@ -313,7 +315,7 @@ public:
 		printFormula(AXb); printStateSet(*foo);
 */
 
-
+/*
 		foo = solve(AUbc);
 		printFormula(AUbc); printStateSet(*foo);
 		foo = solve(AWbc);
@@ -322,6 +324,7 @@ public:
 		printFormula(AUac); printStateSet(*foo);
 		foo = solve(AFc);
 		printFormula(AFc); printStateSet(*foo);
+		*/
 
 		/*
 		foo = solve(AUbcOREGb);
@@ -350,28 +353,6 @@ public:
 		printf("}\n");
 	}
 
-	void printFormula(CTLFormula &f) {
-		switch (f.op) {
-		case ID : printf("%d", f.value); break;
-		case NEG: printf("not "); printFormula(*f.operand1); break;
-		case OR : printf("("); printFormula(*f.operand1); printf(" or "); printFormula(*f.operand2); printf(")"); break;
-		case AND : printf("("); printFormula(*f.operand1); printf(" and "); printFormula(*f.operand2); printf(")"); break;
-
-		case EX : printf("EX "); printFormula(*f.operand1); break;
-		case EF : printf("EF "); printFormula(*f.operand1); break;
-		case EG : printf("EG "); printFormula(*f.operand1); break;
-		case EW : printf("("); printFormula(*f.operand1); printf(" EW "); printFormula(*f.operand2); printf(")"); break;
-		case EU : printf("("); printFormula(*f.operand1); printf(" EU "); printFormula(*f.operand2); printf(")"); break;
-
-		case AX : printf("AX "); printFormula(*f.operand1); break;
-		case AF : printf("AF "); printFormula(*f.operand1); break;
-		case AG : printf("AG "); printFormula(*f.operand1); break;
-		case AW : printf("("); printFormula(*f.operand1); printf(" AW "); printFormula(*f.operand2); printf(")"); break;
-		case AU : printf("("); printFormula(*f.operand1); printf(" AU "); printFormula(*f.operand2); printf(")"); break;
-
-		default : printf("bar");
-		}
-	}
 };
 };
 
