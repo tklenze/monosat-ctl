@@ -175,9 +175,21 @@ class CTLParser: public Parser<B, Solver> {
 			f->operand1 = inside;
 			return f;
 		}
-		if (match(in, "EX")) {
+		if (match(in, "AX")) {
 			CTLFormula* inside = parseCTL(in);
-			f->op = EX;
+			f->op = AX;
+			f->operand1 = inside;
+			return f;
+		}
+		if (match(in, "AF")) {
+			CTLFormula* inside = parseCTL(in);
+			f->op = AF;
+			f->operand1 = inside;
+			return f;
+		}
+		if (match(in, "AG")) {
+			CTLFormula* inside = parseCTL(in);
+			f->op = AG;
 			f->operand1 = inside;
 			return f;
 		}
@@ -207,8 +219,30 @@ class CTLParser: public Parser<B, Solver> {
 				} else {
 					printf("Error: Expected closing bracket");
 				}
+			} else if (match(in, "AW")) {
+				CTLFormula* inside2 = parseCTL(in);
+				printf("DEBUG: Parsed second part, "); printFormula(inside2); printf("\n");
+				skipWhitespace(in);
+				if (match(in, ")")) {
+					f->op = AW;
+					f->operand1 = inside1;
+					f->operand2 = inside2;
+				} else {
+					printf("Error: Expected closing bracket");
+				}
+			} else if (match(in, "AU")) {
+				CTLFormula* inside2 = parseCTL(in);
+				printf("DEBUG: Parsed second part, "); printFormula(inside2); printf("\n");
+				skipWhitespace(in);
+				if (match(in, ")")) {
+					f->op = AU;
+					f->operand1 = inside1;
+					f->operand2 = inside2;
+				} else {
+					printf("Error: Expected closing bracket");
+				}
 			} else {
-				printf("Error: Expected operator");
+				printf("Error: Operator missing");
 			}
 			printf("DEBUG: Parsed bracket formula, "); printFormula(f); printf("\n");
 			return f;
