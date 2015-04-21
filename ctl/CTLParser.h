@@ -145,30 +145,78 @@ class CTLParser: public Parser<B, Solver> {
 
 		CTLFormula* f = parseCTL(in);
 
-		printf("\nSuddenly, this becomes:\n");
-
+		printf("Parsed formula:\n");
 		printFormula(f);
-		printf("\n\n");
+		printf("\n");
 
 		return;
 	}
 
+	// 	enum CTLOp { ID, NEG, OR, AND, EX, EF, EG, EW, EU, AX, AF, AG, AW, AU};
+
 	CTLFormula* parseCTL(B& in) {
 		skipWhitespace(in);
+		CTLFormula* f = newCTLFormula();
 		if (match(in, "EX")) {
-			CTLFormula* f = newCTLFormula();
 			CTLFormula* inside = parseCTL(in);
 			f->op = EX;
 			f->operand1 = inside;
-			//printf("inside parseCTL:\n"); // if I uncomment this line, suddenly printFormula does not output "EX 4" but "Unknown formula". Dafuq?
-			printFormula(f);
+			return f;
+		}
+		if (match(in, "EF")) {
+			CTLFormula* inside = parseCTL(in);
+			f->op = EF;
+			f->operand1 = inside;
+			return f;
+		}
+		if (match(in, "EG")) {
+			CTLFormula* inside = parseCTL(in);
+			f->op = EG;
+			f->operand1 = inside;
+			return f;
+		}
+		if (match(in, "EX")) {
+			CTLFormula* inside = parseCTL(in);
+			f->op = EX;
+			f->operand1 = inside;
+			return f;
+		}
+		if (match(in, "(")) {
+			CTLFormula* inside1 = parseCTL(in);
+			printf("DEBUG: Parsed first part, "); printFormula(inside1); printf("\n");
+			skipWhitespace(in);
+			if (match(in, "EW")) {
+				CTLFormula* inside2 = parseCTL(in);
+				printf("DEBUG: Parsed second part, "); printFormula(inside2); printf("\n");
+				skipWhitespace(in);
+				if (match(in, ")")) {
+					f->op = EW;
+					f->operand1 = inside1;
+					f->operand2 = inside2;
+				} else {
+					printf("Error: Expected closing bracket");
+				}
+			} else if (match(in, "EU")) {
+				CTLFormula* inside2 = parseCTL(in);
+				printf("DEBUG: Parsed second part, "); printFormula(inside2); printf("\n");
+				skipWhitespace(in);
+				if (match(in, ")")) {
+					f->op = EU;
+					f->operand1 = inside1;
+					f->operand2 = inside2;
+				} else {
+					printf("Error: Expected closing bracket");
+				}
+			} else {
+				printf("Error: Expected operator");
+			}
+			printf("DEBUG: Parsed bracket formula, "); printFormula(f); printf("\n");
 			return f;
 		}
 		// ... TODO, other matches
 
 		// No other matches, must be a number.
 		int n = parseInt(in);
-		CTLFormula* f = newCTLFormula();
 		f->op = ID;
 		f->value = n;
 		return f;

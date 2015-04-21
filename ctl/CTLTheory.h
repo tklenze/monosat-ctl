@@ -50,6 +50,7 @@ class CTLTheorySolver;
 
 class CTLTheorySolver: public Theory {
 public:
+	enum VarType { EDGE, NODEAP, DETECTOR};
 
 	struct Transition{
 		Var v=var_Undef;
@@ -58,17 +59,15 @@ public:
 		int to=-1;
 	};
 	struct Assignment {
-		bool isEdge :1;
+		VarType type :2;
 		bool assign :1;
-		int edgeID:30;
+		int ID:30; // e.g. EdgeID
+		int AP:30; // AP, if it is an assignment to NodeAP, or -1 otherwise
 		Var var;
-		Assignment(bool isEdge, bool assign, int edgeID, Var v):isEdge(isEdge),assign(assign),edgeID(edgeID),var(v){
+		Assignment(VarType type, bool assign, int ID, int AP, Var v):type(type),assign(assign),ID(ID),AP(AP),var(v){
 
 		}
 	};
-
-	enum VarType { EDGE, NODEAP, DETECTOR};
-
 	double rnd_seed;
 	vec<vec<int>> * strings=nullptr;
 public: // FIXME was private before!
@@ -117,7 +116,8 @@ public:
 		VarType type :1;
 		int occursPositive :1;
 		int occursNegative :1;
-		int detector_node_edge :29;	//the detector this variable belongs to, or its edge number, if it is an edge variable
+		int detector_node_edge :29;	//the detector this variable belongs to, or its edge number, if it is an edge variable, or the node number, if it is a node AP
+		int ap; // the AP id, if it is a NodeAP. -1 Otherwise
 		Var solverVar;
 	};
 
@@ -188,11 +188,31 @@ public:
 		assert(v < vars.size());
 		return vars[v].type == EDGE;
 	}
+
+	inline bool isNodeAPVar(Var v) const{
+		assert(v < vars.size());
+		return vars[v].type == NODEAP;
+	}
+
+	inline bool isDetectorVar(Var v) const{
+		assert(v < vars.size());
+		return vars[v].type == DETECTOR;
+	}
+
 	inline int getEdgeID(Var v) const {
 		assert(isEdgeVar(v));
 		return vars[v].detector_node_edge;
 	}
 
+	inline int getNodeID(Var v) const {
+		assert(isNodeAPVar(v));
+		return vars[v].detector_node_edge;
+	}
+
+	inline int getAPID(Var v) const {
+		assert(isNodeAPVar(v));
+		return vars[v].ap;
+	}
 	// FIXME do we need this?
 	inline Transition & getTransition(int edgeID){
 			return edge_labels[edgeID];
@@ -336,11 +356,11 @@ public:
 
 
 	int newNode() {
-		g_over->addEmptyState(); // FIXME should add with bitset
+		g_over->addEmptyState();
 
 		seen.growTo(nNodes());
 
-		return g_under->addEmptyState(); // FIXME should add with bitset
+		return g_under->addEmptyState();
 	}
 	void newNodes(int n) {
 		for (int i = 0; i < n; i++)
@@ -365,20 +385,30 @@ public:
 				
 				Assignment & e = trail[i];
 				assert(assigns[e.var]!=l_Undef);
-				if (e.isEdge) {
+				if (e.type == EDGE) {
 					assert(dbg_value(e.var)==l_Undef);
 					int edgeID = getEdgeID(e.var); //e.var-min_edge_var;
-					assert(edgeID==e.edgeID);
+					assert(edgeID==e.ID);
 
 					if (e.assign) {
 						g_under->disableTransition(edgeID);
-
 					} else {
 						g_over->enableTransition(edgeID);
+					}
+				} else if (e.type == NODEAP) {
+					assert(dbg_value(e.var)==l_Undef);
+					int nodeID = getNodeID(e.var);
+					int apID = getAPID(e.var);
+					assert(nodeID==e.ID);
+					assert(apID==e.AP);
 
+					if (e.assign) {
+						g_under->disableAPinStateLabel(nodeID, apID);
+					} else {
+						g_over->enableAPinStateLabel(nodeID, apID);
 					}
 				} else {
-					//This is a reachability literal
+					//This is a detector literal
 					detectors[getDetector(e.var)]->unassign(mkLit(e.var, !e.assign));
 				}
 				assigns[e.var] = l_Undef;
@@ -433,7 +463,7 @@ public:
 				assert(sign(p) != e.assign);
 				break;
 			}
-			if (e.isEdge) {
+			if (e.type == EDGE) {
 				int edgeID = getEdgeID(e.var); //e.var-min_edge_var;
 				assert(assigns[e.var]!=l_Undef);
 				assigns[e.var] = l_Undef;
@@ -547,16 +577,14 @@ public:
 			}
 		}
 #endif
-		
 
-		
 		if (isEdgeVar(var(l))) {
 			
 			//this is an edge assignment
 			int edgeID = getEdgeID(var(l)); //v-min_edge_var;
 			assert(getTransition(edgeID).v == var(l));
 
-			trail.push( { true, !sign(l),edgeID, v });
+			trail.push( { EDGE, !sign(l),edgeID, -1, v });
 
 			if (!sign(l)) {
 				g_under->enableTransition(edgeID);
@@ -564,9 +592,18 @@ public:
 				g_over->disableTransition(edgeID);
 			}
 			
-		} else {
-			
-			trail.push( { false, !sign(l),-1, v });
+		} else if (isNodeAPVar(var(l))){
+			int nodeID = getNodeID(var(l));
+			int apID = getAPID(var(l));
+			trail.push( { NODEAP, !sign(l), nodeID, apID, v });
+			if (!sign(l)) {
+				g_under->enableAPinStateLabel(nodeID, apID);
+			} else {
+				g_over->disableAPinStateLabel(nodeID, apID);
+			}
+
+		} else { // Detector AP
+			trail.push( { DETECTOR, !sign(l),-1, -1, v });
 			//this is an assignment to a non-edge atom. (eg, a reachability assertion)
 			detectors[getDetector(var(l))]->assign(l);
 		}

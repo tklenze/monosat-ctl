@@ -30,8 +30,8 @@
 	};
 
 	CTLFormula* newCTLFormula() {
-		CTLFormula f {ID, NULL, NULL, 0};
-		return &f;
+		CTLFormula * f = new CTLFormula{ID, NULL, NULL, 0};
+		return f;
 	}
 
 	void printFormula(CTLFormula* foo) {
