@@ -16,6 +16,6 @@ knodeap 0 1 0 7
 knodeap 0 1 1 8
 knodeap 0 2 0 9
 knodeap 0 2 1 10
-kctl EX (4 EW EG (7 EU 4))
-c kctl EX EG 3
+kctl 0 0 EX (4 AW EG (7 AU 4))
+c kctl 0 EX EG 3
 kdraw

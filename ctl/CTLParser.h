@@ -142,12 +142,16 @@ class CTLParser: public Parser<B, Solver> {
 			skipLine(in);
 			return;
 		}
+		int kripkeID = parseInt(in);
+		int initialNode = parseInt(in);
 
 		CTLFormula* f = parseCTL(in);
 
 		printf("Parsed formula:\n");
 		printFormula(f);
 		printf("\n");
+
+		kripkes[kripkeID]->setCTL(*f, initialNode);
 
 		return;
 	}

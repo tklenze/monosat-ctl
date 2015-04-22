@@ -90,8 +90,11 @@ public:
 	CTLSolver* ctl_under; //one for each over and under
 	CTLSolver* ctl_over;
 
-	// Vector of CTL Formulas on the specific Kripke structure this solver deals with
-	vec<CTLFormula> formulas;
+	CTLFormula* f;
+	int initialNode; // Start state
+
+	//// Vector of CTL Formulas on the specific Kripke structure this solver deals with
+	//vec<CTLFormula> formulas;
 	
 	vec<Assignment> trail;
 	vec<int> trail_lim;
@@ -154,8 +157,9 @@ public:
 			S(S_), id(_id){
 		g_under = new DynamicKripke(id);
 		g_over = new DynamicKripke(id);
-		ctl_under = new CTLSolver(id, *g_under);
-		ctl_over = new CTLSolver(id, *g_over);
+		ctl_under = new CTLSolver(id, *g_under, *g_over);
+		ctl_over = new CTLSolver(id, *g_over, *g_under);
+		f = newCTLFormula();
 
 		rnd_seed = opt_random_seed;
 	}
@@ -373,6 +377,11 @@ public:
 		return n >= 0 && n < nNodes();
 	}
 
+	void setCTL(CTLFormula& myf, int initial) {
+		f = &myf;
+		initialNode = initial;
+	}
+
 	void backtrackUntil(int level) { // FIXME important
 		static int it = 0;
 		
@@ -453,7 +462,10 @@ public:
 		return lit_Undef;
 	}
 	
-	void backtrackUntil(Lit p) { // FIXME important
+	void backtrackUntil(Lit p) { printf("WARNING: Used dummy function backtrackUntil(Lit) in CTLTheory.h"); } // dummy function
+
+	/*
+	void backtrackUntil(Lit p) { // NOT actually important
 		//need to remove and add edges in the two graphs accordingly.
 		assert(value(p)==l_True);
 		int i = trail.size() - 1;
@@ -486,9 +498,12 @@ public:
 		 antig.markChanged();
 		 cutGraph.markChanged();*/
 		//}
+
+	/*
 		for (FSMDetector * d : detectors) {
 			d->backtrack(this->decisionLevel());
 		}
+	*/
 		//while(trail_lim.size() && trail_lim.last()>=trail.size())
 		//	trail_lim.pop();
 
@@ -498,15 +513,18 @@ public:
 		 if(reach_detectors[i]->negative_reach_detector)
 		 reach_detectors[i]->negative_reach_detector->update();
 		 }*/
+	/*
 	}
 	;
+*/
 
 	void newDecisionLevel() {
 		trail_lim.push(trail.size());
 	}
 	;
 
-	void buildReason(Lit p, vec<Lit> & reason) {
+	void buildReason(Lit p, vec<Lit> & reason) { // IGNORED, not essential according to Sam
+		/*
 		CRef marker = S->reason(var(toSolver(p)));
 		assert(marker != CRef_Undef);
 		int pos = CRef_Undef - marker;
@@ -522,6 +540,7 @@ public:
 		stats_reason_time += finish - start;
 		stats_num_reasons++;
 		//stats_reason_initial_time+=start-initial_start;
+		 */
 		
 	}
 	
@@ -610,7 +629,7 @@ public:
 		
 	}
 	;
-	bool propagateTheory(vec<Lit> & conflict) {
+	bool propagateTheory(vec<Lit> & conflict) { // TODO this is the most important function
 		static int itp = 0;
 		if (++itp == 62279) {
 			int a = 1;
@@ -637,6 +656,7 @@ public:
 
 		assert(dbg_graphsUpToDate());
 		
+		/*
 		for (int d = 0; d < detectors.size(); d++) {
 			assert(conflict.size() == 0);
 			bool r = detectors[d]->propagate(conflict);
@@ -647,9 +667,22 @@ public:
 				return false;
 			}
 		}
+		*/
 		
+		Bitset* bit_under = ctl_under->solve(*f);
+		Bitset* bit_over = ctl_over->solve(*f);
 
+		ctl_under->resetSwap();
+		ctl_over->resetSwap();
 		
+		if (bit_over->operator [](initialNode)) {
+			return false; // It does hold in the overapproximation
+		}
+
+		if (!bit_under->operator [](initialNode)) {
+			return false; // It does not hold in the underapproximation
+		}
+
 		requiresPropagation = false;
 		g_under->clearChanged();
 		g_over->clearChanged();

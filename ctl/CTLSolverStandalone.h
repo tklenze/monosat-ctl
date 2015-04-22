@@ -23,43 +23,26 @@
 using namespace dgl;
 namespace Monosat {
 
+
+// This is a standalone solver of CTL formulas that is only tied to one Kripke structure. It can be easily used outside the MonoSAT context
+
 class CTLSolver {
 public:
-	DynamicKripke* k;
-	DynamicKripke* otherk;
-	DynamicKripke* originalk;
-	DynamicKripke* originalotherk;
-	DynamicKripke* tmpk;
+	DynamicKripke k;
 	int id;
-	CTLSolver(int myid, DynamicKripke& myk, DynamicKripke& myotherk) {
+	CTLSolver(int myid, DynamicKripke myk) {
+		k = myk;
 		id = myid;
-		k = &myk;
-		otherk = &myotherk;
-		originalk = &myk;
-		originalotherk = &myotherk;
-		tmpk = NULL;
 	};
 	~CTLSolver() {};
-
-	void swapKripkes() {
-		tmpk = k;
-		k = otherk;
-		otherk = tmpk;
-	}
-
-public:
-	void resetSwap() {
-		k = originalk;
-		otherk = originalotherk;
-	}
 
 	// Predecessors with respect to the Kripke structure's transition system.
 	// Note that this creates a new Bitset, you might want to reuse an existing bitset and use the next function below
 	Bitset* pre(Bitset& st) {
-		Bitset *prest = new Bitset(k->states());
-		for (int i=0; i<k->nEdgeIDs();i++) {
-			if (st[k->getEdge(i).to]) {
-				prest->set(k->getEdge(i).from);
+		Bitset *prest = new Bitset(k.states());
+		for (int i=0; i<k.nEdgeIDs();i++) {
+			if (st[k.getEdge(i).to]) {
+				prest->set(k.getEdge(i).from);
 			}
 		}
 		return prest;
@@ -68,9 +51,9 @@ public:
 	// Use st as input and store pre(st) in out. Out does not need to be clean
 	void pre(Bitset& st, Bitset& out) {
 		out.memset(false);
-		for (int i=0; i<k->nEdgeIDs();i++) {
-			if (st[k->getEdge(i).to]) {
-				out.set(k->getEdge(i).from);
+		for (int i=0; i<k.nEdgeIDs();i++) {
+			if (st[k.getEdge(i).to]) {
+				out.set(k.getEdge(i).from);
 			}
 		}
 	}
@@ -98,9 +81,9 @@ public:
 
 	Bitset* solveID(CTLFormula& f) {
 		assert(f.op == ID);
-		Bitset *st = new Bitset(k->states());
-		for (int i=0; i<k->states();i++) {
-			if (k->statelabel[i][f.value])
+		Bitset *st = new Bitset(k.states());
+		for (int i=0; i<k.states();i++) {
+			if (k.statelabel[i][f.value])
 				st->set(i);
 		}
 		return st;
@@ -115,10 +98,8 @@ public:
 			return solve(*f.operand1->operand1);
 		}
 
-		swapKripkes();
-
 		Bitset *st = solve(*f.operand1);
-		Bitset *negst = new Bitset(k->states());
+		Bitset *negst = new Bitset(k.states());
 		st->Not(*negst);
 		delete st; // TODO does this actually work? Please confirm
 		return negst;
@@ -159,8 +140,8 @@ public:
 		// μ(p)
 		Bitset *st = solve(*f.operand1);
 		// Auxiliary bitsets
-		Bitset *andst = new Bitset(k->states());
-		Bitset *prest = new Bitset(k->states());
+		Bitset *andst = new Bitset(k.states());
+		Bitset *prest = new Bitset(k.states());
 
 		while (true) { // fixpoint guaranteed to exist, therefore this will terminate
 			// pre(X)
@@ -184,8 +165,8 @@ public:
 		// μ(p)
 		Bitset *st = solve(*f.operand1);
 		// Auxiliary bitsets
-		Bitset *orst = new Bitset(k->states());
-		Bitset *prest = new Bitset(k->states());
+		Bitset *orst = new Bitset(k.states());
+		Bitset *prest = new Bitset(k.states());
 
 		while (true) { // fixpoint guaranteed to exist, therefore this will terminate
 			// pre(X)
@@ -218,10 +199,10 @@ public:
 		Bitset *st1 = solve(*f.operand1);
 		Bitset *st2 = solve(*f.operand2);
 		// Auxiliary bitsets
-		Bitset *andst = new Bitset(k->states());
-		Bitset *orst = new Bitset(k->states());
-		Bitset *prest = new Bitset(k->states());
-		Bitset *x = new Bitset(k->states());
+		Bitset *andst = new Bitset(k.states());
+		Bitset *orst = new Bitset(k.states());
+		Bitset *prest = new Bitset(k.states());
+		Bitset *x = new Bitset(k.states());
 		x->copyFrom(*st2); // start out with X as μ(q)
 
 		while (true) { // fixpoint guaranteed to exist, therefore this will terminate
