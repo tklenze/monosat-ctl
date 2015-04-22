@@ -59,7 +59,7 @@ public:
 		int to=-1;
 	};
 	struct Assignment {
-		VarType type :2;
+		VarType type;
 		bool assign :1;
 		int ID:30; // e.g. EdgeID
 		int AP:30; // AP, if it is an assignment to NodeAP, or -1 otherwise
@@ -815,6 +815,14 @@ public:
 		Var nodeap = newVar(outerVar, node, NODEAP, true);
 
 		return mkLit(nodeap, false);
+	}
+
+	// FIXME WTF am I doing here anyway?
+	Lit newCTLVar(Var outerVar = var_Undef) {
+
+		Var ctlVar = newVar(outerVar, 0, DETECTOR, true);
+
+		return mkLit(ctlVar, false);
 	}
 
 

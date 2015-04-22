@@ -144,6 +144,7 @@ class CTLParser: public Parser<B, Solver> {
 		}
 		int kripkeID = parseInt(in);
 		int initialNode = parseInt(in);
+		int ctlVar = parseInt(in);
 
 		CTLFormula* f = parseCTL(in);
 
@@ -152,6 +153,7 @@ class CTLParser: public Parser<B, Solver> {
 		printf("\n");
 
 		kripkes[kripkeID]->setCTL(*f, initialNode);
+		kripkes[kripkeID]->newCTLVar(ctlVar);
 
 		return;
 	}
