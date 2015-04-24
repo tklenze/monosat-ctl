@@ -365,6 +365,7 @@ public:
 		delete foo;
 	}
 
+public:
 	void printStateSet(Bitset& s) {
 		printf("{");
 		for (int i=0; i<s.size(); i++) {

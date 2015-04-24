@@ -116,10 +116,10 @@ public:
 	vec<Lit> tmp_clause;
 	//Data about local theory variables, and how they connect to the sat solver's variables
 	struct VarData {
-		VarType type :1;
+		VarType type;
 		int occursPositive :1;
 		int occursNegative :1;
-		int detector_node_edge :29;	//the detector this variable belongs to, or its edge number, if it is an edge variable, or the node number, if it is a node AP
+		int detector_node_edge :30;	//the detector this variable belongs to, or its edge number, if it is an edge variable, or the node number, if it is a node AP
 		int ap; // the AP id, if it is a NodeAP. -1 Otherwise
 		Var solverVar;
 	};
@@ -295,8 +295,10 @@ public:
 		if(type == EDGE){
 			assert(detector_node_edge>-1);
 		}
-		if ((type == DETECTOR) && detector_node_edge >= 0)
-			detectors[detector_node_edge]->addVar(v);
+
+		// FIXME is this right? Don't do anything in particular for DETECTOR
+		//if ((type == DETECTOR) && detector_node_edge >= 0)
+		//	detectors[detector_node_edge]->addVar(v);
 		return v;
 	}
 	inline int level(Var v) {
@@ -668,18 +670,33 @@ public:
 			}
 		}
 		*/
+
+		printf("\n--------------------\n");
+		printf("Under:\n");
+		g_under->draw();
+		printf("\nOder:\n");
+		g_over->draw();
+
 		
 		Bitset* bit_under = ctl_under->solve(*f);
 		Bitset* bit_over = ctl_over->solve(*f);
 
 		ctl_under->resetSwap();
 		ctl_over->resetSwap();
-		
+
+		printf("\nSolution:\nUnder:\n");
+		ctl_under->printStateSet(*bit_under);
+		printf("Over:\n");
+		ctl_over->printStateSet(*bit_over);
+
+
 		if (bit_over->operator [](initialNode)) {
+			printf("\npropagateTheory returns true, since property holds in the overapproximation\n");
 			return false; // It does hold in the overapproximation
 		}
 
 		if (!bit_under->operator [](initialNode)) {
+			printf("\npropagateTheory returns false, since property does not hold in the underapproximation\n");
 			return false; // It does not hold in the underapproximation
 		}
 
@@ -713,6 +730,9 @@ public:
 	}
 
 	bool check_solved() {
+		return true; // Not implemented!
+
+
 		for (int edgeID = 0; edgeID < edge_labels.size(); edgeID++) {
 			if (getTransition(edgeID).v < 0)
 				continue;

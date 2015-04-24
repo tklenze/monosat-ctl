@@ -1,0 +1,21 @@
+p cnf 13 7
+5 6 0
+-5 -6 0
+1 0
+2 3 0
+-2 -3 0
+12 0
+kripke 3 4 2 0
+kedge 0 0 1 1
+kedge 0 1 0 2
+kedge 0 1 2 3 
+kedge 0 2 2 4 
+knodeap 0 0 0 5
+knodeap 0 0 1 6
+knodeap 0 1 0 7
+knodeap 0 1 1 8
+knodeap 0 2 0 9
+knodeap 0 2 1 10
+kctl 0 0 EX (4 AW EG (7 AU 4))
+c kctl 0 EX EG 3
+kdraw
