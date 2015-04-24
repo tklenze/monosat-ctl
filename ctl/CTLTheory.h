@@ -671,10 +671,10 @@ public:
 		}
 		*/
 
-		printf("\n--------------------\n");
+		printf("\n--------------------\npropagateTheory has been called\n");
 		printf("Under:\n");
 		g_under->draw();
-		printf("\nOder:\n");
+		printf("\nOver:\n");
 		g_over->draw();
 
 		
