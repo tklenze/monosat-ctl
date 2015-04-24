@@ -91,7 +91,7 @@ class CTLParser: public Parser<B, Solver> {
 		int kripkeID = parseInt(in);
 		int node = parseInt(in);
 		int ap = parseInt(in);
-		int nodeVar = parseInt(in);
+		int nodeVar = parseInt(in) - 1;
 			// TODO
 			// should set it to undecided
 		kripkes[kripkeID]->newNodeAP(node, ap, nodeVar);
@@ -142,9 +142,11 @@ class CTLParser: public Parser<B, Solver> {
 			skipLine(in);
 			return;
 		}
+		++in;
+
 		int kripkeID = parseInt(in);
 		int initialNode = parseInt(in);
-		int ctlVar = parseInt(in);
+		int ctlVar = parseInt(in) - 1;
 
 		CTLFormula* f = parseCTL(in);
 
@@ -163,6 +165,12 @@ class CTLParser: public Parser<B, Solver> {
 	CTLFormula* parseCTL(B& in) {
 		skipWhitespace(in);
 		CTLFormula* f = newCTLFormula();
+		if (match(in, "NEG")) {
+			CTLFormula* inside = parseCTL(in);
+			f->op = NEG;
+			f->operand1 = inside;
+			return f;
+		}
 		if (match(in, "EX")) {
 			CTLFormula* inside = parseCTL(in);
 			f->op = EX;
@@ -242,6 +250,28 @@ class CTLParser: public Parser<B, Solver> {
 				skipWhitespace(in);
 				if (match(in, ")")) {
 					f->op = AU;
+					f->operand1 = inside1;
+					f->operand2 = inside2;
+				} else {
+					printf("Error: Expected closing bracket");
+				}
+			} else if (match(in, "OR")) {
+				CTLFormula* inside2 = parseCTL(in);
+				printf("DEBUG: Parsed second part, "); printFormula(inside2); printf("\n");
+				skipWhitespace(in);
+				if (match(in, ")")) {
+					f->op = OR;
+					f->operand1 = inside1;
+					f->operand2 = inside2;
+				} else {
+					printf("Error: Expected closing bracket");
+				}
+			} else if (match(in, "AND")) {
+				CTLFormula* inside2 = parseCTL(in);
+				printf("DEBUG: Parsed second part, "); printFormula(inside2); printf("\n");
+				skipWhitespace(in);
+				if (match(in, ")")) {
+					f->op = AND;
 					f->operand1 = inside1;
 					f->operand2 = inside2;
 				} else {

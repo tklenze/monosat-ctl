@@ -92,6 +92,7 @@ public:
 
 	CTLFormula* f;
 	int initialNode; // Start state
+	Lit ctl_lit; // the Lit corresponding to the ctl formula
 
 	//// Vector of CTL Formulas on the specific Kripke structure this solver deals with
 	//vec<CTLFormula> formulas;
@@ -420,7 +421,7 @@ public:
 					}
 				} else {
 					//This is a detector literal
-					detectors[getDetector(e.var)]->unassign(mkLit(e.var, !e.assign));
+					//detectors[getDetector(e.var)]->unassign(mkLit(e.var, !e.assign));
 				}
 				assigns[e.var] = l_Undef;
 				changed = true;
@@ -586,6 +587,9 @@ public:
 		if (assigns[var(l)] != l_Undef) {
 			return;			//this is already enqueued.
 		}
+
+		printf("EnqueueTheory(Lit %d), var %d, new sign: %d\n", l.x, v, sign(l));
+
 		assert(assigns[var(l)]==l_Undef);
 		assigns[var(l)] = sign(l) ? l_False : l_True;
 		requiresPropagation = true;
@@ -626,7 +630,7 @@ public:
 		} else { // Detector AP
 			trail.push( { DETECTOR, !sign(l),-1, -1, v });
 			//this is an assignment to a non-edge atom. (eg, a reachability assertion)
-			detectors[getDetector(var(l))]->assign(l);
+			//detectors[getDetector(var(l))]->assign(l);
 		}
 		
 	}
@@ -689,16 +693,17 @@ public:
 		printf("Over:\n");
 		ctl_over->printStateSet(*bit_over);
 
+        if (value(ctl_lit)==l_True &&  !bit_over->operator [](initialNode)) {
+        	printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
+        	printf("\npropagateTheory returns false, since formula is asserted true, but fails to hold in the overapproximation (and hence also fails to hold in the underapproximation) \n");
+            return false; // It does not hold in the overapproximation
+        }
 
-		if (bit_over->operator [](initialNode)) {
-			printf("\npropagateTheory returns true, since property holds in the overapproximation\n");
-			return false; // It does hold in the overapproximation
-		}
-
-		if (!bit_under->operator [](initialNode)) {
-			printf("\npropagateTheory returns false, since property does not hold in the underapproximation\n");
-			return false; // It does not hold in the underapproximation
-		}
+        if (value(ctl_lit)==l_False &&  bit_under->operator [](initialNode)) {
+        	printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
+            printf("\npropagateTheory returns false, since formula is asserted false, but it holds in the underapproximation (and hence also holds in the overapproximation)\n");
+            return false; // It does not hold in the underapproximation
+        }
 
 		requiresPropagation = false;
 		g_under->clearChanged();
@@ -842,7 +847,11 @@ public:
 
 		Var ctlVar = newVar(outerVar, 0, DETECTOR, true);
 
-		return mkLit(ctlVar, false);
+		ctl_lit = mkLit(ctlVar, false);
+
+		printf("Initialization: ctl_lit: true? %d, false? %d, undef? %d\n", value(ctl_lit) == l_True, value(ctl_lit) == l_False, value(ctl_lit) == l_Undef);
+
+		return ctl_lit;
 	}
 
 
