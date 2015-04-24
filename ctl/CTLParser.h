@@ -171,6 +171,12 @@ class CTLParser: public Parser<B, Solver> {
 			f->operand1 = inside;
 			return f;
 		}
+		if (match(in, "NOT")) { // out of convenience, identical to NEG
+			CTLFormula* inside = parseCTL(in);
+			f->op = NEG;
+			f->operand1 = inside;
+			return f;
+		}
 		if (match(in, "EX")) {
 			CTLFormula* inside = parseCTL(in);
 			f->op = EX;

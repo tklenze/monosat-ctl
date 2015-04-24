@@ -58,7 +58,7 @@ public:
 	Bitset* pre(Bitset& st) {
 		Bitset *prest = new Bitset(k->states());
 		for (int i=0; i<k->nEdgeIDs();i++) {
-			if (st[k->getEdge(i).to]) {
+			if (st[k->getEdge(i).to] && k->transitionEnabled(i)) {
 				prest->set(k->getEdge(i).from);
 			}
 		}
@@ -147,6 +147,14 @@ public:
 	Bitset* solveEX(CTLFormula& f) {
 		assert(f.op == EX);
 		Bitset *st = solve(*f.operand1);
+
+		/* FIXME Debug output
+		printf("Called solveEX("); printFormula(&f);
+		printf(", with state set: "); printStateSet(*st);
+		printf(", solution: "); printStateSet(*pre(*st));
+		printf("\n");
+		 */
+
 		return pre(*st);
 	}
 

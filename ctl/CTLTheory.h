@@ -386,6 +386,8 @@ public:
 	}
 
 	void backtrackUntil(int level) { // FIXME important
+		printf("Backtracking until level %d\n", level);
+
 		static int it = 0;
 		
 		bool changed = false;
@@ -402,6 +404,9 @@ public:
 					int edgeID = getEdgeID(e.var); //e.var-min_edge_var;
 					assert(edgeID==e.ID);
 
+					printf("Backtracking edge assignment %d\n", edgeID);
+
+
 					if (e.assign) {
 						g_under->disableTransition(edgeID);
 					} else {
@@ -413,6 +418,7 @@ public:
 					int apID = getAPID(e.var);
 					assert(nodeID==e.ID);
 					assert(apID==e.AP);
+					printf("Backtracking nodeap assignment %d\n", nodeID);
 
 					if (e.assign) {
 						g_under->disableAPinStateLabel(nodeID, apID);
@@ -422,6 +428,8 @@ public:
 				} else {
 					//This is a detector literal
 					//detectors[getDetector(e.var)]->unassign(mkLit(e.var, !e.assign));
+					printf("Backtracking CTL assignment\n");
+
 				}
 				assigns[e.var] = l_Undef;
 				changed = true;
