@@ -691,18 +691,28 @@ public:
 
 
 		// If we have a conflict, populate conflict set
-		if ((value(ctl_lit)==l_True &&  !bit_over->operator [](initialNode)) ||
+		/*if ((value(ctl_lit)==l_True &&  !bit_over->operator [](initialNode)) ||
 				(value(ctl_lit)==l_False &&  bit_under->operator [](initialNode))) {
 			for (int i = 0; i < vars.size(); i++) {
 				if (vars[i].occursNegative) {
+					assert(value(mkLit(vars[i].solverVar, true))==l_False);
 					conflict.push(mkLit(vars[i].solverVar, true));
 				} else {
+					assert(value(mkLit(vars[i].solverVar, false))==l_False);
 					conflict.push(mkLit(vars[i].solverVar, false));
 				}
 			}
-		}
+		}*/
 
         if (value(ctl_lit)==l_True &&  !bit_over->operator [](initialNode)) {
+        	for (int v = 0; v < vars.size(); v++) {
+        		if(value(v)!=l_Undef){
+        			Lit l = ~mkLit(v,value(v)==l_False);
+        			assert(value(l)==l_False);
+					conflict.push(l);
+        		}
+        	}
+
 			toSolver(conflict);
         	printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
         	printf("\npropagateTheory returns false, since formula is asserted true, but fails to hold in the overapproximation (and hence also fails to hold in the underapproximation) \n");
@@ -710,6 +720,13 @@ public:
         }
 
         if (value(ctl_lit)==l_False &&  bit_under->operator [](initialNode)) {
+          	for (int v = 0; v < vars.size(); v++) {
+				if(value(v)!=l_Undef){
+					Lit l = ~mkLit(v,value(v)==l_False);
+					assert(value(l)==l_False);
+					conflict.push(l);
+				}
+			}
 			toSolver(conflict);
         	printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
             printf("\npropagateTheory returns false, since formula is asserted false, but it holds in the underapproximation (and hence also holds in the overapproximation)\n");
