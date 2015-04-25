@@ -69,7 +69,7 @@ public:
 	void pre(Bitset& st, Bitset& out) {
 		out.memset(false);
 		for (int i=0; i<k->nEdgeIDs();i++) {
-			if (st[k->getEdge(i).to]) {
+			if (st[k->getEdge(i).to] && k->transitionEnabled(i)) {
 				out.set(k->getEdge(i).from);
 			}
 		}

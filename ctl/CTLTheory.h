@@ -26,6 +26,7 @@
 #include "core/Theory.h"
 #include "ctl/DynamicKripke.h"
 #include "ctl/CTLSolver.h"
+#include "ctl/CTLSolverStandalone.h"
 #include "DynamicKripke.h"
 #include "core/SolverTypes.h"
 #include "mtl/Map.h"
@@ -89,6 +90,8 @@ public:
 
 	CTLSolver* ctl_under; //one for each over and under
 	CTLSolver* ctl_over;
+	CTLSolverStandalone* ctl_standalone_under; // Used for a sanity check at the end
+	CTLSolverStandalone* ctl_standalone_over;
 
 	CTLFormula* f;
 	int initialNode; // Start state
@@ -160,6 +163,8 @@ public:
 		g_over = new DynamicKripke(id);
 		ctl_under = new CTLSolver(id, *g_under, *g_over);
 		ctl_over = new CTLSolver(id, *g_over, *g_under);
+		ctl_standalone_over = new CTLSolverStandalone(id, *g_over);
+		ctl_standalone_under = new CTLSolverStandalone(id, *g_under);
 		f = newCTLFormula();
 
 		rnd_seed = opt_random_seed;
@@ -763,8 +768,7 @@ public:
 	}
 
 	bool check_solved() {
-		return true; // Not implemented!
-
+		// TODO sanity check for NodeAPs. Thus far we only check for edges and whether the CTL formula is satisfied
 
 		for (int edgeID = 0; edgeID < edge_labels.size(); edgeID++) {
 			if (getTransition(edgeID).v < 0)
@@ -805,11 +809,21 @@ public:
 						 }*/
 			}
 		}
-		for (int i = 0; i < detectors.size(); i++) {
-			if (!detectors[i]->checkSatisfied()) {
-				return false;
-			}
+		Bitset* bit_standalone_over = ctl_standalone_over->solve(*f);
+		Bitset* bit_standalone_under = ctl_standalone_under->solve(*f);
+
+		ctl_standalone_over->printStateSet(*bit_standalone_under);
+		ctl_standalone_under->printStateSet(*bit_standalone_under);
+
+		if (value(ctl_lit)==l_True &&
+				(!bit_standalone_over->operator [](initialNode) || !bit_standalone_under->operator [](initialNode))) {
+			return false;
 		}
+		if (value(ctl_lit)==l_False &&
+				(bit_standalone_over->operator [](initialNode) || bit_standalone_under->operator [](initialNode))) {
+			return false;
+		}
+
 		return true;
 	}
 
