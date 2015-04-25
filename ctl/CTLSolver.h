@@ -121,6 +121,9 @@ public:
 		Bitset *negst = new Bitset(k->states());
 		st->Not(*negst);
 		delete st; // TODO does this actually work? Please confirm
+
+		swapKripkes();
+
 		return negst;
 	}
 

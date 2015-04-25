@@ -1,19 +1,20 @@
-p cnf 9 9
--1 -6 0
--2 -7 0
-3 0
-4 0
-5 0
-6 7 0
-8 0
-kripke 3 4 1 0
-kedge 0 0 1 1
-kedge 0 0 2 2
-kedge 0 1 1 3
-kedge 0 2 2 4 
-knodeap 0 0 0 5
-knodeap 0 1 0 6
-knodeap 0 2 0 7
-kctl 0 0 8 EX 0
-kdraw
-c -1 6 -7
+p cnf 16 2
+16 0
+kripke 3 9 2 0
+kedge 0 1 1 1
+kedge 0 2 2 2 
+kedge 0 2 2 3 
+kedge 0 0 1 4
+kedge 0 0 2 5
+kedge 0 1 0 6
+kedge 0 1 2 7
+kedge 0 2 0 8
+kedge 0 2 1 9
+knodeap 0 0 0 10
+knodeap 0 1 0 11
+knodeap 0 2 0 12
+knodeap 0 0 1 13
+knodeap 0 1 1 14
+knodeap 0 2 1 15
+kctl 0 0 16 (((EX NOT 0 AND EX 0) AND AX EF 0) AND (NOT 1 AND (0 AU 1)))
+

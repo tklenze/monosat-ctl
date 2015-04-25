@@ -279,11 +279,11 @@ public:
 		S->addClauseSafely(tmp_clause);
 	}
 	
-	Var newAuxVar(int forDetector = -1, VarType type = DETECTOR, bool connectToTheory = false) {
+	Var newAuxVar(int forDetector = -1, int ap = -1, VarType type = DETECTOR, bool connectToTheory = false) {
 		Var s = S->newVar();
-		return newVar(s, forDetector,type, connectToTheory);
+		return newVar(s, forDetector, ap, type, connectToTheory);
 	}
-	Var newVar(Var solverVar,  int detector_node_edge, VarType type, bool connectToTheory = true) {
+	Var newVar(Var solverVar,  int detector_node_edge, int ap, VarType type, bool connectToTheory = true) {
 		while (S->nVars() <= solverVar)
 			S->newVar();
 		Var v = vars.size();
@@ -291,6 +291,7 @@ public:
 		vars.push();
 		vars[v].type = type;
 		vars[v].detector_node_edge = detector_node_edge;
+		vars[v].ap = ap;
 		vars[v].solverVar = solverVar;
 		assigns.push(l_Undef);
 		if (connectToTheory) {
@@ -601,7 +602,7 @@ public:
 			return;			//this is already enqueued.
 		}
 
-		printf("EnqueueTheory(Lit %d), var %d, new sign: %d\n", l.x, v, sign(l));
+		printf("enqueueTheory(Lit %d), var %d, new sign: %d\n", (l.x+2), v+1, sign(l));
 
 		assert(assigns[var(l)]==l_Undef);
 		assigns[var(l)] = sign(l) ? l_False : l_True;
@@ -677,10 +678,10 @@ public:
 
 
 		printf("\n--------------------\npropagateTheory has been called\n");
-		printf("Under:\n");
-		g_under->draw();
 		printf("\nOver:\n");
 		g_over->draw();
+		printf("Under:\n");
+		g_under->draw();
 
 		
 		Bitset* bit_under = ctl_under->solve(*f);
@@ -689,10 +690,10 @@ public:
 		ctl_under->resetSwap();
 		ctl_over->resetSwap();
 
-		printf("\nSolution:\nUnder:\n");
-		ctl_under->printStateSet(*bit_under);
 		printf("Over:\n");
 		ctl_over->printStateSet(*bit_over);
+		printf("\nSolution:\nUnder:\n");
+		ctl_under->printStateSet(*bit_under);
 
 
 		// If we have a conflict, populate conflict set
@@ -812,9 +813,6 @@ public:
 		Bitset* bit_standalone_over = ctl_standalone_over->solve(*f);
 		Bitset* bit_standalone_under = ctl_standalone_under->solve(*f);
 
-		ctl_standalone_over->printStateSet(*bit_standalone_under);
-		ctl_standalone_under->printStateSet(*bit_standalone_under);
-
 		if (value(ctl_lit)==l_True &&
 				(!bit_standalone_over->operator [](initialNode) || !bit_standalone_under->operator [](initialNode))) {
 			return false;
@@ -863,7 +861,7 @@ public:
 
 		g_under->addTransition(from,to,edgeID,false);
 		edgeID =g_over->addTransition(from,to,edgeID,true);
-		Var v = newVar(outerVar,edgeID, EDGE, true);
+		Var v = newVar(outerVar,edgeID, -1, EDGE, true);
 
 		edge_labels.growTo(edgeID+1);
 
@@ -879,7 +877,7 @@ public:
 		g_under->disableAPinStateLabel(node,ap);
 		g_over->enableAPinStateLabel(node,ap);
 
-		Var nodeap = newVar(outerVar, node, NODEAP, true);
+		Var nodeap = newVar(outerVar, node, ap, NODEAP, true);
 
 		return mkLit(nodeap, false);
 	}
@@ -887,7 +885,7 @@ public:
 	// FIXME WTF am I doing here anyway?
 	Lit newCTLVar(Var outerVar = var_Undef) {
 
-		Var ctlVar = newVar(outerVar, 0, DETECTOR, true);
+		Var ctlVar = newVar(outerVar, 0, -1, DETECTOR, true);
 
 		ctl_lit = mkLit(ctlVar, false);
 

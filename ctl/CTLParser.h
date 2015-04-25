@@ -92,10 +92,8 @@ class CTLParser: public Parser<B, Solver> {
 		int node = parseInt(in);
 		int ap = parseInt(in);
 		int nodeVar = parseInt(in) - 1;
-			// TODO
-			// should set it to undecided
-		kripkes[kripkeID]->newNodeAP(node, ap, nodeVar);
 
+		kripkes[kripkeID]->newNodeAP(node, ap, nodeVar);
 	}
 
 	
@@ -113,7 +111,6 @@ class CTLParser: public Parser<B, Solver> {
 		int edgeVar = parseInt(in) - 1;
 
 		if (kripkeID < 0 || kripkeID >= kripkes.size()) {
-			printf("DEBUG: kripkeID %d\n", kripkeID);
 			printf("PARSE ERROR! Undeclared graph identifier %d for edge %d\n", kripkeID, edgeVar), exit(1);
 		}
 		if (edgeVar < 0) {
@@ -215,82 +212,72 @@ class CTLParser: public Parser<B, Solver> {
 		}
 		if (match(in, "(")) {
 			CTLFormula* inside1 = parseCTL(in);
-			printf("DEBUG: Parsed first part, "); printFormula(inside1); printf("\n");
 			skipWhitespace(in);
 			if (match(in, "EW")) {
 				CTLFormula* inside2 = parseCTL(in);
-				printf("DEBUG: Parsed second part, "); printFormula(inside2); printf("\n");
 				skipWhitespace(in);
 				if (match(in, ")")) {
 					f->op = EW;
 					f->operand1 = inside1;
 					f->operand2 = inside2;
 				} else {
-					printf("Error: Expected closing bracket");
+					printf("Error: Expected closing bracket"); exit(1);
 				}
 			} else if (match(in, "EU")) {
 				CTLFormula* inside2 = parseCTL(in);
-				printf("DEBUG: Parsed second part, "); printFormula(inside2); printf("\n");
 				skipWhitespace(in);
 				if (match(in, ")")) {
 					f->op = EU;
 					f->operand1 = inside1;
 					f->operand2 = inside2;
 				} else {
-					printf("Error: Expected closing bracket");
+					printf("Error: Expected closing bracket"); exit(1);
 				}
 			} else if (match(in, "AW")) {
 				CTLFormula* inside2 = parseCTL(in);
-				printf("DEBUG: Parsed second part, "); printFormula(inside2); printf("\n");
 				skipWhitespace(in);
 				if (match(in, ")")) {
 					f->op = AW;
 					f->operand1 = inside1;
 					f->operand2 = inside2;
 				} else {
-					printf("Error: Expected closing bracket");
+					printf("Error: Expected closing bracket"); exit(1);
 				}
 			} else if (match(in, "AU")) {
 				CTLFormula* inside2 = parseCTL(in);
-				printf("DEBUG: Parsed second part, "); printFormula(inside2); printf("\n");
 				skipWhitespace(in);
 				if (match(in, ")")) {
 					f->op = AU;
 					f->operand1 = inside1;
 					f->operand2 = inside2;
 				} else {
-					printf("Error: Expected closing bracket");
+					printf("Error: Expected closing bracket"); exit(1);
 				}
 			} else if (match(in, "OR")) {
 				CTLFormula* inside2 = parseCTL(in);
-				printf("DEBUG: Parsed second part, "); printFormula(inside2); printf("\n");
 				skipWhitespace(in);
 				if (match(in, ")")) {
 					f->op = OR;
 					f->operand1 = inside1;
 					f->operand2 = inside2;
 				} else {
-					printf("Error: Expected closing bracket");
+					printf("Error: Expected closing bracket"); exit(1);
 				}
 			} else if (match(in, "AND")) {
 				CTLFormula* inside2 = parseCTL(in);
-				printf("DEBUG: Parsed second part, "); printFormula(inside2); printf("\n");
 				skipWhitespace(in);
 				if (match(in, ")")) {
 					f->op = AND;
 					f->operand1 = inside1;
 					f->operand2 = inside2;
 				} else {
-					printf("Error: Expected closing bracket");
+					printf("Error: Expected closing bracket"); exit(1);
 				}
 			} else {
-				printf("Error: Operator missing");
+				printf("Error: Operator missing"); exit(1);
 			}
-			printf("DEBUG: Parsed bracket formula, "); printFormula(f); printf("\n");
 			return f;
 		}
-		// ... TODO, other matches
-
 		// No other matches, must be a number.
 		int n = parseInt(in);
 		f->op = ID;
