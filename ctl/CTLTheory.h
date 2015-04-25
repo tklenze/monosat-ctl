@@ -669,19 +669,7 @@ public:
 		//stats_initial_propagation_time += rtime(1) - startproptime;
 
 		assert(dbg_graphsUpToDate());
-		
-		/*
-		for (int d = 0; d < detectors.size(); d++) {
-			assert(conflict.size() == 0);
-			bool r = detectors[d]->propagate(conflict);
-			if (!r) {
-				stats_num_conflicts++;
-				toSolver(conflict);
-				propagationtime += rtime(1) - startproptime;
-				return false;
-			}
-		}
-		*/
+
 
 		printf("\n--------------------\npropagateTheory has been called\n");
 		printf("Under:\n");
@@ -701,13 +689,28 @@ public:
 		printf("Over:\n");
 		ctl_over->printStateSet(*bit_over);
 
+
+		// If we have a conflict, populate conflict set
+		if ((value(ctl_lit)==l_True &&  !bit_over->operator [](initialNode)) ||
+				(value(ctl_lit)==l_False &&  bit_under->operator [](initialNode))) {
+			for (int i = 0; i < vars.size(); i++) {
+				if (vars[i].occursNegative) {
+					conflict.push(mkLit(vars[i].solverVar, true));
+				} else {
+					conflict.push(mkLit(vars[i].solverVar, false));
+				}
+			}
+		}
+
         if (value(ctl_lit)==l_True &&  !bit_over->operator [](initialNode)) {
+			toSolver(conflict);
         	printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
         	printf("\npropagateTheory returns false, since formula is asserted true, but fails to hold in the overapproximation (and hence also fails to hold in the underapproximation) \n");
             return false; // It does not hold in the overapproximation
         }
 
         if (value(ctl_lit)==l_False &&  bit_under->operator [](initialNode)) {
+			toSolver(conflict);
         	printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
             printf("\npropagateTheory returns false, since formula is asserted false, but it holds in the underapproximation (and hence also holds in the overapproximation)\n");
             return false; // It does not hold in the underapproximation
