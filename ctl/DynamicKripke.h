@@ -105,7 +105,7 @@ public:
 	}
 
 	void enableAPinStateLabel(int state, int ap) {
-		printf("Called enableAP on state %d, ap %d\n", state, ap);
+		//printf("Called enableAP on state %d, ap %d\n", state, ap);
 
 		if (state >= statelabel.size()) {
 			statelabel.resize(state+1);
@@ -124,7 +124,7 @@ public:
 	}
 
 	void disableAPinStateLabel(int state, int ap) {
-		printf("Called disableAP on state %d, ap %d\n", state, ap);
+		//printf("Called disableAP on state %d, ap %d\n", state, ap);
 
 		if (state >= statelabel.size()) {
 			statelabel.resize(state+1);
@@ -219,7 +219,7 @@ public:
 	}
 
 	bool edgeEnabled(int edgeID) const {
-		return g.edgeEnabled(edgeID);
+		return transitions[edgeID];
 	}
 	bool isEdge(int edgeID) const {
 		return g.isEdge(edgeID);

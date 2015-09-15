@@ -129,6 +129,7 @@ public:
 	};
 
 	vec<VarData> vars;
+	vec<vec<int>> nodeAPVarLookup; // Look up the solver var given a node id and a AP id. Initialized by initNodeAPVarLookup(n, a)
 	int theory_index = 0;
 public:
 	
@@ -236,7 +237,13 @@ public:
 	inline Var getTransitionVar(int edgeID) {
 		Var v = getTransition(edgeID).v;
 		assert(v < vars.size());
-		//assert(vars[v].isEdge);
+		return v;
+	}
+
+	inline Var getNodeAPVar(int node, int ap) {
+		Var v = nodeAPVarLookup[node][ap];
+		assert(v < vars.size());
+
 		return v;
 	}
 
@@ -711,13 +718,14 @@ public:
 		}*/
 
         if (value(ctl_lit)==l_True &&  !bit_over->operator [](initialNode)) {
-        	for (int v = 0; v < vars.size(); v++) {
-        		if(value(v)!=l_Undef){
-        			Lit l = ~mkLit(v,value(v)==l_False);
-        			assert(value(l)==l_False);
-					conflict.push(l);
-        		}
-        	}
+
+        	// THIS IS WHERE I DO CLAUSE LEARNING 1
+
+        	learnClausePos(conflict, *f, initialNode);
+
+
+			printFullClause();
+			printLearntClause(conflict);
 
 			toSolver(conflict);
         	printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
@@ -726,6 +734,9 @@ public:
         }
 
         if (value(ctl_lit)==l_False &&  bit_under->operator [](initialNode)) {
+
+        	// THIS IS WHERE I DO CLAUSE LEARNING 2
+
           	for (int v = 0; v < vars.size(); v++) {
 				if(value(v)!=l_Undef){
 					Lit l = ~mkLit(v,value(v)==l_False);
@@ -733,6 +744,19 @@ public:
 					conflict.push(l);
 				}
 			}
+
+      		printf("Learned clause (2):\n");
+
+          	for (int v = 0; v < conflict.size(); v++) {
+          		if (sign(conflict[v])) {
+          			printf("-%d ", var(conflict[v]));
+          		} else {
+              		printf("%d ", var(conflict[v]));
+          		}
+			}
+      		printf("\n");
+
+
 			toSolver(conflict);
         	printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
             printf("\npropagateTheory returns false, since formula is asserted false, but it holds in the underapproximation (and hence also holds in the overapproximation)\n");
@@ -754,6 +778,99 @@ public:
 		return true;
 	}
 	;
+
+	// Clause learning for when a CTL formula is supposed to be true, but is false in the overapproximation
+    // Starting from some initial state startNode (on the most toplevel call this will be the KripkeStructure's initial state,
+	// but not necessarily so on recursive calls).
+	void learnClausePos(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
+		if (subf.op == ID) { // Not recursive
+			printf("Clause learning case ID...\n");
+
+			int p = subf.value;
+
+			assert( !g_over->isAPinStateLabel(startNode, p) ); // Assert that the successor we are looking at does not satisfy p, otherwise EX p would be true and we had no conflict to learn
+			Lit l = ~mkLit(getNodeAPVar(startNode, p), true);
+			conflict.push(l);
+		}
+		else if (subf.op == EX) {
+			printf("Clause learning case EX...\n");
+
+			learnEX(conflict, subf, startNode);
+		}
+		else {
+			printf("Clause learning case OTHER...\n");
+
+			for (int v = 0; v < vars.size(); v++) {
+				if(value(v)!=l_Undef){
+					Lit l = ~mkLit(v,value(v)==l_False);
+					assert(value(l)==l_False);
+					conflict.push(l);
+				}
+			}
+		}
+	}
+
+	void learnEX(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
+		//Bitset* p = ctl_standalone_over->solve(subf); // Solve the inner subformula of the entire formula
+
+		DynamicGraph::Edge e;
+		int from, to;
+		for (int i = 0; i < g_over->nIncident(startNode); i++) {
+			e = g_over->incident(startNode, i);
+			from = g_over->getEdge(e.id).from;
+			to = g_over->getEdge(e.id).to;
+			printf("Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
+
+			// Two cases: Either the edge is enabled, then we need to add to the clause the possibility that the
+			// successor (the "to" state) satisfies p. Or the edge is disabled and we add the possibility that the
+			// edge is enabled.
+			// The first case is recursively solved
+			if (g_over->edgeEnabled(e.id)) {
+				learnClausePos(conflict, *subf.operand1, to);
+			} else { // No recursive evaluation needed
+				Lit l = ~mkLit(e.id, true);
+				conflict.push(l);
+			}
+
+		}
+	}
+
+
+
+
+	void printLearntClause(vec<Lit> & conflict) {
+  		printf("Learnt Clause:\n");
+
+      	for (int v = 0; v < conflict.size(); v++) {
+      		if (sign(conflict[v])) {
+      			printf("-%d ", var(conflict[v])+1);
+      		} else {
+          		printf("%d ", var(conflict[v])+1);
+      		}
+		}
+  		printf("\n");
+	}
+
+	void printFullClause() {
+  		printf("Full Clause:\n");
+
+  		vec<Lit> c;
+      	for (int v = 0; v < vars.size(); v++) {
+			if(value(v)!=l_Undef){
+				Lit l = ~mkLit(v,value(v)==l_False);
+				assert(value(l)==l_False);
+				c.push(l);
+			}
+		}
+      	for (int v = 0; v < c.size(); v++) {
+      		if (sign(c[v])) {
+      			printf("-%d ", var(c[v])+1);
+      		} else {
+          		printf("%d ", var(c[v])+1);
+      		}
+		}
+  		printf("\n");
+	}
 
 	bool solveTheory(vec<Lit> & conflict) {
 		requiresPropagation = true;		//Just to be on the safe side... but this shouldn't really be required.
@@ -873,11 +990,20 @@ public:
 		return mkLit(v, false);
 	}
 
+	void initNodeAPVarLookup(int nNodes, int nAp){
+		nodeAPVarLookup.growTo(nNodes);
+		for (int i = 0; i<nNodes; i++) {
+			nodeAPVarLookup[i].growTo(nAp);
+		}
+	}
+
 	Lit newNodeAP(int node, int ap, Var outerVar = var_Undef) {
 		g_under->disableAPinStateLabel(node,ap);
 		g_over->enableAPinStateLabel(node,ap);
 
 		Var nodeap = newVar(outerVar, node, ap, NODEAP, true);
+
+		nodeAPVarLookup[node][ap] = outerVar;
 
 		return mkLit(nodeap, false);
 	}

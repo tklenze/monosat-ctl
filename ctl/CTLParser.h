@@ -72,8 +72,10 @@ class CTLParser: public Parser<B, Solver> {
 
 		CTLTheorySolver *kripke = new CTLTheorySolver(&S, g);
 		kripke->newNodes(n);
+		kripke->initNodeAPVarLookup(n, a);
 		kripkes[g] = kripke;
 		S.addTheory(kripke);
+
 
 		printf("Kripkes.size: %d\n", kripkes.size());
 

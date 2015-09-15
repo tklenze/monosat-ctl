@@ -11,11 +11,12 @@ kedge 0 0 1 1
 kedge 0 0 2 2
 kedge 0 1 1 8
 kedge 0 2 2 4 
-kedge 0 2 3 5
+kedge 0 2 8 5
+kedge 0 8 8 6 
 knodeap 0 0 0 7
 knodeap 0 1 0 3
 knodeap 0 2 0 9
-knodeap 0 3 0 10
+knodeap 0 8 0 10
 kctl 0 0 11 EX EX 0
 kdraw
 
