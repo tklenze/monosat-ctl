@@ -58,5 +58,30 @@
 		}
 	}
 
+	// FIXME tidy up this mess of printFormula and printFormula2
+	void printFormula2(CTLFormula& f) {
+		//CTLFormula f = *foo;
+		switch (f.op) {
+		case ID : printf("%d", f.value); break;
+		case NEG: printf("not "); printFormula(f.operand1); break;
+		case OR : printf("("); printFormula(f.operand1); printf(" or "); printFormula(f.operand2); printf(")"); break;
+		case AND : printf("("); printFormula(f.operand1); printf(" and "); printFormula(f.operand2); printf(")"); break;
+
+		case EX : printf("EX "); printFormula(f.operand1); break;
+		case EF : printf("EF "); printFormula(f.operand1); break;
+		case EG : printf("EG "); printFormula(f.operand1); break;
+		case EW : printf("("); printFormula(f.operand1); printf(" EW "); printFormula(f.operand2); printf(")"); break;
+		case EU : printf("("); printFormula(f.operand1); printf(" EU "); printFormula(f.operand2); printf(")"); break;
+
+		case AX : printf("AX "); printFormula(f.operand1); break;
+		case AF : printf("AF "); printFormula(f.operand1); break;
+		case AG : printf("AG "); printFormula(f.operand1); break;
+		case AW : printf("("); printFormula(f.operand1); printf(" AW "); printFormula(f.operand2); printf(")"); break;
+		case AU : printf("("); printFormula(f.operand1); printf(" AU "); printFormula(f.operand2); printf(")"); break;
+
+		default : printf("Unknown formula: %d", f.op);
+		}
+	}
+
 
 #endif /* CTL_FORMULA_H_ */

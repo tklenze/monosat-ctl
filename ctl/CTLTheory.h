@@ -42,6 +42,7 @@
 #include <cstdlib>
 #include <unistd.h>
 #include <sstream>
+#include <queue>
 
 using namespace dgl;
 namespace Monosat {
@@ -804,12 +805,17 @@ public:
 		else if (subf.op == EX) {
 			printf("Clause learning case EX...\n");
 
-			learnEX(conflict, subf, startNode);
+			learnEX(conflict, *subf.operand1, startNode);
 		}
 		else if (subf.op == AX) {
 			printf("Clause learning case AX...\n");
 
-			learnAX(conflict, subf, startNode);
+			learnAX(conflict, *subf.operand1, startNode);
+		}
+		else if (subf.op == EG) {
+			printf("Clause learning case EG...\n");
+
+			learnEG(conflict, *subf.operand1, startNode);
 		}
 		else {
 			printf("Clause learning case OTHER...\n");
@@ -829,8 +835,6 @@ public:
 
 	// At least one neighbour gets phi, or at least one disabled edge to a neighbour is enabled
 	void learnEX(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
-		//Bitset* p = ctl_standalone_over->solve(subf); // Solve the inner subformula of the entire formula
-
 		DynamicGraph::Edge e;
 		int from, to;
 		for (int i = 0; i < g_over->nIncident(startNode); i++) {
@@ -844,7 +848,7 @@ public:
 			// edge is enabled.
 			// The first case is recursively solved
 			if (g_over->edgeEnabled(e.id)) {
-				learnClausePos(conflict, *subf.operand1, to);
+				learnClausePos(conflict, subf, to);
 			} else { // No recursive evaluation needed
 				Lit l = ~mkLit(e.id, true);
 				conflict.push(l);
@@ -870,7 +874,7 @@ public:
 			// We are looking for one single enabled edge such that the destination does not satisfy phi, and require
 			// that either it will satisfy phi or that the edge be disabled
 			if (g_over->edgeEnabled(e.id) && ! phi->operator [](to)) {
-				learnClausePos(conflict, *subf.operand1, to);
+				learnClausePos(conflict, subf, to);
 				Lit l = ~mkLit(e.id, false);
 				conflict.push(l);
 				return;
@@ -879,6 +883,56 @@ public:
 		}
 	}
 
+
+	// Successor to "phi-reachable" state satisfies phi or enable transition from any "phi-reachable" state
+	//
+	void learnEG(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
+		Bitset* phi = ctl_standalone_over->solve(subf); // Solve the inner subformula of the entire formula
+		ctl_standalone_over->printStateSet(*phi);
+		printFormula2(subf);
+
+		DynamicGraph::Edge e;
+		int from, to;
+
+		// if the start node does not satisfy phi, then we just ask phi to be satisfied here. This is treated separately, so
+		// that in the queue later we can assume every item in the queue to satisfy phi.
+		if (!phi->operator [](startNode)) {
+			printf("learnEG: initial state does not satisfy phi\n");
+			learnClausePos(conflict, subf, startNode);
+			return;
+		}
+
+		std::queue <int> list; // this queue denotes all the states satisfying phi, whose neighbours have to be inspected
+		list.push(startNode);
+		Bitset *done = new Bitset(g_over->states()); // This bitset denotes all the visited nodes
+		while (list.size() > 0) { // FIFO queue of visited elements
+			from = list.front();
+			list.pop();
+			printf("learnEG: Considering state %d\n", from);
+
+			for (int i = 0; i < g_over->nIncident(from); i++) { // iterate over neighbours of current front of queue
+				e = g_over->incident(from, i);
+				to = g_over->getEdge(e.id).to;
+				printf("learnEG: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
+
+
+				if (g_over->edgeEnabled(e.id)) {
+					if (phi->operator [](to) && !done->operator [](to)) {
+						list.push(to);
+
+					} else if (!phi->operator [](to)) {
+						learnClausePos(conflict, subf, to);
+					} else {
+						assert(false); // The previous conditions should have been exhaustive
+					}
+				} else {
+					Lit l = ~mkLit(e.id, true);
+					conflict.push(l);
+				}
+			}
+			done->set(from);
+		}
+	}
 
 
 
