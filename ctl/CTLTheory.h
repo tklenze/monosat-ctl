@@ -722,6 +722,15 @@ public:
         	// THIS IS WHERE I DO CLAUSE LEARNING 1
 
         	learnClausePos(conflict, *f, initialNode);
+        	/*  // old method, rather naive clause
+        	for (int v = 0; v < vars.size(); v++) {
+        		if(value(v)!=l_Undef){
+        			Lit l = ~mkLit(v,value(v)==l_False);
+        			assert(value(l)==l_False);
+					conflict.push(l);
+        		}
+        	}
+        	*/
 
 
 			printFullClause();
