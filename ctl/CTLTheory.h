@@ -797,7 +797,7 @@ public:
 
 			int p = subf.value;
 
-			assert( !g_over->isAPinStateLabel(startNode, p) ); // Assert that the successor we are looking at does not satisfy p, otherwise EX p would be true and we had no conflict to learn
+			assert( !g_over->isAPinStateLabel(startNode, p) ); // Assert that the startnode we are looking at does not satisfy p, otherwise we had no conflict to learn
 			Lit l = ~mkLit(getNodeAPVar(startNode, p), true);
 			conflict.push(l);
 		}
@@ -805,6 +805,11 @@ public:
 			printf("Clause learning case EX...\n");
 
 			learnEX(conflict, subf, startNode);
+		}
+		else if (subf.op == AX) {
+			printf("Clause learning case AX...\n");
+
+			learnAX(conflict, subf, startNode);
 		}
 		else {
 			printf("Clause learning case OTHER...\n");
@@ -819,6 +824,10 @@ public:
 		}
 	}
 
+	// We describe the individual clause learning strategies referring to phi, which is the inner formula.
+	// The to-learn clause representing the inner formula is discovered recursively
+
+	// At least one neighbour gets phi, or at least one disabled edge to a neighbour is enabled
 	void learnEX(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
 		//Bitset* p = ctl_standalone_over->solve(subf); // Solve the inner subformula of the entire formula
 
@@ -828,7 +837,7 @@ public:
 			e = g_over->incident(startNode, i);
 			from = g_over->getEdge(e.id).from;
 			to = g_over->getEdge(e.id).to;
-			printf("Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
+			printf("learnEX: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
 
 			// Two cases: Either the edge is enabled, then we need to add to the clause the possibility that the
 			// successor (the "to" state) satisfies p. Or the edge is disabled and we add the possibility that the
@@ -841,6 +850,32 @@ public:
 				conflict.push(l);
 			}
 
+		}
+	}
+
+	// At least one neighbour enables phi, or at least one enabled edge to a neighbour is disabled
+	// In order to make shorter clauses, we will only learn one clause: find an enabled edge to a state not satisfying
+	//
+	void learnAX(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
+		Bitset* phi = ctl_standalone_over->solve(subf); // Solve the inner subformula of the entire formula
+
+		DynamicGraph::Edge e;
+		int from, to;
+		for (int i = 0; i < g_over->nIncident(startNode); i++) {
+			e = g_over->incident(startNode, i);
+			from = g_over->getEdge(e.id).from;
+			to = g_over->getEdge(e.id).to;
+			printf("learnAX: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
+
+			// We are looking for one single enabled edge such that the destination does not satisfy phi, and require
+			// that either it will satisfy phi or that the edge be disabled
+			if (g_over->edgeEnabled(e.id) && ! phi->operator [](to)) {
+				learnClausePos(conflict, *subf.operand1, to);
+				Lit l = ~mkLit(e.id, false);
+				conflict.push(l);
+				return;
+			}
+			assert(false); // No clause was learned, which means that there is no enabled edge such that phi does not hold in the destination -- a contradiction to the fact, that AX phi does not hold!
 		}
 	}
 
