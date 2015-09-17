@@ -43,6 +43,8 @@
 #include <unistd.h>
 #include <sstream>
 #include <queue>
+#include <stack>
+#include <map>
 
 using namespace dgl;
 namespace Monosat {
@@ -817,6 +819,11 @@ public:
 
 			learnEG(conflict, *subf.operand1, startNode);
 		}
+		else if (subf.op == AG) {
+			printf("Clause learning case AG...\n");
+
+			learnAG(conflict, *subf.operand1, startNode);
+		}
 		else {
 			printf("Clause learning case OTHER...\n");
 
@@ -904,7 +911,7 @@ public:
 
 		std::queue <int> list; // this queue denotes all the states satisfying phi, whose neighbours have to be inspected
 		list.push(startNode);
-		Bitset *done = new Bitset(g_over->states()); // This bitset denotes all the visited nodes
+		Bitset *visited = new Bitset(g_over->states()); // This bitset denotes all the visited nodes
 		while (list.size() > 0) { // FIFO queue of visited elements
 			from = list.front();
 			list.pop();
@@ -917,7 +924,7 @@ public:
 
 
 				if (g_over->edgeEnabled(e.id)) {
-					if (phi->operator [](to) && !done->operator [](to)) {
+					if (phi->operator [](to) && !visited->operator [](to)) {
 						list.push(to);
 
 					} else if (!phi->operator [](to)) {
@@ -930,7 +937,65 @@ public:
 					conflict.push(l);
 				}
 			}
-			done->set(from);
+			visited->set(from);
+		}
+	}
+
+
+	//
+	void learnAG(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
+		Bitset* phi = ctl_standalone_over->solve(subf); // Solve the inner subformula of the entire formula
+		ctl_standalone_over->printStateSet(*phi);
+		printFormula2(subf);
+
+		DynamicGraph::Edge e;
+		int from, to;
+
+		// if the start node does not satisfy phi, then we just ask phi to be satisfied here. This is treated separately, so
+		// that in the queue later we can assume every item in the queue to satisfy phi.
+		if (!phi->operator [](startNode)) {
+			printf("learnEG: initial state does not satisfy phi\n");
+			learnClausePos(conflict, subf, startNode);
+			return;
+		}
+
+		std::stack <int> s;
+		s.push(startNode);
+		std::map <int,int> parent; // from this we retreive the path of edges from start state to some state that doesn't satisfy phi
+		Bitset *visited = new Bitset(g_over->states()); // This bitset denotes all the visited nodes
+		bool done = false;
+		while (s.size() > 0 && !done) { // stack of visited elements
+			from = s.top();
+			s.pop();
+			printf("learnAG: Considering state %d\n", from);
+
+			for (int i = 0; i < g_over->nIncident(from) && !done; i++) { // iterate over neighbours of current front of queue
+				e = g_over->incident(from, i);
+				to = g_over->getEdge(e.id).to;
+				printf("learnAG: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
+
+
+				if (g_over->edgeEnabled(e.id)) {
+					parent[to] = from;
+					if (phi->operator [](to) && !visited->operator [](to)) {
+						s.push(to);
+					} else if (!phi->operator [](to)) {
+						learnClausePos(conflict, subf, to);
+						done = true; // we have found a state that does not satisfy phi, exit loop and retreive path
+					} else {
+						assert(false); // The previous conditions should have been exhaustive
+					}
+				}
+			}
+			visited->set(from);
+		}
+		while (to != startNode) {
+			Lit l = ~mkLit(e.id, false);
+			conflict.push(l);
+
+			to = from;
+			from = parent[to];
+			e = g_over->incident(from, to);
 		}
 	}
 

@@ -1,0 +1,25 @@
+c     <#Vars> <#Clauses>
+p cnf 10      6
+-1 -2 0
+-4 -3 0
+-6 -5 0
+-9 -8 0
+-6 0
+10 0
+c kripke <#Nodes> <#Edges> <#APs> <KripkeID>
+kripke   3        6        1      0
+c kedge <KripkeID> <from> <to> <edgevar>
+kedge   0          0      1    1
+kedge   0          1      0    2
+kedge   0          0      2    3
+kedge   0          1      2    4
+kedge   0          2      2    5
+kedge   0          2      0    6
+c knodeap <KripkeID> <node> <ap> <nodeapvar>
+knodeap   0          0      0    7
+knodeap   0          1      0    8
+knodeap   0          2      0    9
+c kctl <KripkeID> <initialnode> <ctlvar> <CTL formula>
+kctl   0          0             10       EG 0
+kdraw
+
