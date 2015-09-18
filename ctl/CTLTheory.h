@@ -402,7 +402,8 @@ public:
 	}
 
 	void backtrackUntil(int level) { // FIXME important
-		printf("Backtracking until level %d\n", level);
+		if(opt_verb>1)
+			printf("Backtracking until level %d\n", level);
 
 		static int it = 0;
 		
@@ -419,8 +420,8 @@ public:
 					assert(dbg_value(e.var)==l_Undef);
 					int edgeID = getEdgeID(e.var); //e.var-min_edge_var;
 					assert(edgeID==e.ID);
-
-					printf("Backtracking edge assignment %d\n", edgeID);
+					if(opt_verb>1)
+						printf("Backtracking edge assignment %d\n", edgeID);
 
 
 					if (e.assign) {
@@ -434,7 +435,8 @@ public:
 					int apID = getAPID(e.var);
 					assert(nodeID==e.ID);
 					assert(apID==e.AP);
-					printf("Backtracking nodeap assignment %d\n", nodeID);
+					if(opt_verb>1)
+						printf("Backtracking nodeap assignment %d\n", nodeID);
 
 					if (e.assign) {
 						g_under->disableAPinStateLabel(nodeID, apID);
@@ -444,7 +446,8 @@ public:
 				} else {
 					//This is a detector literal
 					//detectors[getDetector(e.var)]->unassign(mkLit(e.var, !e.assign));
-					printf("Backtracking CTL assignment\n");
+					if(opt_verb>1)
+						printf("Backtracking CTL assignment\n");
 
 				}
 				assigns[e.var] = l_Undef;
@@ -465,8 +468,6 @@ public:
 				d->backtrack(level);
 			}
 		}
-
-		assert(dbg_graphsUpToDate());
 		
 	};
 
@@ -611,8 +612,8 @@ public:
 		if (assigns[var(l)] != l_Undef) {
 			return;			//this is already enqueued.
 		}
-
-		printf("enqueueTheory(Lit %d), var %d, new sign: %d\n", (l.x+2), v+1, sign(l));
+		if(opt_verb>1)
+			printf("enqueueTheory(Lit %d), var %d, new sign: %d\n", (l.x+2), v+1, sign(l));
 
 		assert(assigns[var(l)]==l_Undef);
 		assigns[var(l)] = sign(l) ? l_False : l_True;
@@ -686,13 +687,13 @@ public:
 
 		assert(dbg_graphsUpToDate());
 
-
-		printf("\n--------------------\npropagateTheory has been called\n");
-		printf("\nOver:\n");
-		g_over->draw();
-		printf("Under:\n");
-		g_under->draw();
-
+		if(opt_verb>1){
+			printf("\n--------------------\npropagateTheory has been called\n");
+			printf("\nOver:\n");
+			g_over->draw();
+			printf("Under:\n");
+			g_under->draw();
+		}
 		
 		Bitset* bit_under = ctl_under->solve(*f);
 		Bitset* bit_over = ctl_over->solve(*f);
@@ -700,9 +701,14 @@ public:
 		ctl_under->resetSwap();
 		ctl_over->resetSwap();
 
-		printf("Over:\n");
+		if(opt_verb>1)
+			printf("Over:\n");
+
 		ctl_over->printStateSet(*bit_over);
-		printf("\nSolution:\nUnder:\n");
+
+		if(opt_verb>1)
+			printf("\nSolution:\nUnder:\n");
+
 		ctl_under->printStateSet(*bit_under);
 
 
@@ -740,9 +746,11 @@ public:
 			printLearntClause(conflict);
 
 			toSolver(conflict);
-        	printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
-        	printf("\npropagateTheory returns false, since formula is asserted true, but fails to hold in the overapproximation (and hence also fails to hold in the underapproximation) \n");
-            return false; // It does not hold in the overapproximation
+			if(opt_verb>1){
+				printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
+				printf("\npropagateTheory returns false, since formula is asserted true, but fails to hold in the overapproximation (and hence also fails to hold in the underapproximation) \n");
+			}
+        	return false; // It does not hold in the overapproximation
         }
 
         if (value(ctl_lit)==l_False &&  bit_under->operator [](initialNode)) {
@@ -756,22 +764,23 @@ public:
 					conflict.push(l);
 				}
 			}
-
-      		printf("Learned clause (2):\n");
-
-          	for (int v = 0; v < conflict.size(); v++) {
-          		if (sign(conflict[v])) {
-          			printf("-%d ", var(conflict[v]));
-          		} else {
-              		printf("%d ", var(conflict[v]));
-          		}
-			}
-      		printf("\n");
-
+          	if(opt_verb>1){
+          		printf("Learned clause (2):\n");
+				for (int v = 0; v < conflict.size(); v++) {
+					if (sign(conflict[v])) {
+						printf("-%d ", var(conflict[v]));
+					} else {
+						printf("%d ", var(conflict[v]));
+					}
+				}
+				printf("\n");
+          	}
 
 			toSolver(conflict);
-        	printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
-            printf("\npropagateTheory returns false, since formula is asserted false, but it holds in the underapproximation (and hence also holds in the overapproximation)\n");
+			if(opt_verb>1){
+				printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
+				printf("\npropagateTheory returns false, since formula is asserted false, but it holds in the underapproximation (and hence also holds in the overapproximation)\n");
+			}
             return false; // It does not hold in the underapproximation
         }
 
@@ -796,7 +805,8 @@ public:
 	// but not necessarily so on recursive calls).
 	void learnClausePos(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
 		if (subf.op == ID) { // Not recursive
-			printf("Clause learning case ID...\n");
+			if(opt_verb>1)
+				printf("Clause learning case ID...\n");
 
 			int p = subf.value;
 
@@ -805,27 +815,32 @@ public:
 			conflict.push(l);
 		}
 		else if (subf.op == EX) {
-			printf("Clause learning case EX...\n");
+			if(opt_verb>1)
+				printf("Clause learning case EX...\n");
 
 			learnEX(conflict, *subf.operand1, startNode);
 		}
 		else if (subf.op == AX) {
-			printf("Clause learning case AX...\n");
+			if(opt_verb>1)
+				printf("Clause learning case AX...\n");
 
 			learnAX(conflict, *subf.operand1, startNode);
 		}
 		else if (subf.op == EG) {
-			printf("Clause learning case EG...\n");
+			if(opt_verb>1)
+				printf("Clause learning case EG...\n");
 
 			learnEG(conflict, *subf.operand1, startNode);
 		}
 		else if (subf.op == AG) {
-			printf("Clause learning case AG...\n");
+			if(opt_verb>1)
+				printf("Clause learning case AG...\n");
 
 			learnAG(conflict, *subf.operand1, startNode);
 		}
 		else {
-			printf("Clause learning case OTHER...\n");
+			if(opt_verb>1)
+				printf("Clause learning case OTHER...\n");
 
 			for (int v = 0; v < vars.size(); v++) {
 				if(value(v)!=l_Undef){
@@ -848,7 +863,8 @@ public:
 			e = g_over->incident(startNode, i);
 			from = g_over->getEdge(e.id).from;
 			to = g_over->getEdge(e.id).to;
-			printf("learnEX: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
+			if(opt_verb>1)
+				printf("learnEX: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
 
 			// Two cases: Either the edge is enabled, then we need to add to the clause the possibility that the
 			// successor (the "to" state) satisfies p. Or the edge is disabled and we add the possibility that the
@@ -876,7 +892,8 @@ public:
 			e = g_over->incident(startNode, i);
 			from = g_over->getEdge(e.id).from;
 			to = g_over->getEdge(e.id).to;
-			printf("learnAX: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
+			if(opt_verb>1)
+				printf("learnAX: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
 
 			// We are looking for one single enabled edge such that the destination does not satisfy phi, and require
 			// that either it will satisfy phi or that the edge be disabled
@@ -904,7 +921,8 @@ public:
 		// if the start node does not satisfy phi, then we just ask phi to be satisfied here. This is treated separately, so
 		// that in the queue later we can assume every item in the queue to satisfy phi.
 		if (!phi->operator [](startNode)) {
-			printf("learnEG: initial state does not satisfy phi\n");
+			if(opt_verb>1)
+				printf("learnEG: initial state does not satisfy phi\n");
 			learnClausePos(conflict, subf, startNode);
 			return;
 		}
@@ -915,12 +933,14 @@ public:
 		while (list.size() > 0) { // FIFO queue of visited elements
 			from = list.front();
 			list.pop();
-			printf("learnEG: Considering state %d\n", from);
+			if(opt_verb>1)
+				printf("learnEG: Considering state %d\n", from);
 
 			for (int i = 0; i < g_over->nIncident(from); i++) { // iterate over neighbours of current front of queue
 				e = g_over->incident(from, i);
 				to = g_over->getEdge(e.id).to;
-				printf("learnEG: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
+				if(opt_verb>1)
+					printf("learnEG: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
 
 
 				if (g_over->edgeEnabled(e.id)) {
@@ -954,7 +974,8 @@ public:
 		// if the start node does not satisfy phi, then we just ask phi to be satisfied here. This is treated separately, so
 		// that in the queue later we can assume every item in the queue to satisfy phi.
 		if (!phi->operator [](startNode)) {
-			printf("learnEG: initial state does not satisfy phi\n");
+			if(opt_verb>1)
+				printf("learnEG: initial state does not satisfy phi\n");
 			learnClausePos(conflict, subf, startNode);
 			return;
 		}
@@ -967,12 +988,14 @@ public:
 		while (s.size() > 0 && !done) { // stack of visited elements
 			from = s.top();
 			s.pop();
-			printf("learnAG: Considering state %d\n", from);
+			if(opt_verb>1)
+				printf("learnAG: Considering state %d\n", from);
 
 			for (int i = 0; i < g_over->nIncident(from) && !done; i++) { // iterate over neighbours of current front of queue
 				e = g_over->incident(from, i);
 				to = g_over->getEdge(e.id).to;
-				printf("learnAG: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
+				if(opt_verb>1)
+					printf("learnAG: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
 
 
 				if (g_over->edgeEnabled(e.id)) {
@@ -1002,6 +1025,7 @@ public:
 
 
 	void printLearntClause(vec<Lit> & conflict) {
+		if(opt_verb>1){
   		printf("Learnt Clause:\n");
 
       	for (int v = 0; v < conflict.size(); v++) {
@@ -1012,27 +1036,30 @@ public:
       		}
 		}
   		printf("\n");
+		}
 	}
 
 	void printFullClause() {
-  		printf("Full Clause:\n");
+		if(opt_verb>1){
+			printf("Full Clause:\n");
 
-  		vec<Lit> c;
-      	for (int v = 0; v < vars.size(); v++) {
-			if(value(v)!=l_Undef){
-				Lit l = ~mkLit(v,value(v)==l_False);
-				assert(value(l)==l_False);
-				c.push(l);
+			vec<Lit> c;
+			for (int v = 0; v < vars.size(); v++) {
+				if(value(v)!=l_Undef){
+					Lit l = ~mkLit(v,value(v)==l_False);
+					assert(value(l)==l_False);
+					c.push(l);
+				}
 			}
+			for (int v = 0; v < c.size(); v++) {
+				if (sign(c[v])) {
+					printf("-%d ", var(c[v])+1);
+				} else {
+					printf("%d ", var(c[v])+1);
+				}
+			}
+			printf("\n");
 		}
-      	for (int v = 0; v < c.size(); v++) {
-      		if (sign(c[v])) {
-      			printf("-%d ", var(c[v])+1);
-      		} else {
-          		printf("%d ", var(c[v])+1);
-      		}
-		}
-  		printf("\n");
 	}
 
 	bool solveTheory(vec<Lit> & conflict) {
@@ -1092,8 +1119,8 @@ public:
 		}
 		Bitset* bit_standalone_over = ctl_standalone_over->solve(*f);
 		Bitset* bit_standalone_under = ctl_standalone_under->solve(*f);
-
-		printf("check_solved making sure that solution agrees with standalone CTL solver...");
+		if(opt_verb>1)
+			printf("check_solved making sure that solution agrees with standalone CTL solver...");
 
 		if (value(ctl_lit)==l_True &&
 				(!bit_standalone_over->operator [](initialNode) || !bit_standalone_under->operator [](initialNode))) {
@@ -1179,8 +1206,8 @@ public:
 		Var ctlVar = newVar(outerVar, 0, -1, DETECTOR, true);
 
 		ctl_lit = mkLit(ctlVar, false);
-
-		printf("Initialization: ctl_lit: true? %d, false? %d, undef? %d\n", value(ctl_lit) == l_True, value(ctl_lit) == l_False, value(ctl_lit) == l_Undef);
+		if(opt_verb>1)
+			printf("Initialization: ctl_lit: true? %d, false? %d, undef? %d\n", value(ctl_lit) == l_True, value(ctl_lit) == l_False, value(ctl_lit) == l_Undef);
 
 		return ctl_lit;
 	}

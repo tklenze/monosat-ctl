@@ -347,13 +347,15 @@ public:
 	}
 
 	void printStateSet(Bitset& s) {
-		printf("{");
-		for (int i=0; i<s.size(); i++) {
-			if (s[i]) {
-				printf("%d, ", i);
+		if(opt_verb>1){
+			printf("{");
+			for (int i=0; i<s.size(); i++) {
+				if (s[i]) {
+					printf("%d, ", i);
+				}
 			}
+			printf("}\n");
 		}
-		printf("}\n");
 	}
 
 };

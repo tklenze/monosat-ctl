@@ -875,7 +875,7 @@ public:
 				}
 			}
 		}*/
-		
+
 		for (int i = 0; i < graphs.size(); i++) {
 			if (graphs[i])
 				graphs[i]->implementConstraints();

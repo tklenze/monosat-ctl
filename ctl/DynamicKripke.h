@@ -343,31 +343,35 @@ public:
 		return s;
 	}
 
-public: void draw(int source=-1, int dest=-1){
-		printf("digraph{\n");
+public:
+	void draw(int source=-1, int dest=-1){
+#ifndef NDEBUG
+		if(opt_verb>1){
+			printf("digraph{\n");
 
-		for (int i = 0; i < g.nodes(); i++) {
-			std::string s = "node [label=\"" + std::to_string(i) + std::string(": {") + statelabelToString(i) + "}\"] ";
-			if(i == dest){
-				std::cout << s << "[shape=doublecircle] " << i << ";\n";
-			} else {
-				std::cout << s << "[shape=circle] " << i << ";\n";
+			for (int i = 0; i < g.nodes(); i++) {
+				std::string s = "node [label=\"" + std::to_string(i) + std::string(": {") + statelabelToString(i) + "}\"] ";
+				if(i == dest){
+					std::cout << s << "[shape=doublecircle] " << i << ";\n";
+				} else {
+					std::cout << s << "[shape=circle] " << i << ";\n";
+				}
 			}
-		}
 
 
-		if(source>=0){
-			printf("node [label=\"start\",shape=plaintext] start;\n");
-			printf("start->%d\n",source);
-		}
-		for(int i = 0;i<transitions.size();i++){
-			if (transitions[i]){
-				printf("%d->%d\n", g.getEdge(i).from,g.getEdge(i).to);
+			if(source>=0){
+				printf("node [label=\"start\",shape=plaintext] start;\n");
+				printf("start->%d\n",source);
 			}
+			for(int i = 0;i<transitions.size();i++){
+				if (transitions[i]){
+					printf("%d->%d\n", g.getEdge(i).from,g.getEdge(i).to);
+				}
+			}
+
+			printf("}\n");
 		}
-
-		printf("}\n");
-
+#endif
 	}
 
 
