@@ -45,7 +45,7 @@
 #include <queue>
 #include <stack>
 #include <map>
-
+#include <stdexcept>
 using namespace dgl;
 namespace Monosat {
 
@@ -694,10 +694,14 @@ public:
 			printf("Under:\n");
 			g_under->draw();
 		}
-		
+		long bitsets = Bitset::remainingBitsets();
 		Bitset* bit_under = ctl_under->solve(*f);
 		Bitset* bit_over = ctl_over->solve(*f);
-
+		long leaked = Bitset::remainingBitsets()-bitsets;
+		//should leak exactly 2 bitsets ('bit_under' and 'bit_over') in the above calls
+		if(leaked!=2){
+			throw std::runtime_error("Leaked bitsets during solve call!");
+		}
 		ctl_under->resetSwap();
 		ctl_over->resetSwap();
 
@@ -750,6 +754,8 @@ public:
 				printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
 				printf("\npropagateTheory returns false, since formula is asserted true, but fails to hold in the overapproximation (and hence also fails to hold in the underapproximation) \n");
 			}
+			delete bit_under;
+			delete bit_over;
         	return false; // It does not hold in the overapproximation
         }
 
@@ -781,6 +787,8 @@ public:
 				printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
 				printf("\npropagateTheory returns false, since formula is asserted false, but it holds in the underapproximation (and hence also holds in the overapproximation)\n");
 			}
+			delete bit_under;
+			delete bit_over;
             return false; // It does not hold in the underapproximation
         }
 
@@ -795,7 +803,8 @@ public:
 		
 		double elapsed = rtime(1) - startproptime;
 		propagationtime += elapsed;
-
+		delete bit_under;
+		delete bit_over;
 		return true;
 	}
 	;

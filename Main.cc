@@ -56,7 +56,7 @@
 #include "geometry/GeometryTheory.h"
 #include "geometry/GeometryParser.h"
 #include "ctl/DynamicKripke.h"
-
+#include "mtl/Bitset.h"
 
 
 using namespace Monosat;
@@ -70,6 +70,7 @@ void printStats(Solver& solver) {
 	if (mem_used != 0)
 		printf("Memory used           : %.2f MB\n", mem_used);
 	printf("CPU time              : %g s\n", cpu_time);
+	printf("Allocated bitsets: %ld of %ld\n",Bitset::remainingBitsets(),Bitset::allocatedBitsets());
 }
 
 static SimpSolver* solver;

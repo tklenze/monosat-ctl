@@ -30,12 +30,14 @@ namespace Monosat {
 //=================================================================================================
 #define BITSET_ELEMENT_SIZE (sizeof(uint64_t))
 class Bitset {
+	static long remaining_bitsets;
+	static long total_bitsets;
     vec<uint64_t>  buf;
     int sz;
 
 public:
-    Bitset():sz(0)  {}
-    Bitset(int size):sz(size)  {buf.growTo(size/BITSET_ELEMENT_SIZE + 1);}
+    Bitset():sz(0)  {remaining_bitsets++;total_bitsets++;}
+    Bitset(int size):sz(size)  {buf.growTo(size/BITSET_ELEMENT_SIZE + 1);remaining_bitsets++;total_bitsets++;}
     Bitset(int size, bool default_value):sz(size)  {
     	buf.growTo(size/BITSET_ELEMENT_SIZE + 1);
     	if(default_value){
@@ -43,8 +45,19 @@ public:
     			buf[i]= std::numeric_limits<uint64_t>::max();
     		}
     	}
+    	remaining_bitsets++;
+    	total_bitsets++;
     }
-
+    ~Bitset(){
+    	remaining_bitsets--;
+    	sz=-1;
+    }
+    static long allocatedBitsets(){
+    	return total_bitsets;
+    }
+    static long remainingBitsets(){
+    	return remaining_bitsets;
+    }
     void memset(bool to){
     	if(to){
 			for(int i = 0;i<buf.size();i++){

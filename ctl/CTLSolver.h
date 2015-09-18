@@ -152,7 +152,7 @@ public:
 		Bitset *st = solve(*f.operand1);
 
 		Bitset *prest = new Bitset(k->states());
-		prest = pre(*st);
+		pre(*st,*prest);
 		delete st;
 
 		/* FIXME Debug output
