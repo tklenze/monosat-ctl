@@ -151,6 +151,10 @@ public:
 		assert(f.op == EX);
 		Bitset *st = solve(*f.operand1);
 
+		Bitset *prest = new Bitset(k->states());
+		prest = pre(*st);
+		delete st;
+
 		/* FIXME Debug output
 		printf("Called solveEX("); printFormula(&f);
 		printf(", with state set: "); printStateSet(*st);
@@ -158,7 +162,14 @@ public:
 		printf("\n");
 		 */
 
-		return pre(*st);
+		return prest;
+
+		/* Jeff says, ideally something like this
+		Bitset prest(k->states());
+		prest = std::move(*pre(*st));
+		delete st;
+
+		return prest;*/
 	}
 
 	/*
