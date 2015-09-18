@@ -1093,6 +1093,8 @@ public:
 		Bitset* bit_standalone_over = ctl_standalone_over->solve(*f);
 		Bitset* bit_standalone_under = ctl_standalone_under->solve(*f);
 
+		printf("check_solved making sure that solution agrees with standalone CTL solver...");
+
 		if (value(ctl_lit)==l_True &&
 				(!bit_standalone_over->operator [](initialNode) || !bit_standalone_under->operator [](initialNode))) {
 			return false;

@@ -1,0 +1,4 @@
+#!/bin/bash
+for filename in inputs/sat/*; do
+    ./Debug/monosat "$filename" | grep UNSAT
+done
