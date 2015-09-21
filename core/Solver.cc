@@ -886,6 +886,8 @@ CRef Solver::propagate(bool propagate_theories) {
 					in_theory_queue[theoryID] = false;
 					qhead = trail.size();
 					return confl;
+				}else{
+					throw std::runtime_error("Learnt clause is satisfiable!");
 				}
 			}
 		}
