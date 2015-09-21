@@ -816,7 +816,7 @@ public:
 		if(opt_verb>1) {
 			printf("Clause learning subformula... ");
 			printFormula2(subf);
-			printf("\n");
+			printf(", for startNode %d\n", startNode);
 
 		}
 
@@ -956,11 +956,12 @@ public:
 		Bitset* phi1_under = ctl_standalone_under->solve(subf1); // Solve the first part of the AND of the entire formula
 		Bitset* phi2_under = ctl_standalone_under->solve(subf2);
 
-		printf("\nphi1_over: "); ctl_standalone_over->printStateSet(*phi1_over);
-		printf("\nphi1_under: "); ctl_standalone_under->printStateSet(*phi1_under);
-		printf("\nphi2_over: "); ctl_standalone_over->printStateSet(*phi2_over);
-		printf("\nphi2_under: "); ctl_standalone_under->printStateSet(*phi2_under);
-		printf("\n");
+		if(opt_verb>1) {
+			printf("phi1_over: "); ctl_standalone_over->printStateSet(*phi1_over);
+			printf("phi1_under: "); ctl_standalone_under->printStateSet(*phi1_under);
+			printf("phi2_over: "); ctl_standalone_over->printStateSet(*phi2_over);
+			printf("phi2_under: "); ctl_standalone_under->printStateSet(*phi2_under);
+		}
 
 		if (!phi1_over->operator [](startNode) && !phi1_under->operator [](startNode)) {
 			learnClausePos(conflict, subf1, startNode);
@@ -972,6 +973,19 @@ public:
 
 	// Both parts of the OR must be false, and we OR together their recursively learned sub-clauses
 	void learnOR(vec<Lit> & conflict, CTLFormula &subf1, CTLFormula &subf2, int startNode) {
+
+		Bitset* phi1_over = ctl_standalone_over->solve(subf1); // Solve the first part of the AND of the entire formula
+		Bitset* phi2_over = ctl_standalone_over->solve(subf2);
+		Bitset* phi1_under = ctl_standalone_under->solve(subf1); // Solve the first part of the AND of the entire formula
+		Bitset* phi2_under = ctl_standalone_under->solve(subf2);
+
+		if(opt_verb>1) {
+			printf("phi1_over: "); ctl_standalone_over->printStateSet(*phi1_over);
+			printf("phi1_under: "); ctl_standalone_under->printStateSet(*phi1_under);
+			printf("phi2_over: "); ctl_standalone_over->printStateSet(*phi2_over);
+			printf("phi2_under: "); ctl_standalone_under->printStateSet(*phi2_under);
+		}
+
 		learnClausePos(conflict, subf1, startNode);
 		learnClausePos(conflict, subf2, startNode);
 	}
@@ -1089,7 +1103,7 @@ public:
 	//
 	void learnAG(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
 		Bitset* phi = ctl_standalone_over->solve(subf); // Solve the inner subformula of the entire formula
-		ctl_standalone_over->printStateSet(*phi);
+		Bitset* phi_under = ctl_standalone_over->solve(subf); // Solve the inner subformula of the entire formula
 		printFormula2(subf);
 
 		DynamicGraph::Edge e;
@@ -1097,7 +1111,7 @@ public:
 
 		// if the start node does not satisfy phi, then we just ask phi to be satisfied here. This is treated separately, so
 		// that in the queue later we can assume every item in the queue to satisfy phi.
-		if (!phi->operator [](startNode)) {
+		if (!phi_under->operator [](startNode)) {
 			if(opt_verb>1)
 				printf("learnAG: initial state does not satisfy phi\n");
 			learnClausePos(conflict, subf, startNode);
@@ -1115,18 +1129,20 @@ public:
 			if(opt_verb>1)
 				printf("learnAG: Considering state %d\n", from);
 
-			for (int i = 0; i < g_over->nIncident(from) && !done; i++) { // iterate over neighbours of current front of queue
-				e = g_over->incident(from, i);
-				to = g_over->getEdge(e.id).to;
+			for (int i = 0; i < g_under->nIncident(from) && !done; i++) { // iterate over neighbours of current front of queue
+				e = g_under->incident(from, i);
+				to = g_under->getEdge(e.id).to;
 				if(opt_verb>1)
 					printf("learnAG: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
 
 
-				if (g_over->edgeEnabled(e.id)) {
+				if (g_under->edgeEnabled(e.id)) {
 					parent[to] = from;
-					if (phi->operator [](to) && !visited->operator [](to)) {
+					if (phi_under->operator [](to) && !visited->operator [](to)) {
 						s.push(to);
-					} else if (!phi->operator [](to)) {
+					} else if (!phi_under->operator [](to)) {
+						if(opt_verb>1)
+							printf("learnAG: Found state no %d, which does not satisfy phi. edgeid: %d, from: %d, to: %d\n", to, e.id, from, to);
 						learnClausePos(conflict, subf, to);
 						done = true; // we have found a state that does not satisfy phi, exit loop and retreive path
 					} else {
@@ -1143,7 +1159,7 @@ public:
 
 			to = from;
 			from = parent[to];
-			e = g_over->incident(from, to);
+			e = g_under->incident(from, to);
 		}
 	}
 
