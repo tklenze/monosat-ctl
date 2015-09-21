@@ -881,6 +881,7 @@ public:
 				assert( g_over->isAPinStateLabel(startNode, p) ); // Assert that the startnode we are looking at does satisfy p, otherwise we had no conflict to learn
 				Lit l = ~mkLit(getNodeAPVar(startNode, p), false);
 				conflict.push(l);
+				assert(value(l)==l_False);
 			} else if (subf.operand1->op == AU) {
 				assert(false); // NOT IMPLEMENTED YET
 			} else if (subf.operand1->op == AW) {
@@ -903,6 +904,7 @@ public:
 			assert( !g_over->isAPinStateLabel(startNode, p) ); // Assert that the startnode we are looking at does not satisfy p, otherwise we had no conflict to learn
 			Lit l = ~mkLit(getNodeAPVar(startNode, p), true);
 			conflict.push(l);
+			assert(value(l)==l_False);
 		}
 		else if (subf.op == EX) {
 			if(opt_verb>1)
@@ -937,6 +939,7 @@ public:
 					Lit l = ~mkLit(v,value(v)==l_False);
 					assert(value(l)==l_False);
 					conflict.push(l);
+					assert(value(l)==l_False);
 				}
 			}
 		}
@@ -948,12 +951,21 @@ public:
 	// At least one of the two parts of AND must be false, and we use the one which is false to build a clause
 	void learnAND(vec<Lit> & conflict, CTLFormula &subf1, CTLFormula &subf2, int startNode) {
 
-		Bitset* phi = ctl_standalone_over->solve(subf1); // Solve the first part of the AND of the entire formula
-		if (!phi->operator [](startNode)) {
+		Bitset* phi1_over = ctl_standalone_over->solve(subf1); // Solve the first part of the AND of the entire formula
+		Bitset* phi2_over = ctl_standalone_over->solve(subf2);
+		Bitset* phi1_under = ctl_standalone_under->solve(subf1); // Solve the first part of the AND of the entire formula
+		Bitset* phi2_under = ctl_standalone_under->solve(subf2);
+
+		printf("\nphi1_over: "); ctl_standalone_over->printStateSet(*phi1_over);
+		printf("\nphi1_under: "); ctl_standalone_under->printStateSet(*phi1_under);
+		printf("\nphi2_over: "); ctl_standalone_over->printStateSet(*phi2_over);
+		printf("\nphi2_under: "); ctl_standalone_under->printStateSet(*phi2_under);
+		printf("\n");
+
+		if (!phi1_over->operator [](startNode) && !phi1_under->operator [](startNode)) {
 			learnClausePos(conflict, subf1, startNode);
 		} else {
-			phi = ctl_standalone_over->solve(subf2);
-			assert(!phi->operator [](startNode)); // If this is violated, that means that both parts of the AND formula are satisfied -- then there should not be a conflict
+			assert(!phi2_over->operator [](startNode) && !phi2_under->operator [](startNode)); // If this is violated, that means that both parts of the AND formula are satisfied -- then there should not be a conflict
 			learnClausePos(conflict, subf2, startNode);
 		}
 	}
@@ -984,6 +996,7 @@ public:
 			} else { // No recursive evaluation needed
 				Lit l = ~mkLit(e.id, true);
 				conflict.push(l);
+				assert(value(l)==l_False);
 			}
 
 		}
@@ -1010,6 +1023,7 @@ public:
 				learnClausePos(conflict, subf, to);
 				Lit l = ~mkLit(e.id, false);
 				conflict.push(l);
+				assert(value(l)==l_False);
 				return;
 			}
 			assert(false); // No clause was learned, which means that there is no enabled edge such that phi does not hold in the destination -- a contradiction to the fact, that AX phi does not hold!
@@ -1064,6 +1078,7 @@ public:
 				} else {
 					Lit l = ~mkLit(e.id, true);
 					conflict.push(l);
+					assert(value(l)==l_False);
 				}
 			}
 			visited->set(from);
@@ -1124,6 +1139,7 @@ public:
 		while (to != startNode) {
 			Lit l = ~mkLit(e.id, false);
 			conflict.push(l);
+			assert(value(l)==l_False);
 
 			to = from;
 			from = parent[to];
@@ -1178,6 +1194,7 @@ public:
 						assert(!g_over->edgeEnabled(e.id)); // if edge was enabled, then j would be reachable, which means j would be visited
 						Lit l = ~mkLit(e.id, true);
 						conflict.push(l);
+						assert(value(l)==l_False);
 					}
 				}
 			}
