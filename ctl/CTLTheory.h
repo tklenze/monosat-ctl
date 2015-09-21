@@ -734,8 +734,8 @@ public:
 
         	// THIS IS WHERE I DO CLAUSE LEARNING 1
 
-        	//learnClausePos(conflict, *f, initialNode);
-        	  // old method, rather naive clause
+        	learnClausePos(conflict, *f, initialNode);
+        	/*  // old method, rather naive clause
         	for (int v = 0; v < vars.size(); v++) {
         		if(value(v)!=l_Undef){
         			Lit l = ~mkLit(v,value(v)==l_False);
@@ -743,7 +743,7 @@ public:
 					conflict.push(l);
         		}
         	}
-
+			*/
 
 
 			printFullClause();
@@ -813,7 +813,88 @@ public:
     // Starting from some initial state startNode (on the most toplevel call this will be the KripkeStructure's initial state,
 	// but not necessarily so on recursive calls).
 	void learnClausePos(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
-		if (subf.op == ID) { // Not recursive
+		if(opt_verb>1) {
+			printf("Clause learning subformula... ");
+			printFormula2(subf);
+			printf("\n");
+
+		}
+
+		if (subf.op == AND) {
+			if(opt_verb>1)
+				printf("Clause learning case AND...\n");
+
+			learnAND(conflict, *subf.operand1, *subf.operand2, startNode);
+		} else if (subf.op == OR) {
+			if(opt_verb>1)
+				printf("Clause learning case OR...\n");
+
+			learnOR(conflict, *subf.operand1, *subf.operand2, startNode);
+		}else if (subf.op == NEG) { // We push negation all the way to the atomic propositions, such that we only have literals and otherwise negation free formulas
+			if(opt_verb>1)
+				printf("Clause learning case NEG...\n");
+
+			if (subf.operand1->op == NEG) {
+				learnClausePos(conflict, *subf.operand1->operand1, startNode); // Be clever about double negation
+			}
+			CTLFormula inner1 {NEG, subf.operand1->operand1, NULL, 0};
+			// inner2 is only needed for some connectives and thus declared below
+
+			if (subf.operand1->op == AND) {
+				CTLFormula inner2 {NEG, subf.operand1->operand2, NULL, 0};
+				CTLFormula outer {OR, &inner1, &inner2, 0};
+
+				/*
+				printFormula2(subf);
+				printf(" converted to: \n");
+				printFormula2(outer);
+				*/
+
+
+				learnClausePos(conflict, outer, startNode);
+				//FIXME TODO: all other cases
+			} else if (subf.operand1->op == OR) {
+				CTLFormula inner2 {NEG, subf.operand1->operand2, NULL, 0};
+				CTLFormula outer {AND, &inner1, &inner2, 0};
+				learnClausePos(conflict, outer, startNode);
+			} else if (subf.operand1->op == AX) {
+				CTLFormula outer {EX, &inner1, NULL, 0};
+				learnClausePos(conflict, outer, startNode);
+			} else if (subf.operand1->op == EX) {
+				CTLFormula outer {AX, &inner1, NULL, 0};
+				learnClausePos(conflict, outer, startNode);
+			} else if (subf.operand1->op == AG) {
+				CTLFormula outer {EF, &inner1, NULL, 0};
+				learnClausePos(conflict, outer, startNode);
+			} else if (subf.operand1->op == EG) {
+				CTLFormula outer {AF, &inner1, NULL, 0};
+				learnClausePos(conflict, outer, startNode);
+			} else if (subf.operand1->op == EF) {
+				CTLFormula outer {AG, &inner1, NULL, 0};
+				learnClausePos(conflict, outer, startNode);
+			} else if (subf.operand1->op == AF) {
+				CTLFormula outer {EG, &inner1, NULL, 0};
+				learnClausePos(conflict, outer, startNode);
+			} else if (subf.operand1->op == ID) {
+				int p = subf.operand1->value;
+
+				assert( g_over->isAPinStateLabel(startNode, p) ); // Assert that the startnode we are looking at does satisfy p, otherwise we had no conflict to learn
+				Lit l = ~mkLit(getNodeAPVar(startNode, p), false);
+				conflict.push(l);
+			} else if (subf.operand1->op == AU) {
+				assert(false); // NOT IMPLEMENTED YET
+			} else if (subf.operand1->op == AW) {
+				assert(false); // NOT IMPLEMENTED YET
+			} else if (subf.operand1->op == EU) {
+				assert(false); // NOT IMPLEMENTED YET
+			} else if (subf.operand1->op == EW) {
+				assert(false); // NOT IMPLEMENTED YET
+			} else {
+				assert (false); // we should not have missed anything
+			}
+
+		}
+		else if (subf.op == ID) { // Not recursive
 			if(opt_verb>1)
 				printf("Clause learning case ID...\n");
 
@@ -863,6 +944,25 @@ public:
 
 	// We describe the individual clause learning strategies referring to phi, which is the inner formula.
 	// The to-learn clause representing the inner formula is discovered recursively
+
+	// At least one of the two parts of AND must be false, and we use the one which is false to build a clause
+	void learnAND(vec<Lit> & conflict, CTLFormula &subf1, CTLFormula &subf2, int startNode) {
+
+		Bitset* phi = ctl_standalone_over->solve(subf1); // Solve the first part of the AND of the entire formula
+		if (!phi->operator [](startNode)) {
+			learnClausePos(conflict, subf1, startNode);
+		} else {
+			phi = ctl_standalone_over->solve(subf2);
+			assert(!phi->operator [](startNode)); // If this is violated, that means that both parts of the AND formula are satisfied -- then there should not be a conflict
+			learnClausePos(conflict, subf2, startNode);
+		}
+	}
+
+	// Both parts of the OR must be false, and we OR together their recursively learned sub-clauses
+	void learnOR(vec<Lit> & conflict, CTLFormula &subf1, CTLFormula &subf2, int startNode) {
+		learnClausePos(conflict, subf1, startNode);
+		learnClausePos(conflict, subf2, startNode);
+	}
 
 	// At least one neighbour gets phi, or at least one disabled edge to a neighbour is enabled
 	void learnEX(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
@@ -984,7 +1084,7 @@ public:
 		// that in the queue later we can assume every item in the queue to satisfy phi.
 		if (!phi->operator [](startNode)) {
 			if(opt_verb>1)
-				printf("learnEG: initial state does not satisfy phi\n");
+				printf("learnAG: initial state does not satisfy phi\n");
 			learnClausePos(conflict, subf, startNode);
 			return;
 		}
@@ -1030,6 +1130,60 @@ public:
 			e = g_over->incident(from, to);
 		}
 	}
+
+
+//FIXME BROKEN NOT YET IMPLEMENTED
+	// Find all reachable states, at least one of them should satisfy phi OR there should be a transition enabled
+	// from a reachable state to an unreachable state
+	void learnEF(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
+		Bitset* phi = ctl_standalone_over->solve(subf); // Solve the inner subformula of the entire formula
+		ctl_standalone_over->printStateSet(*phi);
+		printFormula2(subf);
+
+		DynamicGraph::Edge e;
+		int from, to;
+
+
+		std::queue <int> list; // this queue denotes the current path of visited states, whose neighbours have to be inspected
+		list.push(startNode);
+		Bitset *visited = new Bitset(g_over->states()); // This bitset denotes all the visited nodes
+		// We first employ BFS to find all reachable nodes. We add them to the clause
+		while (list.size() > 0) { // FIFO queue of visited elements
+			from = list.front();
+			list.pop();
+			if(opt_verb>1)
+				printf("learnEF: Considering state %d\n", from);
+
+			for (int i = 0; i < g_over->nIncident(from); i++) { // iterate over neighbours of current front of queue
+				e = g_over->incident(from, i);
+				to = g_over->getEdge(e.id).to;
+				if(opt_verb>1)
+					printf("learnEG: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
+
+
+				if (g_over->edgeEnabled(e.id)) {
+					list.push(to);
+				}
+			}
+			visited->set(from);
+			learnClausePos(conflict, subf, from); // learn that this reachable node satisfy phi
+		}
+		// Now for part two of the clause:
+		// iterate over edges of visited states to unvisited states; add literal to enable these edges
+		for (int i = 0; i < visited->size(); i++) {
+			if (visited->operator [](i)) {
+				for (int j = 0; j < g_over->nIncident(i); j++) {
+					e = g_over->incident(i, j);
+					if (!visited->operator [](j)) {
+						assert(!g_over->edgeEnabled(e.id)); // if edge was enabled, then j would be reachable, which means j would be visited
+						Lit l = ~mkLit(e.id, true);
+						conflict.push(l);
+					}
+				}
+			}
+		}
+	}
+
 
 
 
