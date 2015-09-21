@@ -882,6 +882,11 @@ CRef Solver::propagate(bool propagate_theories) {
 			theory_queue.pop();
 			in_theory_queue[theoryID] = false;
 			if (!theories[theoryID]->propagateTheory(theory_conflict)) {
+				for(int i =0;i<theory_conflict.size();i++){
+					if(value(theory_conflict[i])!=l_False){
+						throw std::runtime_error("Learnt clause is satisfiable!");
+					}
+				}
 				if (!addConflictClause(theory_conflict, confl)) {
 					in_theory_queue[theoryID] = false;
 					qhead = trail.size();
