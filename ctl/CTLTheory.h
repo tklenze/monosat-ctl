@@ -951,10 +951,27 @@ public:
 	// At least one of the two parts of AND must be false, and we use the one which is false to build a clause
 	void learnAND(vec<Lit> & conflict, CTLFormula &subf1, CTLFormula &subf2, int startNode) {
 
-		Bitset* phi1_over = ctl_standalone_over->solve(subf1); // Solve the first part of the AND of the entire formula
-		Bitset* phi2_over = ctl_standalone_over->solve(subf2);
-		Bitset* phi1_under = ctl_standalone_under->solve(subf1); // Solve the first part of the AND of the entire formula
-		Bitset* phi2_under = ctl_standalone_under->solve(subf2);
+		long bitsets = Bitset::remainingBitsets();
+		Bitset* phi1_under = ctl_under->solve(subf1);
+		Bitset* phi1_over = ctl_over->solve(subf1);
+		long leaked = Bitset::remainingBitsets()-bitsets;
+		if(leaked!=2){
+			throw std::runtime_error("Leaked bitsets during solve call in learnAND.1!");
+		}
+
+		ctl_under->resetSwap();
+		ctl_over->resetSwap();
+
+		bitsets = Bitset::remainingBitsets();
+		Bitset* phi2_under = ctl_under->solve(subf2);
+		Bitset* phi2_over = ctl_over->solve(subf2);
+		leaked = Bitset::remainingBitsets()-bitsets;
+		//should leak exactly 2 bitsets ('bit_under' and 'bit_over') in the above calls
+		if(leaked!=2){
+			throw std::runtime_error("Leaked bitsets during solve call in learnAND.2!");
+		}
+		ctl_under->resetSwap();
+		ctl_over->resetSwap();
 
 		if(opt_verb>1) {
 			printf("phi1_over: "); ctl_standalone_over->printStateSet(*phi1_over);
@@ -974,10 +991,28 @@ public:
 	// Both parts of the OR must be false, and we OR together their recursively learned sub-clauses
 	void learnOR(vec<Lit> & conflict, CTLFormula &subf1, CTLFormula &subf2, int startNode) {
 
-		Bitset* phi1_over = ctl_standalone_over->solve(subf1); // Solve the first part of the AND of the entire formula
-		Bitset* phi2_over = ctl_standalone_over->solve(subf2);
-		Bitset* phi1_under = ctl_standalone_under->solve(subf1); // Solve the first part of the AND of the entire formula
-		Bitset* phi2_under = ctl_standalone_under->solve(subf2);
+		long bitsets = Bitset::remainingBitsets();
+		Bitset* phi1_under = ctl_under->solve(subf1);
+		Bitset* phi1_over = ctl_over->solve(subf1);
+		long leaked = Bitset::remainingBitsets()-bitsets;
+		if(leaked!=2){
+			throw std::runtime_error("Leaked bitsets during solve call in learnOR.1!");
+		}
+
+		ctl_under->resetSwap();
+		ctl_over->resetSwap();
+
+		bitsets = Bitset::remainingBitsets();
+		Bitset* phi2_under = ctl_under->solve(subf2);
+		Bitset* phi2_over = ctl_over->solve(subf2);
+		leaked = Bitset::remainingBitsets()-bitsets;
+		//should leak exactly 2 bitsets ('bit_under' and 'bit_over') in the above calls
+		if(leaked!=2){
+			throw std::runtime_error("Leaked bitsets during solve call in learnOR.2!");
+		}
+		ctl_under->resetSwap();
+		ctl_over->resetSwap();
+
 
 		if(opt_verb>1) {
 			printf("phi1_over: "); ctl_standalone_over->printStateSet(*phi1_over);
@@ -1012,7 +1047,6 @@ public:
 				conflict.push(l);
 				assert(value(l)==l_False);
 			}
-
 		}
 	}
 
@@ -1020,7 +1054,16 @@ public:
 	// In order to make shorter clauses, we will only learn one clause: find an enabled edge to a state not satisfying
 	//
 	void learnAX(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
-		Bitset* phi = ctl_standalone_over->solve(subf); // Solve the inner subformula of the entire formula
+		long bitsets = Bitset::remainingBitsets();
+		Bitset* phi_under = ctl_under->solve(subf);
+		Bitset* phi_over = ctl_over->solve(subf);
+		long leaked = Bitset::remainingBitsets()-bitsets;
+		if(leaked!=2){
+			throw std::runtime_error("Leaked bitsets during solve call in learnOR.1!");
+		}
+
+		ctl_under->resetSwap();
+		ctl_over->resetSwap();
 
 		DynamicGraph::Edge e;
 		int from, to;
@@ -1033,15 +1076,16 @@ public:
 
 			// We are looking for one single enabled edge such that the destination does not satisfy phi, and require
 			// that either it will satisfy phi or that the edge be disabled
-			if (g_over->edgeEnabled(e.id) && ! phi->operator [](to)) {
+			if (g_under->edgeEnabled(e.id) && ! phi_over->operator [](to)) {
 				learnClausePos(conflict, subf, to);
 				Lit l = ~mkLit(e.id, false);
 				conflict.push(l);
 				assert(value(l)==l_False);
 				return;
 			}
-			assert(false); // No clause was learned, which means that there is no enabled edge such that phi does not hold in the destination -- a contradiction to the fact, that AX phi does not hold!
 		}
+		assert(false); // No clause was learned, which means that there is no enabled edge such that phi does not hold in the destination -- a contradiction to the fact, that AX phi does not hold!
+
 	}
 
 
@@ -1102,16 +1146,24 @@ public:
 
 	//
 	void learnAG(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
-		Bitset* phi = ctl_standalone_over->solve(subf); // Solve the inner subformula of the entire formula
-		Bitset* phi_under = ctl_standalone_over->solve(subf); // Solve the inner subformula of the entire formula
-		printFormula2(subf);
+		// Solve the inner subformula of the entire formula
+		long bitsets = Bitset::remainingBitsets();
+		Bitset* phi_under = ctl_under->solve(subf);
+		Bitset* phi_over = ctl_over->solve(subf);
+		long leaked = Bitset::remainingBitsets()-bitsets;
+		if(leaked!=2){
+			throw std::runtime_error("Leaked bitsets during solve call in learnOR.1!");
+		}
+
+		ctl_under->resetSwap();
+		ctl_over->resetSwap();
 
 		DynamicGraph::Edge e;
 		int from, to;
 
 		// if the start node does not satisfy phi, then we just ask phi to be satisfied here. This is treated separately, so
 		// that in the queue later we can assume every item in the queue to satisfy phi.
-		if (!phi_under->operator [](startNode)) {
+		if (!phi_under->operator [](startNode) && !phi_over->operator [](startNode)) {
 			if(opt_verb>1)
 				printf("learnAG: initial state does not satisfy phi\n");
 			learnClausePos(conflict, subf, startNode);
@@ -1137,22 +1189,28 @@ public:
 
 
 				if (g_under->edgeEnabled(e.id)) {
+					printf("learnAG: Adding map parent(%d) = %d\n", to, from);
 					parent[to] = from;
 					if (phi_under->operator [](to) && !visited->operator [](to)) {
 						s.push(to);
-					} else if (!phi_under->operator [](to)) {
+					} else if (!phi_under->operator [](to) && !phi_over->operator [](to)) {
 						if(opt_verb>1)
 							printf("learnAG: Found state no %d, which does not satisfy phi. edgeid: %d, from: %d, to: %d\n", to, e.id, from, to);
 						learnClausePos(conflict, subf, to);
 						done = true; // we have found a state that does not satisfy phi, exit loop and retreive path
 					} else {
-						assert(false); // The previous conditions should have been exhaustive
+						assert(false); // The previous conditions should have been exhaustive... or not???
 					}
 				}
 			}
 			visited->set(from);
 		}
+		printf("learnAG: reconstructing path from %d to %d\n", startNode, to);
 		while (to != startNode) {
+			int to1 = g_under->getEdge(e.id).to;
+			int from1 = g_under->getEdge(e.id).from;
+			printf("learnAG: %d -> %d\n", from1, to1);
+
 			Lit l = ~mkLit(e.id, false);
 			conflict.push(l);
 			assert(value(l)==l_False);
@@ -1160,6 +1218,8 @@ public:
 			to = from;
 			from = parent[to];
 			e = g_under->incident(from, to);
+			printf("!!!!! Here's the problem: %d->%d (e.id %d) suddenly becomes %d->%d (e.id %d)\n", from, to, e.id, g_under->getEdge(e.id).from, g_under->getEdge(e.id).to, g_under->getEdge(e.id).id);
+
 		}
 	}
 
