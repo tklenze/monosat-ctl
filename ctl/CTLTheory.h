@@ -1204,15 +1204,15 @@ public:
 			return;
 		}
 
-		std::stack <int> s; // TODO FIXME. Why the hell are we using a stack (=DFS) instead of a FIFO (=BFS)?? We want a SHORT solution
+		std::queue <int> s; // TODO FIXME. Why the hell are we using a stack (=DFS) instead of a FIFO (=BFS)?? We want a SHORT solution
 		s.push(startNode);
 		std::map <int,int> parent; // from this we retreive the path of edges from start state to some state that doesn't satisfy phi
 		Bitset *visited = new Bitset(g_over->states()); // This bitset denotes all the visited nodes
 		bool done = false;
 		while (s.size() > 0 && !done) { // stack of visited elements
-			from = s.top();
-			visited->set(from);
+			from = s.front();
 			s.pop();
+			visited->set(from);
 			if(opt_verb>1)
 				printf("learnAG: Considering state %d\n", from);
 
