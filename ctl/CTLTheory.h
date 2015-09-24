@@ -980,12 +980,35 @@ public:
 			printf("phi2_under: "); ctl_standalone_under->printStateSet(*phi2_under);
 		}
 
+
+		/* STRATEGY 1: Pick one subformula that works, and work with it to build a clause
 		if (!phi1_over->operator [](startNode) && !phi1_under->operator [](startNode)) {
 			learnClausePos(conflict, subf1, startNode);
 		} else {
 			assert(!phi2_over->operator [](startNode) && !phi2_under->operator [](startNode)); // If this is violated, that means that both parts of the AND formula are satisfied -- then there should not be a conflict
 			learnClausePos(conflict, subf2, startNode);
 		}
+		*/
+
+		/* STRATEGY 2: Pick both subformulas if they both work, and compare which has the smallest clause */
+		if (!phi1_over->operator [](startNode) && !phi1_under->operator [](startNode) && !phi2_over->operator [](startNode) && !phi2_under->operator [](startNode)) {
+			// Both subformulas conflict and are suitable to learn a clause from. Build both clauses and learn the smaller one.
+			vec<Lit> conflict2;
+			conflict.copyTo(conflict2);
+			learnClausePos(conflict,  subf1, startNode);
+			learnClausePos(conflict2, subf2, startNode);
+			if (conflict.size() > conflict2.size()) {
+				conflict2.copyTo(conflict);
+			}
+			//delete conflict2; // FIXME doesn't work...?
+		} else if (!phi1_over->operator [](startNode) && !phi1_under->operator [](startNode)) {
+			learnClausePos(conflict, subf1, startNode);
+		} else {
+			assert(!phi2_over->operator [](startNode) && !phi2_under->operator [](startNode)); // If this is violated, that means that both parts of the AND formula are satisfied -- then there should not be a conflict
+			learnClausePos(conflict, subf2, startNode);
+		}
+
+
 	}
 
 	// Both parts of the OR must be false, and we OR together their recursively learned sub-clauses
@@ -1144,7 +1167,7 @@ public:
 	}
 
 
-	//
+	// Find a path to a not-phi state, either that state must satisfy phi, or one of the edges must be disabled
 	void learnAG(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
 		// Solve the inner subformula of the entire formula
 		long bitsets = Bitset::remainingBitsets();
@@ -1158,7 +1181,18 @@ public:
 		ctl_under->resetSwap();
 		ctl_over->resetSwap();
 
+		Bitset* phi_under_so = ctl_standalone_under->solve(subf);
+		Bitset* phi_over_so = ctl_standalone_over->solve(subf);
+
+		if(opt_verb>1) {
+			printf("learnAG: phi_under "); ctl_standalone_over->printStateSet(*phi_under);
+			printf("learnAG: phi_over "); ctl_standalone_over->printStateSet(*phi_over);
+			printf("learnAG: phi_under_so "); ctl_standalone_over->printStateSet(*phi_under_so);
+			printf("learnAG: phi_over_so "); ctl_standalone_over->printStateSet(*phi_over_so);
+		}
+
 		DynamicGraph::Edge e;
+		int eid = e.id;
 		int from, to;
 
 		// if the start node does not satisfy phi, then we just ask phi to be satisfied here. This is treated separately, so
@@ -1170,56 +1204,62 @@ public:
 			return;
 		}
 
-		std::stack <int> s;
+		std::stack <int> s; // TODO FIXME. Why the hell are we using a stack (=DFS) instead of a FIFO (=BFS)?? We want a SHORT solution
 		s.push(startNode);
 		std::map <int,int> parent; // from this we retreive the path of edges from start state to some state that doesn't satisfy phi
 		Bitset *visited = new Bitset(g_over->states()); // This bitset denotes all the visited nodes
 		bool done = false;
 		while (s.size() > 0 && !done) { // stack of visited elements
 			from = s.top();
+			visited->set(from);
 			s.pop();
 			if(opt_verb>1)
 				printf("learnAG: Considering state %d\n", from);
 
 			for (int i = 0; i < g_under->nIncident(from) && !done; i++) { // iterate over neighbours of current front of queue
 				e = g_under->incident(from, i);
-				to = g_under->getEdge(e.id).to;
+				eid = e.id;
+				to = g_under->getEdge(eid).to;
 				if(opt_verb>1)
 					printf("learnAG: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
 
 
-				if (g_under->edgeEnabled(e.id)) {
-					printf("learnAG: Adding map parent(%d) = %d\n", to, from);
-					parent[to] = from;
-					if (phi_under->operator [](to) && !visited->operator [](to)) {
-						s.push(to);
-					} else if (!phi_under->operator [](to) && !phi_over->operator [](to)) {
+				if (g_under->edgeEnabled(eid)) {
+					if(opt_verb>1)
+						printf("learnAG: Adding map parent(%d) = %d. phi_under(to): %d, phi_over(to): %d, visited: %d\n", to, from, phi_under->operator [](to), phi_over->operator [](to), visited->operator [](to));
+					if (!phi_under->operator [](to) && !phi_over->operator [](to)) {
+						parent[to] = from;
 						if(opt_verb>1)
 							printf("learnAG: Found state no %d, which does not satisfy phi. edgeid: %d, from: %d, to: %d\n", to, e.id, from, to);
 						learnClausePos(conflict, subf, to);
 						done = true; // we have found a state that does not satisfy phi, exit loop and retreive path
-					} else {
-						assert(false); // The previous conditions should have been exhaustive... or not???
+					} else if (!visited->operator [](to)) {
+						parent[to] = from;
+						if(opt_verb>1)
+							printf("learnAG: putting %d in queue\n", to);
+						s.push(to);
 					}
 				}
 			}
-			visited->set(from);
 		}
-		printf("learnAG: reconstructing path from %d to %d\n", startNode, to);
-		while (to != startNode) {
-			int to1 = g_under->getEdge(e.id).to;
-			int from1 = g_under->getEdge(e.id).from;
-			printf("learnAG: %d -> %d\n", from1, to1);
 
-			Lit l = ~mkLit(e.id, false);
+		assert(done);
+
+		if(opt_verb>1)
+			printf("learnAG: reconstructing path from %d to %d\n", startNode, to);
+		while (to != startNode) {
+			int to1 = g_under->getEdge(eid).to;
+			int from1 = g_under->getEdge(eid).from;
+			if(opt_verb>1)
+				printf("learnAG: %d -> %d\n", from1, to1);
+
+			Lit l = ~mkLit(eid, false);
 			conflict.push(l);
 			assert(value(l)==l_False);
 
 			to = from;
 			from = parent[to];
-			e = g_under->incident(from, to);
-			printf("!!!!! Here's the problem: %d->%d (e.id %d) suddenly becomes %d->%d (e.id %d)\n", from, to, e.id, g_under->getEdge(e.id).from, g_under->getEdge(e.id).to, g_under->getEdge(e.id).id);
-
+			eid = g_under->getEdge(from, to);
 		}
 	}
 
@@ -1328,11 +1368,17 @@ public:
 	;
 
 	void drawFull(int from, int to) {
-
 	}
 
 	bool check_solved() {
 		// TODO sanity check for NodeAPs. Thus far we only check for edges and whether the CTL formula is satisfied
+
+		// hacked in something to print out the solution
+		printf("\n--------------------\nSolution\n");
+		printf("\nOver:\n");
+		g_over->draw(0, -1, true);
+		printf("Under:\n");
+		g_under->draw(0, -1, true);
 
 		for (int edgeID = 0; edgeID < edge_labels.size(); edgeID++) {
 			if (getTransition(edgeID).v < 0)
@@ -1376,7 +1422,7 @@ public:
 		Bitset* bit_standalone_over = ctl_standalone_over->solve(*f);
 		Bitset* bit_standalone_under = ctl_standalone_under->solve(*f);
 		if(opt_verb>1)
-			printf("check_solved making sure that solution agrees with standalone CTL solver...");
+			printf("check_solved making sure that solution agrees with standalone CTL solver...\n");
 
 		if (value(ctl_lit)==l_True &&
 				(!bit_standalone_over->operator [](initialNode) || !bit_standalone_under->operator [](initialNode))) {

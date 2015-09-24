@@ -120,7 +120,7 @@ public:
 		Bitset *st = solve(*f.operand1);
 		Bitset *negst = new Bitset(k->states());
 		st->Not(*negst);
-		delete st; // TODO does this actually work? Please confirm
+		delete st;
 
 		swapKripkes();
 

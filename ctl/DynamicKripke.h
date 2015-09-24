@@ -344,9 +344,8 @@ public:
 	}
 
 public:
-	void draw(int source=-1, int dest=-1){
-#ifndef NDEBUG
-		if(opt_verb>1){
+	void draw(int source=-1, int dest=-1, bool forceprint=false){ // forceprint will make it print even if opt_verb=0
+		if(opt_verb>1 || forceprint){
 			printf("digraph{\n");
 
 			for (int i = 0; i < g.nodes(); i++) {
@@ -371,7 +370,6 @@ public:
 
 			printf("}\n");
 		}
-#endif
 	}
 
 
