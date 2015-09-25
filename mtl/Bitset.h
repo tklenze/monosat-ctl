@@ -130,6 +130,12 @@ public:
         	}
         	out.sz=sz;
       }
+    void NotSelf(){ // "Not", save result in this bitset.
+        	for(int i = 0;i<buf.size();i++){
+        		uint64_t a = buf[i];
+        		buf[i]=~a;
+        	}
+      }
     void And(const Bitset & with){
 
         	int max = size();

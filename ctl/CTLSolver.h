@@ -30,6 +30,11 @@ public:
 	DynamicKripke* originalk;
 	DynamicKripke* originalotherk;
 	DynamicKripke* tmpk;
+	Bitset *tmp1bitset;
+	Bitset *tmp2bitset;
+	bool tmp1bitsetAvailable;
+	bool tmp2bitsetAvailable;
+
 	int id;
 	CTLSolver(int myid, DynamicKripke& myk, DynamicKripke& myotherk) {
 		id = myid;
@@ -38,6 +43,10 @@ public:
 		originalk = &myk;
 		originalotherk = &myotherk;
 		tmpk = NULL;
+		tmp1bitset = new Bitset(k->states());
+		tmp2bitset = new Bitset(k->states());
+		tmp1bitsetAvailable = true;
+		tmp2bitsetAvailable = true;
 	};
 	~CTLSolver() {};
 
@@ -106,7 +115,6 @@ public:
 		return st;
 	}
 
-	// FIXME it's not optimal that we create a new bitset every time we negate
 	Bitset* solveNEG(CTLFormula& f) {
 		assert(f.op == NEG);
 
@@ -118,13 +126,11 @@ public:
 		swapKripkes();
 
 		Bitset *st = solve(*f.operand1);
-		Bitset *negst = new Bitset(k->states());
-		st->Not(*negst);
-		delete st;
+		st->NotSelf();
 
 		swapKripkes();
 
-		return negst;
+		return st;
 	}
 
 	Bitset* solveOR(CTLFormula& f) {

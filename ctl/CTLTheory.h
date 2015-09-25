@@ -1007,7 +1007,10 @@ public:
 			assert(!phi2_over->operator [](startNode) && !phi2_under->operator [](startNode)); // If this is violated, that means that both parts of the AND formula are satisfied -- then there should not be a conflict
 			learnClausePos(conflict, subf2, startNode);
 		}
-
+		delete phi1_under;
+		delete phi1_over;
+		delete phi2_under;
+		delete phi2_over;
 
 	}
 
@@ -1046,6 +1049,10 @@ public:
 
 		learnClausePos(conflict, subf1, startNode);
 		learnClausePos(conflict, subf2, startNode);
+		delete phi1_under;
+		delete phi1_over;
+		delete phi2_under;
+		delete phi2_over;
 	}
 
 	// At least one neighbour gets phi, or at least one disabled edge to a neighbour is enabled
@@ -1104,6 +1111,8 @@ public:
 				Lit l = ~mkLit(e.id, false);
 				conflict.push(l);
 				assert(value(l)==l_False);
+				delete phi_under;
+				delete phi_over;
 				return;
 			}
 		}
@@ -1128,6 +1137,7 @@ public:
 			if(opt_verb>1)
 				printf("learnEG: initial state does not satisfy phi\n");
 			learnClausePos(conflict, subf, startNode);
+			delete phi;
 			return;
 		}
 
@@ -1164,6 +1174,8 @@ public:
 			}
 			visited->set(from);
 		}
+		delete visited;
+		delete phi;
 	}
 
 
@@ -1201,6 +1213,10 @@ public:
 			if(opt_verb>1)
 				printf("learnAG: initial state does not satisfy phi\n");
 			learnClausePos(conflict, subf, startNode);
+			delete phi_under_so;
+			delete phi_over_so;
+			delete phi_under;
+			delete phi_over;
 			return;
 		}
 
@@ -1261,6 +1277,11 @@ public:
 			from = parent[to];
 			eid = g_under->getEdge(from, to);
 		}
+		delete phi_under_so;
+		delete phi_over_so;
+		delete phi_under;
+		delete phi_over;
+		delete visited;
 	}
 
 
