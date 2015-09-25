@@ -99,10 +99,8 @@ public:
 		}
 
 		Bitset *st = solve(*f.operand1);
-		Bitset *negst = new Bitset(k->states());
-		st->Not(*negst);
-		delete st; // TODO does this actually work? Please confirm
-		return negst;
+		st->NotSelf();
+		return st;
 	}
 
 	Bitset* solveOR(CTLFormula& f) {
@@ -128,8 +126,12 @@ public:
 	Bitset* solveEX(CTLFormula& f) {
 		assert(f.op == EX);
 		Bitset *st = solve(*f.operand1);
-		return pre(*st);
-	}
+
+		Bitset *prest = new Bitset(k->states());
+		pre(*st,*prest);
+		delete st;
+
+		return prest;	}
 
 	/*
 	 * This is where it gets interesting. We look for the largest solution of X = μ(p) ∩ pre(X).
