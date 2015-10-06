@@ -844,13 +844,6 @@ public:
 				CTLFormula inner2 {NEG, subf.operand1->operand2, NULL, 0};
 				CTLFormula outer {OR, &inner1, &inner2, 0};
 
-				/*
-				printFormula2(subf);
-				printf(" converted to: \n");
-				printFormula2(outer);
-				*/
-
-
 				learnClausePos(conflict, outer, startNode);
 				//FIXME TODO: all other cases
 			} else if (subf.operand1->op == OR) {
