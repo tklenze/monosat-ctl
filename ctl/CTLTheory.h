@@ -923,6 +923,18 @@ public:
 
 			learnAG(conflict, *subf.operand1, startNode);
 		}
+		else if (subf.op == EF) {
+			if(opt_verb>1)
+				printf("Clause learning case EF...\n");
+
+			learnEF(conflict, *subf.operand1, startNode);
+		}
+		else if (subf.op == AF) {
+			if(opt_verb>1)
+				printf("Clause learning case AF...\n");
+
+			learnAF(conflict, *subf.operand1, startNode);
+		}
 		else {
 			if(opt_verb>1)
 				printf("Clause learning case OTHER...\n");
@@ -1082,7 +1094,7 @@ public:
 		Bitset* phi_over = ctl_over->solve(subf);
 		long leaked = Bitset::remainingBitsets()-bitsets;
 		if(leaked!=2){
-			throw std::runtime_error("Leaked bitsets during solve call in learnOR.1!");
+			throw std::runtime_error("Leaked bitsets during solve call in learnAX.1!");
 		}
 
 		ctl_under->resetSwap();
@@ -1180,7 +1192,7 @@ public:
 		Bitset* phi_over = ctl_over->solve(subf);
 		long leaked = Bitset::remainingBitsets()-bitsets;
 		if(leaked!=2){
-			throw std::runtime_error("Leaked bitsets during solve call in learnOR.1!");
+			throw std::runtime_error("Leaked bitsets during solve call in learnAG.1!");
 		}
 
 		ctl_under->resetSwap();
@@ -1213,7 +1225,7 @@ public:
 			return;
 		}
 
-		std::queue <int> s; // TODO FIXME. Why the hell are we using a stack (=DFS) instead of a FIFO (=BFS)?? We want a SHORT solution
+		std::queue <int> s;
 		s.push(startNode);
 		std::map <int,int> parent; // from this we retreive the path of edges from start state to some state that doesn't satisfy phi
 		Bitset *visited = new Bitset(g_over->states()); // This bitset denotes all the visited nodes
@@ -1277,8 +1289,6 @@ public:
 		delete visited;
 	}
 
-
-//FIXME BROKEN NOT YET IMPLEMENTED
 	// Find all reachable states, at least one of them should satisfy phi OR there should be a transition enabled
 	// from a reachable state to an unreachable state
 	void learnEF(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
@@ -1297,6 +1307,7 @@ public:
 		while (list.size() > 0) { // FIFO queue of visited elements
 			from = list.front();
 			list.pop();
+			visited->set(from);
 			if(opt_verb>1)
 				printf("learnEF: Considering state %d\n", from);
 
@@ -1304,14 +1315,13 @@ public:
 				e = g_over->incident(from, i);
 				to = g_over->getEdge(e.id).to;
 				if(opt_verb>1)
-					printf("learnEG: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
+					printf("learnEF: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
 
 
-				if (g_over->edgeEnabled(e.id)) {
+				if (g_over->edgeEnabled(e.id) && !visited->operator [](to)) {
 					list.push(to);
 				}
 			}
-			visited->set(from);
 			learnClausePos(conflict, subf, from); // learn that this reachable node satisfy phi
 		}
 		// Now for part two of the clause:
@@ -1320,7 +1330,12 @@ public:
 			if (visited->operator [](i)) {
 				for (int j = 0; j < g_over->nIncident(i); j++) {
 					e = g_over->incident(i, j);
-					if (!visited->operator [](j)) {
+					to = g_over->getEdge(e.id).to;
+
+					if (!visited->operator [](to)) {
+						if(opt_verb>1)
+							printf("learnEF: Learning that the edge between %d and %d (edgeid: %d) could be enabled.\n", i, to, e.id);
+
 						assert(!g_over->edgeEnabled(e.id)); // if edge was enabled, then j would be reachable, which means j would be visited
 						Lit l = ~mkLit(e.id, true);
 						conflict.push(l);
@@ -1330,6 +1345,117 @@ public:
 			}
 		}
 	}
+
+
+	//FIXME BROKEN NOT YET IMPLEMENTED
+
+	// Find lasso of states that satisfy not phi, at least one of them should satisfy phi OR one of the edges of the lasso should become disabled
+	void learnAF(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
+		Bitset* phi_under = ctl_standalone_under->solve(subf); // Solve the inner subformula of the entire formula
+		Bitset* phi_over = ctl_standalone_over->solve(subf); // Solve the inner subformula of the entire formula
+
+		DynamicGraph::Edge e;
+		int from, to, eid, pred, predpred, to1, from1;
+
+
+
+		std::stack <int> s;
+		s.push(startNode);
+		std::map <int,int> parent; // from this we retreive the path of edges from start state to some state that doesn't satisfy phi
+		Bitset *visited = new Bitset(g_over->states()); // This bitset denotes all the visited nodes
+		visited->set(startNode);
+		bool done = false;
+		while (s.size() > 0 && !done) { // stack of visited elements
+			from = s.top();
+			s.pop();
+			visited->set(from);
+			if(opt_verb>1)
+				printf("learnAG: Considering state %d\n", from);
+
+			for (int i = 0; i < g_under->nIncident(from) && !done; i++) { // iterate over neighbours of current front of queue
+				e = g_under->incident(from, i);
+				eid = e.id;
+				to = g_under->getEdge(eid).to;
+				if(opt_verb>1)
+					printf("learnAF: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
+
+
+				if (g_under->edgeEnabled(eid) && !phi_under->operator [](to) && !phi_over->operator [](to)) {
+					if (!visited->operator [](to)) { // explore new state in graph
+					if(opt_verb>1)
+						printf("learnAF: Adding map parent(%d) = %d. phi_under(to): %d, phi_over(to): %d, visited: %d. putting %d in queue\n", to, from, phi_under->operator [](to), phi_over->operator [](to), visited->operator [](to), to);
+
+						s.push(to);
+						parent[to] = from;
+					} else { // check if this next state is part of the current path, in this case we have found a lasso
+						if(opt_verb>1)
+							printf("learnAF: Checking if %d makes a loop in current path\n", to);
+
+						pred = to;
+						predpred = from;
+						if (predpred == to) {
+							done = true; // We have found a lasso
+							if(opt_verb>1)
+								printf("learnAF: %d does make a loop in current path (via %d)\n", to, from);
+						}
+						while (predpred != startNode && !done) {
+							to1 = g_under->getEdge(eid).to;
+							from1 = g_under->getEdge(eid).from;
+							if(opt_verb>1)
+								printf("learnAF: %d -> %d\n", from1, to1);
+
+							Lit l = ~mkLit(eid, false);
+							assert(value(l)==l_False);
+
+							pred = predpred;
+							predpred = parent[predpred];
+							eid = g_under->getEdge(predpred, pred);
+
+							if (predpred == to) {
+								done = true; // We have found a lasso
+								if(opt_verb>1)
+									printf("learnAF: %d does make a loop in current path (via %d)\n", to, from);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		assert(done);
+
+		if(opt_verb>1)
+			printf("learnAF: reconstructing path from %d to %d\n", startNode, to);
+
+		// First, get the very last edge in the path accounted for (the one that completes the loop of the lasso)
+		eid = g_under->getEdge(from, to);
+		Lit l = ~mkLit(eid, false);
+		conflict.push(l);
+		assert(value(l)==l_False);
+		learnClausePos(conflict, subf, from); // learn that this reachable node satisfy phi
+		to = from;
+		from = parent[to];
+		eid = g_under->getEdge(from, to);
+
+		while (to != startNode) {
+			int to1 = g_under->getEdge(eid).to;
+			int from1 = g_under->getEdge(eid).from;
+			if(opt_verb>1)
+				printf("learnAF: %d -> %d\n", from1, to1);
+
+			// Learn that the edge might be turned off
+			Lit l = ~mkLit(eid, false);
+			conflict.push(l);
+			assert(value(l)==l_False);
+
+			learnClausePos(conflict, subf, from); // learn that this reachable node satisfy phi
+
+			to = from;
+			from = parent[to];
+			eid = g_under->getEdge(from, to);
+		}
+	}
+
 
 
 

@@ -77,8 +77,6 @@ class CTLParser: public Parser<B, Solver> {
 		S.addTheory(kripke);
 
 
-		printf("Kripkes.size: %d\n", kripkes.size());
-
 		//  return ev;
 	}
 
@@ -148,10 +146,6 @@ class CTLParser: public Parser<B, Solver> {
 		int ctlVar = parseInt(in) - 1;
 
 		CTLFormula* f = parseCTL(in);
-
-		printf("Parsed formula:\n");
-		printFormula(f);
-		printf("\n");
 
 		kripkes[kripkeID]->setCTL(*f, initialNode);
 		kripkes[kripkeID]->newCTLVar(ctlVar);
@@ -328,14 +322,6 @@ class CTLParser: public Parser<B, Solver> {
 
 public:
 	bool parseLine(B& in, Solver& S) {
-		/* DEBUG */
-		printf("Parse line: ");
-
-		for (int i = 0; in[i] != '\0'; i++) {
-			printf("%c", in[i]);
-		}
-		printf("\n");
-		// */
 
 		skipWhitespace(in);
 		if (*in == EOF)
