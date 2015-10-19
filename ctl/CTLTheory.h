@@ -1346,9 +1346,6 @@ public:
 		}
 	}
 
-
-	//FIXME BROKEN NOT YET IMPLEMENTED
-
 	// Find lasso of states that satisfy not phi, at least one of them should satisfy phi OR one of the edges of the lasso should become disabled
 	void learnAF(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
 		Bitset* phi_under = ctl_standalone_under->solve(subf); // Solve the inner subformula of the entire formula
