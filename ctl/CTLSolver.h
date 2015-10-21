@@ -267,6 +267,7 @@ public:
 				delete st2;
 				delete andst;
 				delete x;
+				delete prest;
 				return orst; // fixpoint reached
 			}
 
