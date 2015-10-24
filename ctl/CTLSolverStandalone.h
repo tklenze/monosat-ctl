@@ -79,13 +79,11 @@ public:
 		default : return NULL;
 		}
 	}
-	/*// TODO write me
 	Bitset* solve(std::string s) {
 		char *s1 = &s[0];
 		CTLFormula* f = parseCTL(s1);
 		return solve(*f);
 	}
-	*/
 
 	Bitset* solveID(CTLFormula& f) {
 		assert(f.op == ID);
