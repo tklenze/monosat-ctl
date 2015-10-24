@@ -935,6 +935,12 @@ public:
 
 			learnAF(conflict, *subf.operand1, startNode);
 		}
+		else if (subf.op == EW) {
+			if(opt_verb>1)
+				printf("Clause learning case EW...\n");
+
+			learnEW(conflict, *subf.operand1, *subf.operand2, startNode);
+		}
 		else {
 			if(opt_verb>1)
 				printf("Clause learning case OTHER...\n");
@@ -1129,8 +1135,8 @@ public:
 	// Successor to "phi-reachable" state satisfies phi or enable transition from any "phi-reachable" state
 	//
 	void learnEG(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
-		Bitset* phi = ctl_standalone_over->solve(subf); // Solve the inner subformula of the entire formula
-		ctl_standalone_over->printStateSet(*phi);
+		Bitset* phi = ctl_over->solve(subf); // Solve the inner subformula of the entire formula
+		ctl_over->printStateSet(*phi);
 		printFormula2(subf);
 
 		DynamicGraph::Edge e;
@@ -1292,7 +1298,7 @@ public:
 	// Find all reachable states, at least one of them should satisfy phi OR there should be a transition enabled
 	// from a reachable state to an unreachable state
 	void learnEF(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
-		Bitset* phi = ctl_standalone_over->solve(subf); // Solve the inner subformula of the entire formula
+		Bitset* phi = ctl_over->solve(subf); // Solve the inner subformula of the entire formula
 		ctl_standalone_over->printStateSet(*phi);
 		printFormula2(subf);
 
@@ -1348,8 +1354,8 @@ public:
 
 	// Find lasso of states that satisfy not phi, at least one of them should satisfy phi OR one of the edges of the lasso should become disabled
 	void learnAF(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
-		Bitset* phi_under = ctl_standalone_under->solve(subf); // Solve the inner subformula of the entire formula
-		Bitset* phi_over = ctl_standalone_over->solve(subf); // Solve the inner subformula of the entire formula
+		Bitset* phi_under = ctl_under->solve(subf); // Solve the inner subformula of the entire formula
+		Bitset* phi_over = ctl_over->solve(subf); // Solve the inner subformula of the entire formula
 
 		DynamicGraph::Edge e;
 		int from, to, eid, pred, predpred, to1, from1;
@@ -1455,6 +1461,82 @@ public:
 
 
 
+	// Find all phi-reachable states, at least one of them should satisfy psi OR there should be a transition enabled
+	// from a phi-reachable state (to anywhere) OR a non-phi-reachable state that is a successor to a phi-reachable state satisfies phi, or psi
+
+	// For EU this should be pretty much the same, except that we only add transitions from phi-reachable to non-phi-reachable
+	// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME Not done yet
+	void learnEW(vec<Lit> & conflict, CTLFormula &subf1, CTLFormula &subf2, int startNode) { // phi EW psi
+		Bitset* phi = ctl_over->solve(subf1); // Solve the inner subformula of the entire formula
+		Bitset* psi = ctl_over->solve(subf2); // Solve the inner subformula of the entire formula
+
+
+		DynamicGraph::Edge e;
+		int from, to;
+
+		// if the start node does not satisfy phi, then we just ask phi or psi to be satisfied here. This is treated separately, so
+		// that in the queue later we can assume every item in the queue to satisfy phi.
+		if (!phi->operator [](startNode)) {
+			if(opt_verb>1)
+				printf("learnEW: initial state does not satisfy phi or psi\n");
+			assert(!psi->operator [](startNode)); // If psi was satisfied in initial state, then we would not have a conflict
+			learnClausePos(conflict, subf1, startNode); // Either phi must be true...
+			learnClausePos(conflict, subf2, startNode); // ... or psi must be true
+			delete phi;
+			delete psi;
+			return;
+		}
+
+
+		std::queue <int> list; // this queue denotes the current path of visited states, whose neighbours have to be inspected
+		list.push(startNode);
+		Bitset *visited = new Bitset(g_over->states()); // This bitset denotes all the visited nodes
+		// We first employ BFS to find all phi-reachable nodes. We add them to the clause
+		while (list.size() > 0) { // FIFO queue of visited elements
+			from = list.front();
+			list.pop();
+			visited->set(from);
+			if(opt_verb>1)
+				printf("learnEW: Considering state %d\n", from);
+
+			for (int i = 0; i < g_over->nIncident(from); i++) { // iterate over neighbours of current front of queue
+				e = g_over->incident(from, i);
+				to = g_over->getEdge(e.id).to;
+				if(opt_verb>1)
+					printf("learnEW: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
+
+
+				if (g_over->edgeEnabled(e.id) && !visited->operator [](to) && phi->operator [](to)) {
+					list.push(to);
+				} else if (g_over->edgeEnabled(e.id) && !visited->operator [](to) && !phi->operator [](to)) {
+					learnClausePos(conflict, subf1, to); // learn that this successor to a phi-reachable state satisfy phi
+					learnClausePos(conflict, subf2, to); // learn that this successor to a phi-reachable state satisfy psi
+				}
+			}
+			assert(!psi->operator [](startNode)); // If psi was satisfied in this phi-reachable state, then we would not have a conflict
+			learnClausePos(conflict, subf2, from); // learn that this phi-reachable node satisfy psi
+		}
+		// Now for part two of the clause:
+		// iterate over edges from visited states; add literal to enable these edges
+		for (int i = 0; i < visited->size(); i++) {
+			if (visited->operator [](i)) {
+				for (int j = 0; j < g_over->nIncident(i); j++) {
+					e = g_over->incident(i, j);
+					to = g_over->getEdge(e.id).to;
+
+					if (!g_over->edgeEnabled(e.id)) {
+						if(opt_verb>1)
+							printf("learnEW: Learning that the edge between %d and %d (edgeid: %d) could be enabled.\n", i, to, e.id);
+						Lit l = ~mkLit(e.id, true);
+						conflict.push(l);
+						assert(value(l)==l_False);
+					}
+				}
+			}
+		}
+		delete phi;
+		delete psi;
+	}
 
 
 	void printLearntClause(vec<Lit> & conflict) {
