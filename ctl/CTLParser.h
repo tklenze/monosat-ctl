@@ -28,6 +28,7 @@
 #include "core/SolverTypes.h"
 #include "ctl/CTLTheory.h"
 #include "ctl/CTLFormula.h"
+#include "ctl/CTLParserUtils.h"
 
 #include "core/Config.h"
 #include "pb/PbTheory.h"
@@ -145,7 +146,14 @@ class CTLParser: public Parser<B, Solver> {
 		int initialNode = parseInt(in);
 		int ctlVar = parseInt(in) - 1;
 
-		CTLFormula* f = parseCTL(in);
+
+		// OK, this is probably a bit controversial, but I will attach AND the formula together with AG (EX True).
+		// TODO properly document this, and make it able to switch it off
+		std::string tmp = std::string(in);
+		//std::string tmp = std::string("(AG (EX 0 OR EX NOT 0) AND ")+in+std::string(")");
+		std::cout << tmp;
+		char *fSafe = &tmp[0];
+		CTLFormula* f = parseCTL(fSafe);
 
 		kripkes[kripkeID]->setCTL(*f, initialNode);
 		kripkes[kripkeID]->newCTLVar(ctlVar);
@@ -154,132 +162,6 @@ class CTLParser: public Parser<B, Solver> {
 	}
 
 	// 	enum CTLOp { ID, NEG, OR, AND, EX, EF, EG, EW, EU, AX, AF, AG, AW, AU};
-
-	CTLFormula* parseCTL(B& in) {
-		skipWhitespace(in);
-		CTLFormula* f = newCTLFormula();
-		if (match(in, "NEG")) {
-			CTLFormula* inside = parseCTL(in);
-			f->op = NEG;
-			f->operand1 = inside;
-			return f;
-		}
-		if (match(in, "NOT")) { // out of convenience, identical to NEG
-			CTLFormula* inside = parseCTL(in);
-			f->op = NEG;
-			f->operand1 = inside;
-			return f;
-		}
-		if (match(in, "EX")) {
-			CTLFormula* inside = parseCTL(in);
-			f->op = EX;
-			f->operand1 = inside;
-			return f;
-		}
-		if (match(in, "EF")) {
-			CTLFormula* inside = parseCTL(in);
-			f->op = EF;
-			f->operand1 = inside;
-			return f;
-		}
-		if (match(in, "EG")) {
-			CTLFormula* inside = parseCTL(in);
-			f->op = EG;
-			f->operand1 = inside;
-			return f;
-		}
-		if (match(in, "AX")) {
-			CTLFormula* inside = parseCTL(in);
-			f->op = AX;
-			f->operand1 = inside;
-			return f;
-		}
-		if (match(in, "AF")) {
-			CTLFormula* inside = parseCTL(in);
-			f->op = AF;
-			f->operand1 = inside;
-			return f;
-		}
-		if (match(in, "AG")) {
-			CTLFormula* inside = parseCTL(in);
-			f->op = AG;
-			f->operand1 = inside;
-			return f;
-		}
-		if (match(in, "(")) {
-			CTLFormula* inside1 = parseCTL(in);
-			skipWhitespace(in);
-			if (match(in, "EW")) {
-				CTLFormula* inside2 = parseCTL(in);
-				skipWhitespace(in);
-				if (match(in, ")")) {
-					f->op = EW;
-					f->operand1 = inside1;
-					f->operand2 = inside2;
-				} else {
-					printf("Error: Expected closing bracket"); exit(1);
-				}
-			} else if (match(in, "EU")) {
-				CTLFormula* inside2 = parseCTL(in);
-				skipWhitespace(in);
-				if (match(in, ")")) {
-					f->op = EU;
-					f->operand1 = inside1;
-					f->operand2 = inside2;
-				} else {
-					printf("Error: Expected closing bracket"); exit(1);
-				}
-			} else if (match(in, "AW")) {
-				CTLFormula* inside2 = parseCTL(in);
-				skipWhitespace(in);
-				if (match(in, ")")) {
-					f->op = AW;
-					f->operand1 = inside1;
-					f->operand2 = inside2;
-				} else {
-					printf("Error: Expected closing bracket"); exit(1);
-				}
-			} else if (match(in, "AU")) {
-				CTLFormula* inside2 = parseCTL(in);
-				skipWhitespace(in);
-				if (match(in, ")")) {
-					f->op = AU;
-					f->operand1 = inside1;
-					f->operand2 = inside2;
-				} else {
-					printf("Error: Expected closing bracket"); exit(1);
-				}
-			} else if (match(in, "OR")) {
-				CTLFormula* inside2 = parseCTL(in);
-				skipWhitespace(in);
-				if (match(in, ")")) {
-					f->op = OR;
-					f->operand1 = inside1;
-					f->operand2 = inside2;
-				} else {
-					printf("Error: Expected closing bracket"); exit(1);
-				}
-			} else if (match(in, "AND")) {
-				CTLFormula* inside2 = parseCTL(in);
-				skipWhitespace(in);
-				if (match(in, ")")) {
-					f->op = AND;
-					f->operand1 = inside1;
-					f->operand2 = inside2;
-				} else {
-					printf("Error: Expected closing bracket"); exit(1);
-				}
-			} else {
-				printf("Error: Operator missing"); exit(1);
-			}
-			return f;
-		}
-		// No other matches, must be a number.
-		int n = parseInt(in);
-		f->op = ID;
-		f->value = n;
-		return f;
-	}
 
 	// Draws all Kripke structures for debugging purposes
 	void readDraw(B& in, Solver& S) {

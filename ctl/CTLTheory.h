@@ -46,6 +46,7 @@
 #include <stack>
 #include <map>
 #include <stdexcept>
+#include <string>
 using namespace dgl;
 namespace Monosat {
 
@@ -1592,6 +1593,7 @@ public:
 	bool check_solved() {
 		// TODO sanity check for NodeAPs. Thus far we only check for edges and whether the CTL formula is satisfied
 
+
 		// hacked in something to print out the solution
 		printf("\n--------------------\nSolution\n");
 		printf("\nOver:\n");
@@ -1645,12 +1647,83 @@ public:
 
 		if (value(ctl_lit)==l_True &&
 				(!bit_standalone_over->operator [](initialNode) || !bit_standalone_under->operator [](initialNode))) {
-			return false;
+			throw std::runtime_error("Solution found does not agree with standalone CTL model checker!");
 		}
 		if (value(ctl_lit)==l_False &&
 				(bit_standalone_over->operator [](initialNode) || bit_standalone_under->operator [](initialNode))) {
-			return false;
+			throw std::runtime_error("No solution despite the standalone CTL model checker stating that the current Kripke structure is a solution!");
 		}
+
+
+		/*
+		 * Format for NuSMV:
+MODULE main
+VAR
+  v0 : boolean;
+  state : {0,1,2};
+ASSIGN
+  init(state) := 0;
+  next(state) :=
+    case
+      state = 0 : {1,2};
+      state = 1 : {1,2};
+      state = 2 : {0,1};
+    esac;
+  v0 :=
+    case
+      state = 0 : TRUE;
+      state = 1 : FALSE;
+      state = 2 : FALSE;
+    esac;
+
+SPEC
+  AG (v0 -> EX AF !v0)
+		 *
+		 * */
+
+		//Bitset* infinitePaths = ctl_standalone_over->solve("AG (EX 0 OR EX NOT 0)");
+
+
+		std::string nuSMVInput = "MODULE main\nVAR\n  state: {"; // prints Output sentence on screen
+
+		for (int i = 0; i < g_under->states(); i++) {
+			nuSMVInput = nuSMVInput + std::to_string(i) + ", ";
+		}
+		nuSMVInput = nuSMVInput.substr(0, nuSMVInput.size()-2);
+		nuSMVInput = nuSMVInput + "};\n";
+
+		for (int i = 0; i < g_under->statelabel[0].size(); i++) {
+			nuSMVInput = nuSMVInput + "  v" + std::to_string(i) + " : boolean;\n";
+		}
+		nuSMVInput += "ASSIGN\n  init(state) := 0;\n  next(state) :=\n    case\n";
+
+		DynamicGraph::Edge e;
+		int from, to, eid;
+		for (int i = 0; i < g_under->states(); i++) {
+			std::string nuSMVInputEdge = "       state = " +std::to_string(i) + " : {";
+			bool empty = true;
+			for (int j = 0; j < g_under->nIncident(i); j++) { // iterate over neighbours of current front of queue
+				e = g_under->incident(i, j);
+				from = g_under->getEdge(e.id).from;
+				to = g_under->getEdge(e.id).to;
+				if (g_under->edgeEnabled(e.id)) {
+					nuSMVInputEdge += std::to_string(to) + ", ";
+					empty = false;
+				}
+			}
+			if (!empty) {
+				nuSMVInputEdge = nuSMVInputEdge.substr(0, nuSMVInputEdge.size()-2);
+				nuSMVInputEdge += "}\n";
+				nuSMVInput += nuSMVInputEdge;
+			} else {
+				nuSMVInput += "       state = " +std::to_string(i) + " : FALSE\n";
+			}
+		}
+
+
+		std::cout << nuSMVInput ;
+
+
 
 		return true;
 	}
