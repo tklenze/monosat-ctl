@@ -20,7 +20,7 @@
 #include "dgl/DynamicGraph.h"
 #include "ctl/DynamicKripke.h"
 #include "CTLFormula.h"
-#include "CTLParserUtils.h"
+//#include "CTLParserUtils.h"
 using namespace dgl;
 namespace Monosat {
 
@@ -63,6 +63,7 @@ public:
 	Bitset* solve(CTLFormula& f) {
 		switch (f.op) {
 		case ID : return solveID(f);
+		case True : return solveTrue(f);
 		case NEG : return solveNEG(f);
 		case OR : return solveOR(f);
 		case AND : return solveAND(f);
@@ -79,11 +80,12 @@ public:
 		default : return NULL;
 		}
 	}
+	/* TODO perhaps some day I will make it possible to call the parser from here, but right now that doesn't work 2015-10-25
 	Bitset* solve(std::string s) {
 		char *s1 = &s[0];
-		CTLFormula* f = parseCTL(s1);
+		CTLFormula* f = ctlParser.parseCTL(s1);
 		return solve(*f);
-	}
+	} */
 
 	Bitset* solveID(CTLFormula& f) {
 		assert(f.op == ID);
@@ -92,6 +94,13 @@ public:
 			if (k->statelabel[i][f.value])
 				st->set(i);
 		}
+		return st;
+	}
+
+	Bitset* solveTrue(CTLFormula& f) {
+		assert(f.op == True);
+		Bitset *st = new Bitset(k->states());
+		st->memset(true);
 		return st;
 	}
 

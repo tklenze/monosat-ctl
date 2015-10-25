@@ -88,6 +88,7 @@ public:
 	Bitset* solve(CTLFormula& f) {
 		switch (f.op) {
 		case ID : return solveID(f);
+		case True : return solveTrue(f);
 		case NEG : return solveNEG(f);
 		case OR : return solveOR(f);
 		case AND : return solveAND(f);
@@ -112,6 +113,13 @@ public:
 			if (k->statelabel[i][f.value])
 				st->set(i);
 		}
+		return st;
+	}
+
+	Bitset* solveTrue(CTLFormula& f) {
+		assert(f.op == True);
+		Bitset *st = new Bitset(k->states());
+		st->memset(true);
 		return st;
 	}
 

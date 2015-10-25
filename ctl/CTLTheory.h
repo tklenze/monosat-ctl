@@ -818,7 +818,6 @@ public:
 			printf("Clause learning subformula... ");
 			printFormula2(subf);
 			printf(", for startNode %d\n", startNode);
-
 		}
 
 		if (subf.op == AND) {
@@ -831,12 +830,17 @@ public:
 				printf("Clause learning case OR...\n");
 
 			learnOR(conflict, *subf.operand1, *subf.operand2, startNode);
-		}else if (subf.op == NEG) { // We push negation all the way to the atomic propositions, such that we only have literals and otherwise negation free formulas
+		} else if (subf.op == NEG) { // We push negation all the way to the atomic propositions, such that we only have literals and otherwise negation free formulas
 			if(opt_verb>1)
 				printf("Clause learning case NEG...\n");
 
 			if (subf.operand1->op == NEG) {
 				learnClausePos(conflict, *subf.operand1->operand1, startNode); // Be clever about double negation
+				return;
+			}
+			if (subf.operand1->op == True) {
+				// don't learn anything...!
+				return;
 			}
 			CTLFormula inner1 {NEG, subf.operand1->operand1, NULL, 0};
 			// inner2 is only needed for some connectives and thus declared below
@@ -899,6 +903,12 @@ public:
 			Lit l = ~mkLit(getNodeAPVar(startNode, p), true);
 			conflict.push(l);
 			assert(value(l)==l_False);
+		}
+		else if (subf.op == True) { // Not recursive
+			if(opt_verb>1)
+				printf("Clause learning case True...\n");
+
+			assert( false ); // We should never have to go here, since True can never cause a conflict
 		}
 		else if (subf.op == EX) {
 			if(opt_verb>1)
@@ -1681,45 +1691,85 @@ SPEC
 		 *
 		 * */
 
-		//Bitset* infinitePaths = ctl_standalone_over->solve("AG (EX 0 OR EX NOT 0)");
+		// Compute AG EX True
+		CTLFormula* fInfinitePaths1 = newCTLFormula();
+		fInfinitePaths1->op = True;
+		CTLFormula* fInfinitePaths2 = newCTLFormula();
+		fInfinitePaths2->op = EX;
+		fInfinitePaths2->operand1 = fInfinitePaths1;
+		CTLFormula* fInfinitePaths3 = newCTLFormula();
+		fInfinitePaths3->op = AG;
+		fInfinitePaths3->operand1 = fInfinitePaths2;
 
+		Bitset* infinitePaths = ctl_standalone_over->solve(*fInfinitePaths3);
+		printf("Infinite paths: ");
+		printFormula(fInfinitePaths3);
+		ctl_standalone_over->printStateSet(*infinitePaths);
 
-		std::string nuSMVInput = "MODULE main\nVAR\n  state: {"; // prints Output sentence on screen
+		std::string nuSMVInput = "\n\nMODULE main\nVAR\n  state: {"; // prints Output sentence on screen
 
+		// Print set of states, but only those that belong on an infinite path
 		for (int i = 0; i < g_under->states(); i++) {
-			nuSMVInput = nuSMVInput + std::to_string(i) + ", ";
+			if (infinitePaths->operator [](i))
+				nuSMVInput = nuSMVInput + std::to_string(i) + ", ";
 		}
 		nuSMVInput = nuSMVInput.substr(0, nuSMVInput.size()-2);
 		nuSMVInput = nuSMVInput + "};\n";
 
+		// print out all state variables
 		for (int i = 0; i < g_under->statelabel[0].size(); i++) {
 			nuSMVInput = nuSMVInput + "  v" + std::to_string(i) + " : boolean;\n";
 		}
 		nuSMVInput += "ASSIGN\n  init(state) := 0;\n  next(state) :=\n    case\n";
 
+
+		// Transitions
 		DynamicGraph::Edge e;
 		int from, to, eid;
 		for (int i = 0; i < g_under->states(); i++) {
 			std::string nuSMVInputEdge = "       state = " +std::to_string(i) + " : {";
-			bool empty = true;
 			for (int j = 0; j < g_under->nIncident(i); j++) { // iterate over neighbours of current front of queue
 				e = g_under->incident(i, j);
 				from = g_under->getEdge(e.id).from;
 				to = g_under->getEdge(e.id).to;
 				if (g_under->edgeEnabled(e.id)) {
 					nuSMVInputEdge += std::to_string(to) + ", ";
-					empty = false;
 				}
 			}
-			if (!empty) {
+			if (infinitePaths->operator [](i)) { // only do this for states that belong on an infinite paths
 				nuSMVInputEdge = nuSMVInputEdge.substr(0, nuSMVInputEdge.size()-2);
-				nuSMVInputEdge += "}\n";
+				nuSMVInputEdge += "};\n";
 				nuSMVInput += nuSMVInputEdge;
-			} else {
-				nuSMVInput += "       state = " +std::to_string(i) + " : FALSE\n";
 			}
 		}
+		nuSMVInput += "    esac;\n\n";
 
+		// State literal assignments
+
+		/*
+  v0 :=
+    case
+      state = 0 : TRUE;
+      state = 1 : FALSE;
+      state = 2 : FALSE;
+    esac;
+    */
+		for (int i = 0; i < g_under->statelabel[0].size(); i++) {
+			nuSMVInput += "  v"+std::to_string(i)+" :=\n    case\n";
+			for (int j = 0; j < g_under->states(); j++) {
+				if (infinitePaths->operator [](j)) { // only do this for states that belong on an infinite paths
+					if (g_under->isAPinStateLabel(j, i))
+						nuSMVInput += "       state = "+std::to_string(j)+" : TRUE;\n";
+					else
+						nuSMVInput += "       state = "+std::to_string(j)+" : FALSE;\n";
+				}
+			}
+			nuSMVInput += "    esac;\n";
+		}
+
+		nuSMVInput += "\nSPEC\n  ";
+		nuSMVInput += getFormulaNuSMVFormat(*f);
+		nuSMVInput += "\n\n";
 
 		std::cout << nuSMVInput ;
 

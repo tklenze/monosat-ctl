@@ -9,11 +9,14 @@
 #ifndef CTL_FORMULA_H_
 #define CTL_FORMULA_H_
 #include <stdio.h>
+#include "ctl/CTLParser.h"
+
+
 
 	// CTL Formula representation
 
 	// CTL Operators, plus ID (identity operator, for formulas that are atomic) and NEG, OR, AND.
-	enum CTLOp { ID, NEG, OR, AND, EX, EF, EG, EW, EU, AX, AF, AG, AW, AU};
+	enum CTLOp { ID, True, NEG, OR, AND, EX, EF, EG, EW, EU, AX, AF, AG, AW, AU};
 
 	/* CTL Formula tree. Everything besides "op" is only considered in some cases.
 	 * For instance, operand1 and operand2 are needed for AU, but value is only meaningful in case op=ID
@@ -38,6 +41,7 @@
 		CTLFormula f = *foo;
 		switch (f.op) {
 		case ID : printf("%d", f.value); break;
+		case True : printf("True"); break;
 		case NEG: printf("not "); printFormula(f.operand1); break;
 		case OR : printf("("); printFormula(f.operand1); printf(" or "); printFormula(f.operand2); printf(")"); break;
 		case AND : printf("("); printFormula(f.operand1); printf(" and "); printFormula(f.operand2); printf(")"); break;
@@ -63,6 +67,7 @@
 		//CTLFormula f = *foo;
 		switch (f.op) {
 		case ID : printf("%d", f.value); break;
+		case True : printf("True"); break;
 		case NEG: printf("not "); printFormula(f.operand1); break;
 		case OR : printf("("); printFormula(f.operand1); printf(" or "); printFormula(f.operand2); printf(")"); break;
 		case AND : printf("("); printFormula(f.operand1); printf(" and "); printFormula(f.operand2); printf(")"); break;
@@ -83,5 +88,30 @@
 		}
 	}
 
+	std::string getFormulaNuSMVFormat(CTLFormula& f) {
+			std::string s;
+			switch (f.op) {
+			case ID : s = "v" + std::to_string(f.value); break;
+			case True : s = "TRUE"; break;
+			case NEG: s = "!" + getFormulaNuSMVFormat(*f.operand1); break;
+			case OR : s = "(" + getFormulaNuSMVFormat(*f.operand1) + " | " + getFormulaNuSMVFormat(*f.operand2) + ")"; break;
+			case AND : s = "(" + getFormulaNuSMVFormat(*f.operand1) + " & " + getFormulaNuSMVFormat(*f.operand2) + ")"; break;
+
+			case EX: s = "EX " + getFormulaNuSMVFormat(*f.operand1); break;
+			case EF: s = "EF " + getFormulaNuSMVFormat(*f.operand1); break;
+			case EG: s = "EG " + getFormulaNuSMVFormat(*f.operand1); break;
+			case EW : s = "(" + getFormulaNuSMVFormat(*f.operand1) + " EW " + getFormulaNuSMVFormat(*f.operand2) + ")"; break;
+			case EU : s = "(" + getFormulaNuSMVFormat(*f.operand1) + " EU " + getFormulaNuSMVFormat(*f.operand2) + ")"; break;
+
+			case AX: s = "AX " + getFormulaNuSMVFormat(*f.operand1); break;
+			case AF: s = "AF " + getFormulaNuSMVFormat(*f.operand1); break;
+			case AG: s = "AG " + getFormulaNuSMVFormat(*f.operand1); break;
+			case AW : s = "(" + getFormulaNuSMVFormat(*f.operand1) + " AW " + getFormulaNuSMVFormat(*f.operand2) + ")"; break;
+			case AU : s = "(" + getFormulaNuSMVFormat(*f.operand1) + " AU " + getFormulaNuSMVFormat(*f.operand2) + ")"; break;
+
+			default : s = "Unknown formula";
+			}
+			return s;
+		}
 
 #endif /* CTL_FORMULA_H_ */
