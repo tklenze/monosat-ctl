@@ -1773,6 +1773,10 @@ SPEC
 
 		std::cout << nuSMVInput ;
 
+		std::ofstream inputConvertedToNuSMVInput;
+
+		inputConvertedToNuSMVInput.open("inputConvertedToNuSMVInput.txt", std::ios_base::out);
+		inputConvertedToNuSMVInput << nuSMVInput;
 
 
 		return true;
