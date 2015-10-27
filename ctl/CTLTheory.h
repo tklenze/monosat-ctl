@@ -747,8 +747,8 @@ public:
 			*/
 
 
-			printFullClause();
-			printLearntClause(conflict);
+			//printFullClause();
+			//printLearntClause(conflict);
 
 			toSolver(conflict);
 			if(opt_verb>1){
@@ -1147,8 +1147,8 @@ public:
 	//
 	void learnEG(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
 		Bitset* phi = ctl_over->solve(subf); // Solve the inner subformula of the entire formula
-		ctl_over->printStateSet(*phi);
-		printFormula2(subf);
+		//ctl_over->printStateSet(*phi);
+		//printFormula2(subf);
 
 		DynamicGraph::Edge e;
 		int from, to;
@@ -1310,8 +1310,6 @@ public:
 	// from a reachable state to an unreachable state
 	void learnEF(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
 		Bitset* phi = ctl_over->solve(subf); // Solve the inner subformula of the entire formula
-		ctl_standalone_over->printStateSet(*phi);
-		printFormula2(subf);
 
 		DynamicGraph::Edge e;
 		int from, to;
@@ -1702,11 +1700,14 @@ SPEC
 		fInfinitePaths3->operand1 = fInfinitePaths2;
 
 		Bitset* infinitePaths = ctl_standalone_over->solve(*fInfinitePaths3);
-		printf("Infinite paths: ");
-		printFormula(fInfinitePaths3);
-		ctl_standalone_over->printStateSet(*infinitePaths);
 
-		std::string nuSMVInput = "\n\nMODULE main\nVAR\n  state: {"; // prints Output sentence on screen
+		if(opt_verb>1) {
+			printf("Infinite paths: ");
+			printFormula(fInfinitePaths3);
+			ctl_standalone_over->printStateSet(*infinitePaths);
+		}
+
+		std::string nuSMVInput = "MODULE main\nVAR\n  state: {"; // prints Output sentence on screen
 
 		// Print set of states, but only those that belong on an infinite path
 		for (int i = 0; i < g_under->states(); i++) {
@@ -1754,6 +1755,7 @@ SPEC
       state = 2 : FALSE;
     esac;
     */
+
 		for (int i = 0; i < g_under->statelabel[0].size(); i++) {
 			nuSMVInput += "  v"+std::to_string(i)+" :=\n    case\n";
 			for (int j = 0; j < g_under->states(); j++) {
@@ -1769,15 +1771,15 @@ SPEC
 
 		nuSMVInput += "\nSPEC\n  ";
 		nuSMVInput += getFormulaNuSMVFormat(*f);
-		nuSMVInput += "\n\n";
-
-		std::cout << nuSMVInput ;
+		nuSMVInput += "\n";
 
 		std::ofstream inputConvertedToNuSMVInput;
 
 		inputConvertedToNuSMVInput.open("inputConvertedToNuSMVInput.txt", std::ios_base::out);
 		inputConvertedToNuSMVInput << nuSMVInput;
+		inputConvertedToNuSMVInput.close();
 
+		std::system("NuSMV inputConvertedToNuSMVInput.txt | grep Counterexample");
 
 		return true;
 	}
