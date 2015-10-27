@@ -1185,9 +1185,7 @@ public:
 
 					} else if (!phi->operator [](to)) {
 						learnClausePos(conflict, subf, to);
-					} else {
-						assert(false); // The previous conditions should have been exhaustive
-					}
+					} // else we already have visited the phi-state "to" and recursively all its neighbours
 				} else {
 					Lit l = ~mkLit(e.id, true);
 					conflict.push(l);
