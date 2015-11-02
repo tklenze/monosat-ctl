@@ -24,20 +24,20 @@ ATTENTION: This file is not in use, currently. It was planned to put some things
 #include <set>
 #include <string>
 #include <sstream>
-
-	static CTLFormula* parseCTL(char* in) {
+namespace Monosat {
+	template<typename B>
+	static CTLFormula* parseCTL(B& in) {
 		skipWhitespace(in);
+
 		CTLFormula* f = newCTLFormula();
-		if (match(in, "NEG")) {
+		if (match(in, "NEG") || match(in, "NOT") || match(in, "~") || match(in, "!")) {
 			CTLFormula* inside = parseCTL(in);
 			f->op = NEG;
 			f->operand1 = inside;
 			return f;
 		}
-		if (match(in, "NOT")) { // out of convenience, identical to NEG
-			CTLFormula* inside = parseCTL(in);
-			f->op = NEG;
-			f->operand1 = inside;
+		if (match(in, "True") || match(in, "TRUE") || match(in, "true")) {
+			f->op = True;
 			return f;
 		}
 		if (match(in, "EX")) {
@@ -119,7 +119,7 @@ ATTENTION: This file is not in use, currently. It was planned to put some things
 				} else {
 					printf("Error: Expected closing bracket"); exit(1);
 				}
-			} else if (match(in, "OR")) {
+			} else if (match(in, "OR") || match(in, "v") || match(in, "|")) {
 				CTLFormula* inside2 = parseCTL(in);
 				skipWhitespace(in);
 				if (match(in, ")")) {
@@ -129,12 +129,25 @@ ATTENTION: This file is not in use, currently. It was planned to put some things
 				} else {
 					printf("Error: Expected closing bracket"); exit(1);
 				}
-			} else if (match(in, "AND")) {
+			} else if (match(in, "AND") || match(in, "^") || match(in, "&")) {
 				CTLFormula* inside2 = parseCTL(in);
 				skipWhitespace(in);
 				if (match(in, ")")) {
 					f->op = AND;
 					f->operand1 = inside1;
+					f->operand2 = inside2;
+				} else {
+					printf("Error: Expected closing bracket"); exit(1);
+				}
+			} else if (match(in, "IMP") || match(in, "->")) {
+				CTLFormula* inside2 = parseCTL(in);
+				skipWhitespace(in);
+				if (match(in, ")")) {
+					CTLFormula* notinside1 = newCTLFormula();
+					notinside1->op = NEG;
+					notinside1->operand1 = inside1;
+					f->op = OR;
+					f->operand1 = notinside1;
 					f->operand2 = inside2;
 				} else {
 					printf("Error: Expected closing bracket"); exit(1);
@@ -151,5 +164,5 @@ ATTENTION: This file is not in use, currently. It was planned to put some things
 
 		return f;
 	}
-
+}
 #endif /* CTL_PARSERUTILS_H_ */
