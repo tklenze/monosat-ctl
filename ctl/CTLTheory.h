@@ -162,6 +162,10 @@ public:
 	long stats_propagations_skipped = 0;
 
 
+	// Compute AG EX True
+	CTLFormula* fAGEXTrue;
+
+
 	CTLTheorySolver(Solver * S_, int _id = -1) :
 			S(S_), id(_id){
 		g_under = new DynamicKripke(id);
@@ -173,6 +177,16 @@ public:
 		f = newCTLFormula();
 
 		rnd_seed = opt_random_seed;
+
+		// Compute AG EX True
+		CTLFormula* fInfinitePaths1 = newCTLFormula();
+		fInfinitePaths1->op = True;
+		CTLFormula* fInfinitePaths2 = newCTLFormula();
+		fInfinitePaths2->op = EX;
+		fInfinitePaths2->operand1 = fInfinitePaths1;
+		fAGEXTrue = newCTLFormula();
+		fAGEXTrue->op = AG;
+		fAGEXTrue->operand1 = fInfinitePaths2;
 	}
 	~CTLTheorySolver(){
 		delete(g_under);
@@ -523,9 +537,9 @@ public:
 		trail.shrink(trail.size() - (i + 1));
 		//if(i>0){
 		requiresPropagation = true;
-		/*			g.markChanged();
-		 antig.markChanged();
-		 cutGraph.markChanged();*/
+		//			g.markChanged();
+		// antig.markChanged();
+		// cutGraph.markChanged();
 		//}
 
 	/*
@@ -746,10 +760,10 @@ public:
         	}
 			*/
 
-
-			//printFullClause();
-			//printLearntClause(conflict);
-
+			if(opt_verb>1){
+				printFullClause();
+				printLearntClause(conflict);
+			}
 			toSolver(conflict);
 			if(opt_verb>1){
 				printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
@@ -850,7 +864,6 @@ public:
 				CTLFormula outer {OR, &inner1, &inner2, 0};
 
 				learnClausePos(conflict, outer, startNode);
-				//FIXME TODO: all other cases
 			} else if (subf.operand1->op == OR) {
 				CTLFormula inner2 {NEG, subf.operand1->operand2, NULL, 0};
 				CTLFormula outer {AND, &inner1, &inner2, 0};
@@ -880,14 +893,26 @@ public:
 				Lit l = ~mkLit(getNodeAPVar(startNode, p), false);
 				conflict.push(l);
 				assert(value(l)==l_False);
-			} else if (subf.operand1->op == AU) {
-				assert(false); // NOT IMPLEMENTED YET
-			} else if (subf.operand1->op == AW) {
-				assert(false); // NOT IMPLEMENTED YET
-			} else if (subf.operand1->op == EU) {
-				assert(false); // NOT IMPLEMENTED YET
-			} else if (subf.operand1->op == EW) {
-				assert(false); // NOT IMPLEMENTED YET
+			} else if (subf.operand1->op == AU) { // ~(φ_1 AU φ_2) ≡ ~φ_2 EW ( ~φ_1 ^ ~φ_2 )
+				CTLFormula inner2 {NEG, subf.operand1->operand2, NULL, 0};
+				CTLFormula outer1 {AND, &inner1, &inner2, 0};
+				CTLFormula outer2 {EW, &inner2, &outer1, 0};
+				learnClausePos(conflict, outer2, startNode);
+			} else if (subf.operand1->op == AW) { // ~(φ_1 AW φ_2) ≡ ~φ_2 EU ( ~φ_1 ^ ~φ_2 )
+				CTLFormula inner2 {NEG, subf.operand1->operand2, NULL, 0};
+				CTLFormula outer1 {AND, &inner1, &inner2, 0};
+				CTLFormula outer2 {EU, &inner2, &outer1, 0};
+				learnClausePos(conflict, outer2, startNode);
+			} else if (subf.operand1->op == EU) { // ~(φ_1 EU φ_2) ≡ ~φ_2 AW ( ~φ_1 ^ ~φ_2 )
+				CTLFormula inner2 {NEG, subf.operand1->operand2, NULL, 0};
+				CTLFormula outer1 {AND, &inner1, &inner2, 0};
+				CTLFormula outer2 {AW, &inner2, &outer1, 0};
+				learnClausePos(conflict, outer2, startNode);
+			} else if (subf.operand1->op == EW) { // ~(φ_1 EW φ_2) ≡ ~φ_2 AU ( ~φ_1 ^ ~φ_2 )
+				CTLFormula inner2 {NEG, subf.operand1->operand2, NULL, 0};
+				CTLFormula outer1 {AND, &inner1, &inner2, 0};
+				CTLFormula outer2 {AU, &inner2, &outer1, 0};
+				learnClausePos(conflict, outer2, startNode);
 			} else {
 				assert (false); // we should not have missed anything
 			}
@@ -952,6 +977,18 @@ public:
 
 			learnEW(conflict, *subf.operand1, *subf.operand2, startNode);
 		}
+		else if (subf.op == EU) {
+			if(opt_verb>1)
+				printf("Clause learning case EU...\n");
+
+			learnEU(conflict, *subf.operand1, *subf.operand2, startNode);
+		}
+		else if (subf.op == AW) {
+			if(opt_verb>1)
+				printf("Clause learning case AW...\n");
+
+			learnAW(conflict, *subf.operand1, *subf.operand2, startNode, subf); // we give the entire formula as well, even though it's redundant, for convenience
+		}
 		else {
 			if(opt_verb>1)
 				printf("Clause learning case OTHER...\n");
@@ -963,6 +1000,17 @@ public:
 					conflict.push(l);
 					assert(value(l)==l_False);
 				}
+			}
+		}
+	}
+
+	// Fallback: learn full clause
+	void learnFullClause(vec<Lit> & conflict) {
+		for (int v = 0; v < vars.size(); v++) {
+			if(value(v)!=l_Undef){
+				Lit l = ~mkLit(v,value(v)==l_False);
+				assert(value(l)==l_False);
+				conflict.push(l);
 			}
 		}
 	}
@@ -996,10 +1044,10 @@ public:
 		ctl_over->resetSwap();
 
 		if(opt_verb>1) {
-			printf("phi1_over: "); ctl_standalone_over->printStateSet(*phi1_over);
-			printf("phi1_under: "); ctl_standalone_under->printStateSet(*phi1_under);
-			printf("phi2_over: "); ctl_standalone_over->printStateSet(*phi2_over);
-			printf("phi2_under: "); ctl_standalone_under->printStateSet(*phi2_under);
+			printf("learnAND: phi1_over: "); ctl_standalone_over->printStateSet(*phi1_over);
+			printf("learnAND: phi1_under: "); ctl_standalone_under->printStateSet(*phi1_under);
+			printf("learnAND: phi2_over: "); ctl_standalone_over->printStateSet(*phi2_over);
+			printf("learnAND: phi2_under: "); ctl_standalone_under->printStateSet(*phi2_under);
 		}
 
 
@@ -1546,6 +1594,235 @@ public:
 	}
 
 
+	// Find all phi-reachable states, at least one of them should satisfy psi OR there should be a transition enabled
+	// from a phi-reachable state (to anywhere) OR a non-phi-reachable state that is a successor to a phi-reachable state satisfies phi, or psi
+
+	// For EU this should be pretty much the same, except that we only add transitions from phi-reachable to non-phi-reachable
+	// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME Not done yet
+	void learnEU(vec<Lit> & conflict, CTLFormula &subf1, CTLFormula &subf2, int startNode) { // phi EW psi
+		Bitset* phi = ctl_over->solve(subf1); // Solve the inner subformula of the entire formula
+		Bitset* psi = ctl_over->solve(subf2); // Solve the inner subformula of the entire formula
+
+
+		DynamicGraph::Edge e;
+		int from, to;
+
+		// if the start node does not satisfy phi, then we just ask phi or psi to be satisfied here. This is treated separately, so
+		// that in the queue later we can assume every item in the queue to satisfy phi.
+		if (!phi->operator [](startNode)) {
+			if(opt_verb>1)
+				printf("learnEU: initial state does not satisfy phi or psi\n");
+			assert(!psi->operator [](startNode)); // If psi was satisfied in initial state, then we would not have a conflict
+			learnClausePos(conflict, subf1, startNode); // Either phi must be true...
+			learnClausePos(conflict, subf2, startNode); // ... or psi must be true
+			delete phi;
+			delete psi;
+			return;
+		}
+
+
+		std::queue <int> list; // this queue denotes the current path of visited states, whose neighbours have to be inspected
+		list.push(startNode);
+		Bitset *visited = new Bitset(g_over->states()); // This bitset denotes all the visited nodes
+		// We first employ BFS to find all phi-reachable nodes. We add them to the clause
+		while (list.size() > 0) { // FIFO queue of visited elements
+			from = list.front();
+			list.pop();
+			visited->set(from);
+			if(opt_verb>1)
+				printf("learnEU: Considering state %d\n", from);
+
+			for (int i = 0; i < g_over->nIncident(from); i++) { // iterate over neighbours of current front of queue
+				e = g_over->incident(from, i);
+				to = g_over->getEdge(e.id).to;
+				if(opt_verb>1)
+					printf("learnEU: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
+
+
+				if (g_over->edgeEnabled(e.id) && !visited->operator [](to) && phi->operator [](to)) {
+					list.push(to);
+				} else if (g_over->edgeEnabled(e.id) && !visited->operator [](to) && !phi->operator [](to)) {
+					learnClausePos(conflict, subf1, to); // learn that this successor to a phi-reachable state satisfy phi
+					learnClausePos(conflict, subf2, to); // learn that this successor to a phi-reachable state satisfy psi
+				}
+			}
+			assert(!psi->operator [](startNode)); // If psi was satisfied in this phi-reachable state, then we would not have a conflict
+			learnClausePos(conflict, subf2, from); // learn that this phi-reachable node satisfy psi
+		}
+		// Now for part two of the clause:
+		// iterate over edges from visited states; add literal to enable these edges
+		for (int i = 0; i < visited->size(); i++) {
+			if (visited->operator [](i)) {
+				for (int j = 0; j < g_over->nIncident(i); j++) {
+					e = g_over->incident(i, j);
+					to = g_over->getEdge(e.id).to;
+
+					if (!g_over->edgeEnabled(e.id) && !visited->operator [](to)) { // This is where the difference to EW is... we don't learn the edge if it merely leads to a phi-reachable state
+						if(opt_verb>1)
+							printf("learnEU: Learning that the edge between %d and %d (edgeid: %d) could be enabled.\n", i, to, e.id);
+						Lit l = ~mkLit(e.id, true);
+						conflict.push(l);
+						assert(value(l)==l_False);
+					}
+				}
+			}
+		}
+		delete phi;
+		delete psi;
+	}
+
+	// Find a finite path such that all except the last state satisfy phi, and no state satisfies psi. Learn a clause where you OR together:
+	// - remove an edge along the path
+	// - make the last state satisfy phi
+	// - make any state on the path satisfy psi
+	//
+    // In theory we'd have to find a lasso. However, AG EX True guarantees that even if we have a finite path, we will learn
+	// clauses that extend it to an infinite path. So we don't actually need to make sure that the path we find is infinite, which
+	// makes everything a lot simpler.
+	//
+	// We take an additional fAll parameter, which contains the entire formula. I.e. fAll = subf1 AW subf2. This is not checked.
+	void learnAW(vec<Lit> & conflict, CTLFormula &subf1, CTLFormula &subf2, int startNode, CTLFormula &fAll) {
+
+		// We will only proceed to do efficient clause learning if AG EX True holds. Otherwise learn default clause.
+		// The strategy in learnAND will compare both this clause to the clause learned from AG EX True and will prefer the smaller one.
+		// So it's not a problem that we learn a full clause here, it will not end up being learned (rather something on AG EX True will be)
+		Bitset* infinitePaths = ctl_under->solve(*fAGEXTrue);
+		if(!infinitePaths->operator [](startNode)) {
+			if(opt_verb>1)
+				printf("learnAW: learning full clause, since AG EX True does not hold\n");
+			learnFullClause(conflict);
+			delete infinitePaths;
+			return;
+		}
+
+		Bitset* phi1_under = ctl_under->solve(subf1); // Solve the inner subformula of the entire formula
+		Bitset* phi1_over = ctl_over->solve(subf1); // Solve the inner subformula of the entire formula
+		Bitset* phi2_under = ctl_under->solve(subf2); // Solve the inner subformula of the entire formula
+		Bitset* phi2_over = ctl_over->solve(subf2); // Solve the inner subformula of the entire formula
+		Bitset* fAll_under = ctl_under->solve(fAll); // Solve the inner subformula of the entire formula
+		Bitset* fAll_over = ctl_over->solve(fAll); // Solve the inner subformula of the entire formula
+
+		DynamicGraph::Edge e;
+		int from, to, eid, pred, predpred, to1, from1;
+
+
+
+		std::stack <int> s;
+		s.push(startNode);
+		std::map <int,int> parent; // from this we retreive the path of edges from start state to some state that doesn't satisfy phi
+		Bitset *visited = new Bitset(g_over->states()); // This bitset denotes all the visited nodes
+		visited->set(startNode);
+		bool done = false;
+		while (s.size() > 0 && !done) { // stack of visited elements
+			from = s.top();
+			s.pop();
+			visited->set(from);
+			if(opt_verb>1)
+				printf("learnAW: Considering state %d\n", from);
+
+			for (int i = 0; i < g_under->nIncident(from) && !done; i++) { // iterate over neighbours of current front of queue
+				e = g_under->incident(from, i);
+				eid = e.id;
+				to = g_under->getEdge(eid).to;
+				if(opt_verb>1)
+					printf("learnAW: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
+
+
+				if (g_under->edgeEnabled(eid) && !fAll_under->operator [](to) && !fAll_over->operator [](to)) {
+					if (!visited->operator [](to)) { // explore new state in graph
+						if(opt_verb>1)
+							printf("learnAW: Adding map parent(%d) = %d. phi1_under(to): %d, phi1_over(to): %d, phi2_under(to): %d, phi2_over(to): %d, visited: %d. putting %d in queue\n", to, from, phi1_under->operator [](to), phi1_over->operator [](to), phi2_under->operator [](to), phi2_over->operator [](to), visited->operator [](to), to);
+
+						s.push(to);
+						parent[to] = from;
+					} else { // check if this next state is part of the current path, in this case we have found a lasso
+						if(opt_verb>1)
+							printf("learnAW: Checking if %d makes a loop in current path\n", to);
+
+						pred = to;
+						predpred = from;
+						if (predpred == to) {
+							done = true; // We have found a lasso
+							if(opt_verb>1)
+								printf("learnAW: %d does make a loop in current path (via %d)\n", to, from);
+						}
+						while (predpred != startNode && !done) {
+							to1 = g_under->getEdge(eid).to;
+							from1 = g_under->getEdge(eid).from;
+							if(opt_verb>1)
+								printf("learnAW: %d -> %d\n", from1, to1);
+
+							Lit l = ~mkLit(eid, false);
+							assert(value(l)==l_False);
+
+							pred = predpred;
+							predpred = parent[predpred];
+							eid = g_under->getEdge(predpred, pred);
+
+							if (predpred == to) {
+								done = true; // We have found a lasso
+								if(opt_verb>1)
+									printf("learnAW: %d does make a loop in current path (via %d)\n", to, from);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		assert(done);
+
+		if(opt_verb>1)
+			printf("learnAW: reconstructing path from %d to %d\n", startNode, to);
+
+		// First, get the very last edge in the path accounted for (the one that completes the loop of the lasso)
+		eid = g_under->getEdge(from, to);
+
+		std::stack <int> reverse; // we have to invert the path, since currently it goes from target to "start", and we have to start from "start"
+		reverse.push(eid);
+
+		to = from;
+		from = parent[to];
+		eid = g_under->getEdge(from, to);
+
+		while (to != startNode) {
+			reverse.push(eid);
+			to = from;
+			from = parent[to];
+			eid = g_under->getEdge(from, to);
+		}
+
+		while (reverse.size() > 0) {
+			eid = reverse.top();
+			reverse.pop();
+			to = g_under->getEdge(eid).to;
+			from = g_under->getEdge(eid).from;
+			learnClausePos(conflict, subf2, from); // learn that this reachable node satisfy psi
+			if (!phi1_under->operator [](from)) {
+				// We have reached a state where ~phi1 ^ ~ phi2. We can conclude by adding to the clause that phi1 v phi2 should hold in this state
+				assert(!phi1_over->operator [](from));
+				learnClausePos(conflict, subf1, from); // learn that this reachable node satisfy phi
+				delete phi1_under;
+				delete phi1_over;
+				delete phi2_under;
+				delete phi2_over;
+				delete fAll_under;
+				delete fAll_over;
+				delete infinitePaths;
+				return;
+			} else {
+				// Learn that we can disable the transition
+				Lit l = ~mkLit(eid, false);
+				conflict.push(l);
+				assert(value(l)==l_False);
+			}
+		}
+		assert(false); // We should always be able to find a concluding state where ~phi1 ^ ~ phi2 along our path.
+	}
+
+
+
+
 	void printLearntClause(vec<Lit> & conflict) {
 		if(opt_verb>1){
   		printf("Learnt Clause:\n");
@@ -1687,21 +1964,11 @@ SPEC
 		 *
 		 * */
 
-		// Compute AG EX True
-		CTLFormula* fInfinitePaths1 = newCTLFormula();
-		fInfinitePaths1->op = True;
-		CTLFormula* fInfinitePaths2 = newCTLFormula();
-		fInfinitePaths2->op = EX;
-		fInfinitePaths2->operand1 = fInfinitePaths1;
-		CTLFormula* fInfinitePaths3 = newCTLFormula();
-		fInfinitePaths3->op = AG;
-		fInfinitePaths3->operand1 = fInfinitePaths2;
-
-		Bitset* infinitePaths = ctl_standalone_over->solve(*fInfinitePaths3);
+		// Compute set of states satisfying AG EX True
+		Bitset* infinitePaths = ctl_standalone_over->solve(*fAGEXTrue);
 
 		if(opt_verb>1) {
-			printf("Infinite paths: ");
-			printFormula(fInfinitePaths3);
+			printf("Infinite paths AG EX True: ");
 			ctl_standalone_over->printStateSet(*infinitePaths);
 		}
 
