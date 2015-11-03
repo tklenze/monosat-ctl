@@ -28,7 +28,7 @@
 #include "core/SolverTypes.h"
 #include "ctl/CTLTheory.h"
 #include "ctl/CTLFormula.h"
-//#include "ctl/CTLParserUtils.h"
+#include "ctl/CTLParserUtils.h"
 
 #include "core/Config.h"
 #include "pb/PbTheory.h"
@@ -150,6 +150,7 @@ class CTLParser: public Parser<B, Solver> {
 		// OK, this is probably a bit controversial, but I will attach AND the formula together with AG (EX True).
 		// TODO properly document this, and make it able to switch it off
 
+		//Sam: Don't do it this way.
 		std::string tmp = std::string("(AG EX True AND ")+in+std::string(")");
 		//std::cout << tmp;
 		char *fSafe = &tmp[0];
@@ -161,7 +162,7 @@ class CTLParser: public Parser<B, Solver> {
 		return;
 	}
 
-	CTLFormula* parseCTL(B& in) {
+	/*CTLFormula* parseCTL(B& in) {
 			skipWhitespace(in);
 			CTLFormula* f = newCTLFormula();
 			if (match(in, "NEG") || match(in, "NOT") || match(in, "~") || match(in, "!")) {
@@ -297,7 +298,7 @@ class CTLParser: public Parser<B, Solver> {
 			f->value = n;
 
 			return f;
-	}
+	}*/
 
 	// 	enum CTLOp { ID, NEG, OR, AND, EX, EF, EG, EW, EU, AX, AF, AG, AW, AU};
 
