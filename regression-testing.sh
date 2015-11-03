@@ -1,5 +1,6 @@
 #!/bin/bash
 for filename in inputs/sat/*; do
+    echo $filename
     bash -c './Debug/monosat $0 >/tmp/monosat-regression-test 2>/tmp/monosat-regression-test-errors' $filename >/tmp/monosat-regression-test-errors-bash 2>&1
     #./Debug/monosat "$filename" 2> /tmp/monosat-regression-test | grep UNSAT
     cat /tmp/monosat-regression-test* | grep -i "UNSAT\|Error"
@@ -26,6 +27,7 @@ for filename in inputs/sat/*; do
     fi
 done
 for filename in inputs/unsat/*; do
+    echo $filename
     bash -c './Debug/monosat $0 >/tmp/monosat-regression-test 2>/tmp/monosat-regression-test-errors' $filename >/tmp/monosat-regression-test-errors-bash 2>&1
     cat /tmp/monosat-regression-test* | grep -i "SATISFIABLE\|Error" | grep -v UNSAT
     if [[ $? -ne 1 ]]; then
