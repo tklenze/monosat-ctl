@@ -1670,7 +1670,9 @@ public:
 		delete phi;
 		delete psi;
 	}
-
+/*
+ * NOTE: This was a previous attempt, where we actually tried finding a lasso, instead of just a finite path. It *does* work, but it
+ * is inefficient since it will return the full clause unless AG EX True holds in the underapproximation.
 	// Find a finite path such that all except the last state satisfy phi, and no state satisfies psi. Learn a clause where you OR together:
 	// - remove an edge along the path
 	// - make the last state satisfy phi
@@ -1819,6 +1821,105 @@ public:
 		}
 		assert(false); // We should always be able to find a concluding state where ~phi1 ^ ~ phi2 along our path.
 	}
+*/
+
+	// Find a finite path such that all except the last state satisfy phi, and no state satisfies psi. Learn a clause where you OR together:
+	// - remove an edge along the path
+	// - make the last state satisfy phi
+	// - make any state on the path satisfy psi
+	//
+    // In theory we'd have to find a lasso. However, AG EX True guarantees that even if we have a finite path, we will learn
+	// clauses that extend it to an infinite path. So we don't actually need to make sure that the path we find is infinite, which
+	// makes everything a lot simpler.
+	//
+	// We take an additional fAll parameter, which contains the entire formula. I.e. fAll = subf1 AW subf2. This is not checked.
+	void learnAW(vec<Lit> & conflict, CTLFormula &subf1, CTLFormula &subf2, int startNode, CTLFormula &fAll) {
+		Bitset* phi1_under = ctl_under->solve(subf1); // Solve the inner subformula of the entire formula
+		Bitset* phi1_over = ctl_over->solve(subf1); // Solve the inner subformula of the entire formula
+		Bitset* phi2_under = ctl_under->solve(subf2); // Solve the inner subformula of the entire formula
+		Bitset* phi2_over = ctl_over->solve(subf2); // Solve the inner subformula of the entire formula
+		Bitset* fAll_under = ctl_under->solve(fAll); // Solve the inner subformula of the entire formula
+		Bitset* fAll_over = ctl_over->solve(fAll); // Solve the inner subformula of the entire formula
+
+		DynamicGraph::Edge e;
+		int from, to, eid, pred, predpred, to1, from1;
+
+		std::stack <int> s;
+		s.push(startNode);
+		std::map <int,int> parent; // from this we retreive the path of edges from start state to some state that doesn't satisfy phi
+		Bitset *visited = new Bitset(g_over->states()); // This bitset denotes all the visited nodes
+		visited->set(startNode);
+		bool done = false;
+		while (s.size() > 0 && !done) { // stack of visited elements
+			from = s.top();
+			s.pop();
+			visited->set(from);
+			if(opt_verb>1)
+				printf("learnAW: Considering state %d\n", from);
+
+			if (!phi1_over->operator [](from) && !phi2_over->operator [](from)) {
+				done = true;
+			}
+			else for (int i = 0; i < g_under->nIncident(from) && !done; i++) { // iterate over neighbours of current front of queue
+				e = g_under->incident(from, i);
+				eid = e.id;
+				to = g_under->getEdge(eid).to;
+				if(opt_verb>1)
+					printf("learnAW: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
+
+
+				if (g_under->edgeEnabled(eid) && !fAll_under->operator [](to) && !fAll_over->operator [](to)) {
+					if (!visited->operator [](to)) { // explore new state in graph
+						if(opt_verb>1)
+							printf("learnAW: Adding map parent(%d) = %d. phi1_under(to): %d, phi1_over(to): %d, phi2_under(to): %d, phi2_over(to): %d, visited: %d. putting %d in queue\n", to, from, phi1_under->operator [](to), phi1_over->operator [](to), phi2_under->operator [](to), phi2_over->operator [](to), visited->operator [](to), to);
+
+						s.push(to);
+						parent[to] = from;
+					}
+				}
+			}
+		}
+		assert(done);
+
+		if(opt_verb>1)
+			printf("learnAW: reconstructing path from %d to %d\n", startNode, from);
+
+		if (from == startNode) {
+			if(opt_verb>1)
+				printf("learnAW: phi and psi fail to hold in startNode");
+			learnClausePos(conflict, subf1, from); // learn that this initial node satisfy phi
+			learnClausePos(conflict, subf2, from); // learn that this initial node satisfy psi
+			delete phi1_under;
+			delete phi1_over;
+			delete phi2_under;
+			delete phi2_over;
+			delete fAll_under;
+			delete fAll_over;
+			return;
+		}
+		learnClausePos(conflict, subf1, from); // learn that this reachable node satisfy phi
+		learnClausePos(conflict, subf2, from); // learn that this reachable node satisfy psi
+
+		while (from != startNode) {
+			to = from;
+			from = parent[from];
+			eid = g_under->getEdge(from, to);
+
+			learnClausePos(conflict, subf2, from); // learn that this reachable node satisfy psi
+
+			// Learn that we can disable the transition
+			Lit l = ~mkLit(eid, false);
+			conflict.push(l);
+			assert(value(l)==l_False);
+		}
+		delete phi1_under;
+		delete phi1_over;
+		delete phi2_under;
+		delete phi2_over;
+		delete fAll_under;
+		delete fAll_over;
+	}
+
 
 
 
