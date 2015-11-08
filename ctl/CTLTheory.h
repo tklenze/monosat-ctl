@@ -1133,7 +1133,7 @@ public:
 
 	// At least one neighbour gets phi, or at least one disabled edge to a neighbour is enabled
 	void learnEX(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
-		DynamicGraph::Edge e;
+		DynamicGraph<int>::Edge e;
 		int from, to;
 		for (int i = 0; i < g_over->nIncident(startNode); i++) {
 			e = g_over->incident(startNode, i);
@@ -1171,7 +1171,7 @@ public:
 		ctl_under->resetSwap();
 		ctl_over->resetSwap();
 
-		DynamicGraph::Edge e;
+		DynamicGraph<int>::Edge e;
 		int from, to;
 		for (int i = 0; i < g_over->nIncident(startNode); i++) {
 			e = g_over->incident(startNode, i);
@@ -1204,7 +1204,7 @@ public:
 		//ctl_over->printStateSet(*phi);
 		//printFormula2(subf);
 
-		DynamicGraph::Edge e;
+		DynamicGraph<int>::Edge e;
 		int from, to;
 
 		// if the start node does not satisfy phi, then we just ask phi to be satisfied here. This is treated separately, so
@@ -1277,7 +1277,7 @@ public:
 			printf("learnAG: phi_over_so "); ctl_standalone_over->printStateSet(*phi_over_so);
 		}
 
-		DynamicGraph::Edge e;
+		DynamicGraph<int>::Edge e;
 		int eid = e.id;
 		int from, to;
 
@@ -1363,7 +1363,7 @@ public:
 	void learnEF(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
 		Bitset* phi = ctl_over->solve(subf); // Solve the inner subformula of the entire formula
 
-		DynamicGraph::Edge e;
+		DynamicGraph<int>::Edge e;
 		int from, to;
 
 
@@ -1418,7 +1418,7 @@ public:
 		Bitset* phi_under = ctl_under->solve(subf); // Solve the inner subformula of the entire formula
 		Bitset* phi_over = ctl_over->solve(subf); // Solve the inner subformula of the entire formula
 
-		DynamicGraph::Edge e;
+		DynamicGraph<int>::Edge e;
 		int from, to, eid, pred, predpred, to1, from1;
 
 
@@ -1532,7 +1532,7 @@ public:
 		Bitset* psi = ctl_over->solve(subf2); // Solve the inner subformula of the entire formula
 
 
-		DynamicGraph::Edge e;
+		DynamicGraph<int>::Edge e;
 		int from, to;
 
 		// if the start node does not satisfy phi, then we just ask phi or psi to be satisfied here. This is treated separately, so
@@ -1610,7 +1610,7 @@ public:
 		Bitset* psi = ctl_over->solve(subf2); // Solve the inner subformula of the entire formula
 
 
-		DynamicGraph::Edge e;
+		DynamicGraph<int>::Edge e;
 		int from, to;
 
 		// if the start node does not satisfy phi, then we just ask phi or psi to be satisfied here. This is treated separately, so
@@ -1839,7 +1839,7 @@ public:
 		Bitset* fAll_under = ctl_under->solve(fAll); // Solve the inner subformula of the entire formula
 		Bitset* fAll_over = ctl_over->solve(fAll); // Solve the inner subformula of the entire formula
 
-		DynamicGraph::Edge e;
+		DynamicGraph<int>::Edge e;
 		int from, to, eid, pred, predpred, to1, from1;
 
 		std::stack <int> s;
@@ -1940,7 +1940,7 @@ public:
 		Bitset* fAll_under = ctl_under->solve(fAll); // Solve the inner subformula of the entire formula
 		Bitset* fAll_over = ctl_over->solve(fAll); // Solve the inner subformula of the entire formula
 
-		DynamicGraph::Edge e;
+		DynamicGraph<int>::Edge e;
 		int from, to, eid, pred, predpred, to1, from1;
 
 		std::stack <int> s;
@@ -2217,7 +2217,7 @@ SPEC
 
 
 		// Transitions
-		DynamicGraph::Edge e;
+		DynamicGraph<int>::Edge e;
 		int from, to, eid;
 		for (int i = 0; i < g_under->states(); i++) {
 			std::string nuSMVInputEdge = "       state = " +std::to_string(i) + " : {";

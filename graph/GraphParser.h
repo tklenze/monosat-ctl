@@ -1128,9 +1128,6 @@ public:
 			if(!bvTheory->hasBV(e.bvID)){
 				parse_errorf("PARSE ERROR! Undefined bitvector %d for edge %d\n", e.bvID, e.edgeVar);
 			}
-<<<<<<< HEAD
-		}*/
-=======
 		}
 		for (auto & e:bvedges){
 			graphs[e.graphID]->newEdgeBV(e.from, e.to, e.edgeVar, e.bvID);
@@ -1183,7 +1180,6 @@ public:
 
 			}*/
 		}
->>>>>>> other-working
 
 		for (int i = 0; i < graphs.size(); i++) {
 			if (graphs[i])

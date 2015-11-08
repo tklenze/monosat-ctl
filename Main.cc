@@ -55,15 +55,11 @@
 #include "graph/GraphTheory.h"
 #include "geometry/GeometryTheory.h"
 #include "geometry/GeometryParser.h"
-<<<<<<< HEAD
 #include "ctl/DynamicKripke.h"
 #include "mtl/Bitset.h"
-
-=======
 #include "bv/BVParser.h"
 #include "amo/AMOTheory.h"
 #include "amo/AMOParser.h"
->>>>>>> other-working
 
 using namespace Monosat;
 using namespace std;
@@ -262,6 +258,7 @@ void selectAlgorithms(){
 		exit(1);
 	}
 }
+
 
 
 

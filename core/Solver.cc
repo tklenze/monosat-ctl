@@ -1097,7 +1097,7 @@ CRef Solver::propagate(bool propagate_theories) {
 			theory_queue.pop();
 			in_theory_queue[theoryID] = false;
 			if (!theories[theoryID]->propagateTheory(theory_conflict)) {
-<<<<<<< HEAD
+/*// I have no idea where this is coming from, but it was a conflict when merging --TK
 				for(int i =0;i<theory_conflict.size();i++){
 					if(value(theory_conflict[i])!=l_False){
 						throw std::runtime_error("Learnt clause is satisfiable!");
@@ -1105,12 +1105,11 @@ CRef Solver::propagate(bool propagate_theories) {
 				}
 				if (!addConflictClause(theory_conflict, confl)) {
 					in_theory_queue[theoryID] = false;
-=======
+*/
 				bool has_conflict=true;
 
 				if (has_conflict && !addConflictClause(theory_conflict, confl)) {
 
->>>>>>> other-working
 					qhead = trail.size();
 					return confl;
 				}
