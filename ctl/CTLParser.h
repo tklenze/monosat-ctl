@@ -23,7 +23,7 @@
 #define CTL_PARSER_H_
 
 #include <stdio.h>
-
+#include "core/Dimacs.h"
 #include "utils/ParseUtils.h"
 #include "core/SolverTypes.h"
 #include "ctl/CTLTheory.h"
@@ -342,6 +342,10 @@ class CTLParser: public Parser<B, Solver> {
 	}
 
 public:
+	CTLParser():Parser<B, Solver> ("CTL Parser"){
+
+	}
+
 	bool parseLine(B& in, Solver& S) {
 
 		skipWhitespace(in);

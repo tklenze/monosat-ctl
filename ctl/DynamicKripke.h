@@ -20,6 +20,7 @@
 #include <cassert>
 #include "alg/NFATypes.h"
 #include "dgl/DynamicGraph.h"
+#include <string>
 using namespace dgl;
 namespace Monosat {
 
@@ -29,6 +30,7 @@ namespace Monosat {
  */
 
 class DynamicKripke{
+
 	DynamicGraph<int> g;
 	//std::vector<Bitset> edge_status;
 	int id;
@@ -284,7 +286,7 @@ public:
 		return g.incoming(node,i,undirected);
 	}
 
-	DynamicGraph<int>::FullEdge getEdge(int id) const {
+	DynamicGraph<int>::FullEdge & getEdge(int id)  {
 		return g.getEdge(id);
 	}
 
