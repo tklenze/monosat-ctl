@@ -41,8 +41,8 @@ template<typename Weight>
 class AllPairsDetector: public Detector {
 public:
 	GraphTheorySolver<Weight> * outer;
-	DynamicGraph &g_under;
-	DynamicGraph &g_over;
+	DynamicGraph<Weight>  &g_under;
+	DynamicGraph<Weight>  &g_over;
 	int within = 0;
 
 	double rnd_seed;
@@ -54,9 +54,9 @@ public:
 	CRef underprop_marker;
 	CRef overprop_marker;
 
-	AllPairs * underapprox_reach_detector;
-	AllPairs * overapprox_reach_detector;
-	AllPairs * underapprox_path_detector;
+	AllPairs * underapprox_reach_detector=nullptr;
+	AllPairs * overapprox_reach_detector=nullptr;
+	AllPairs * underapprox_path_detector=nullptr;
 
 	//vec<Lit>  reach_lits;
 	Var first_reach_var;
@@ -146,12 +146,31 @@ public:
 
 	void buildReason(Lit p, vec<Lit> & reason, CRef marker);
 	bool checkSatisfied();
-	Lit decide(int level);
+	Lit decide();
 	void addLit(int from, int to, Var reach_var, int within_steps = -1);
-	AllPairsDetector(int _detectorID, GraphTheorySolver<Weight> * _outer, DynamicGraph &_g, DynamicGraph &_antig,
+	AllPairsDetector(int _detectorID, GraphTheorySolver<Weight> * _outer, DynamicGraph<Weight>  &_g, DynamicGraph<Weight>  &_antig,
 			double seed = 1); //:Detector(_detectorID),outer(_outer),within(-1),source(_source),rnd_seed(seed),positive_reach_detector(NULL),negative_reach_detector(NULL),positive_path_detector(NULL),positiveReachStatus(NULL),negativeReachStatus(NULL){}
 	virtual ~AllPairsDetector() {
-		
+		if (underapprox_path_detector && underapprox_path_detector!=overapprox_reach_detector){
+			delete underapprox_path_detector;
+		}
+
+
+		if(underapprox_reach_detector){
+			delete underapprox_reach_detector;
+
+		}
+		if (overapprox_reach_detector){
+			delete overapprox_reach_detector;
+
+		}
+
+#ifdef DEBUG_ALLPAIRS
+	{
+		delete dbg_positive_reach_detector;
+		delete dbg_negative_reach_detector;
+	}
+#endif
 	}
 	const char* getName() {
 		return "All-pairs Reachability Detector";

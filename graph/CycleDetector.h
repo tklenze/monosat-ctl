@@ -40,8 +40,8 @@ class CycleDetector: public Detector {
 public:
 	GraphTheorySolver<Weight> * outer;
 	//int within;
-	DynamicGraph & g_under;
-	DynamicGraph & g_over;
+	DynamicGraph<Weight>  & g_under;
+	DynamicGraph<Weight>  & g_over;
 
 	double rnd_seed;
 	CRef directed_cycle_marker;
@@ -77,13 +77,21 @@ public:
 	//void buildForcedMinWeightReason(int reach_node, int forced_edge_id,vec<Lit> & conflict);
 	void buildReason(Lit p, vec<Lit> & reason, CRef marker);
 	bool checkSatisfied();
-	Lit decide(int level);
+	Lit decide();
 	void addAcyclicLit(bool undirected, Var v);
 
-	CycleDetector(int _detectorID, GraphTheorySolver<Weight> * _outer, DynamicGraph &_g, DynamicGraph &_antig,
+	CycleDetector(int _detectorID, GraphTheorySolver<Weight> * _outer, DynamicGraph<Weight>  &_g, DynamicGraph<Weight>  &_antig,
 			bool detect_directed_cycles = true, double seed = 1); //:Detector(_detectorID),outer(_outer),within(-1),source(_source),rnd_seed(seed),positive_reach_detector(NULL),negative_reach_detector(NULL),positive_path_detector(NULL),positiveReachStatus(NULL),negativeReachStatus(NULL){}
 	virtual ~CycleDetector() {
-		
+		if (overapprox_undirected_cycle_detector && overapprox_undirected_cycle_detector != overapprox_directed_cycle_detector)
+			delete overapprox_undirected_cycle_detector;
+		if(underapprox_undirected_cycle_detector && underapprox_undirected_cycle_detector != underapprox_directed_cycle_detector)
+			delete underapprox_undirected_cycle_detector;
+		if(underapprox_directed_cycle_detector)
+			delete underapprox_directed_cycle_detector;
+		if(overapprox_directed_cycle_detector)
+			delete overapprox_directed_cycle_detector;
+
 	}
 	const char* getName() {
 		return "Cycle Detector";

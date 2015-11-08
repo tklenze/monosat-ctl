@@ -75,7 +75,7 @@ public:
 	vec<vec<int>> * strings=nullptr;
 private:
 	Solver * S;
-	int local_q = 0;
+
 public:
 	int id;
 
@@ -175,7 +175,9 @@ public:
 			delete(f);
 		}
 	}
-	
+	Solver * getSolver(){
+		return S;
+	}
 	void printStats(int detailLevel) {
 		if (detailLevel > 0) {
 			for (FSMDetector * d : detectors)
@@ -446,7 +448,7 @@ public:
 				Assignment & e = trail[i];
 				assert(assigns[e.var]!=l_Undef);
 				if (e.isEdge) {
-					assert(dbg_value(e.var)==l_Undef);
+					assert(dbg_value(e.var)==value(e.var));
 					int fsmID = getFsmID(e.var);
 					int edgeID = getEdgeID(e.var); //e.var-min_edge_var;
 					int input = getInput(e.var);
@@ -816,9 +818,7 @@ public:
 		g_unders.growTo(fsmID+1,nullptr);
 		g_overs.growTo(fsmID+1,nullptr);
 		if(g_unders[fsmID]){
-			assert(false);
-			fprintf(stderr,"Redefined fsm, Aborting!");
-			exit(1);
+			throw std::runtime_error("Redefined fsm " + std::to_string(fsmID));
 		}
 		edge_labels.growTo(fsmID+1);
 		g_unders[fsmID]=new DynamicFSM(fsmID);
@@ -926,26 +926,32 @@ public:
 	void addComposeAcceptLit(int fsmID1,int fsmID2,int from1,int to1,int from2,int to2, int strID,Var reachVar){
 		//for now, only linear generator/acceptor compositions are supported
 		if(strID>=0){
-			fprintf(stderr,"String inputs are not yet supported in compositions, aborting\n");
-			exit(1);
+			throw std::invalid_argument("String inputs are not yet supported in compositions");
+
 		}
 
 		if(!g_overs[fsmID1] || !g_overs[fsmID2]){
-				fprintf(stderr,"Undefined FSM, aborting\n");
-				exit(1);
-		}
+			throw std::invalid_argument("Undefined FSM ID");
 
+		}
+		if(from1>=g_overs[fsmID1]->states() ||from2>=g_overs[fsmID2]->states() || to1>=g_overs[fsmID1]->states() ||to2>=g_overs[fsmID2]->states()){
+			throw std::invalid_argument("Undefined fsm state in formula");
+
+		}
 		if(!g_overs[fsmID1]->isGenerator()){
-			fprintf(stderr,"Only compositions of linear generators with FSAs are supported, aborting\n");
-			exit(1);
+			throw std::invalid_argument("Only compositions of linear generators with FSAs are supported");
+
 		}
 		if(!g_overs[fsmID1]->isLinear()){
-			fprintf(stderr,"Only compositions of linear generators with FSAs are supported, aborting\n");
-			exit(1);
+			throw std::invalid_argument("Only compositions of linear generators with FSAs are supported");
+
 		}
 		if(!g_overs[fsmID2]->isAcceptor()){
-			fprintf(stderr,"Only compositions of linear generators with FSAs are supported, aborting\n");
-			exit(1);
+			throw std::invalid_argument("Only compositions of linear generators with FSAs are supported");
+
+		}
+		if (g_overs[fsmID1]->out_alphabet != g_overs[fsmID2]->in_alphabet){
+			throw std::invalid_argument("Size of output alphabet of first fsm (was " + std::to_string(g_overs[fsmID1]->out_alphabet) + ") must match size of input alphabet of second fsm (was " + std::to_string(g_overs[fsmID2]->in_alphabet) + ")");
 		}
 		FSMGeneratorAcceptorDetector * d = new FSMGeneratorAcceptorDetector(detectors.size(), this, *g_unders[fsmID1],*g_overs[fsmID1], *g_unders[fsmID2],*g_overs[fsmID2], from1,from2,drand(rnd_seed));
 		detectors.push(d);

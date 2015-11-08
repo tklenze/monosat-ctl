@@ -22,20 +22,28 @@
 #ifndef RAMAL_REPS_H_
 #define RAMAL_REPS_H_
 
+#include <dgl/alg/Heap.h>
+#include <dgl/Dijkstra.h>
+#include <dgl/Distance.h>
+#include <dgl/DynamicGraph.h>
+#include <dgl/Reach.h>
+//#include "core/Config.h"
+//#include <algorithm>
+#include <cassert>
+#include <cstdio>
+//#include <exception>
+#include <sstream>
+#include <stdexcept>
+#include <string>
 #include <vector>
-#include "alg/Heap.h"
-#include "DynamicGraph.h"
-#include "Reach.h"
-#include "Distance.h"
-#include "Dijkstra.h"
-#include "core/Config.h"
-#include <algorithm>
+
 
 namespace dgl {
 template<typename Weight = int, class Status = typename Distance<Weight>::NullStatus>
-class RamalReps: public Distance<Weight> {
+class RamalReps: public Distance<Weight>, public DynamicGraphAlgorithm {
 public:
-	DynamicGraph & g;
+	static bool ever_warned_about_zero_weights;
+	DynamicGraph<Weight> & g;
 	std::vector<Weight> & weights;
 	Status & status;
 	int reportPolarity;
@@ -70,6 +78,43 @@ public:
 	std::vector<int> edgeInShortestPathGraph;
 	std::vector<int> delta;
 	std::vector<int> changeset;
+	int alg_id;
+
+	struct LocalDistanceStatus {
+		RamalReps & outer;
+
+		void setReachable(int u, bool reachable){
+
+		}
+		bool isReachable(int u) const {
+			return false;
+		}
+
+		void setMininumDistance(int u, bool reachable, Weight& distance){
+			if(reachable){
+				if(outer.dist[u]!=distance){
+					outer.dist[u]=distance;
+					if(!outer.node_changed[u]){
+						outer.node_changed[u]=true;
+						outer.changed.push_back(u);
+					}
+				}
+			}else{
+				if(outer.dist[u]!=outer.INF){
+					outer.dist[u]=outer.INF;
+					if(!outer.node_changed[u]){
+						outer.node_changed[u]=true;
+						outer.changed.push_back(u);
+					}
+				}
+			}
+		}
+		LocalDistanceStatus(RamalReps & _outer) :
+			outer(_outer) {
+		}
+	} local_distance_status;
+	Dijkstra<Weight,LocalDistanceStatus> dijkstras;
+	bool has_zero_weights=false;
 public:
 	
 	long stats_full_updates=0;
@@ -82,14 +127,14 @@ public:
 
 	double stats_full_update_time=0;
 	double stats_fast_update_time=0;
-	RamalReps(int s, DynamicGraph & graph, std::vector<Weight> & weights, Status & status, int reportPolarity = 0,
+	RamalReps(int s, DynamicGraph<Weight> & graph,Status & status, int reportPolarity = 0,
 			bool reportDistance = false) :
-			g(graph), weights(weights), status(status), reportPolarity(reportPolarity), reportDistance(reportDistance), last_modification(
+			g(graph), weights(g.getWeights()), status(status), reportPolarity(reportPolarity), reportDistance(reportDistance), last_modification(
 					-1), last_addition(-1), last_deletion(-1), history_qhead(0), last_history_clear(0), source(s), INF(
-					0), q(DistCmp(dist)) {
+					0), q(DistCmp(dist)),local_distance_status(*this),dijkstras(s,graph,local_distance_status,reportPolarity) {
 		
 		mod_percentage = 0.2;
-
+		alg_id=g.addDynamicAlgorithm(this);
 	}
 	//Dijkstra(const Dijkstra& d):g(d.g), last_modification(-1),last_addition(-1),last_deletion(-1),history_qhead(0),last_history_clear(0),source(d.source),INF(0),q(DistCmp(dist)),stats_full_updates(0),stats_fast_updates(0),stats_skip_deletes(0),stats_skipped_updates(0),stats_full_update_time(0),stats_fast_update_time(0){marked=false;};
 	
@@ -115,7 +160,7 @@ public:
 	}
 	
 	void dbg_delta() {
-#ifndef NDEBUG
+#ifdef DEBUG_RAMAL
 		dbg_delta_lite();
 		assert(delta.size() == g.nodes());
 		
@@ -155,7 +200,7 @@ public:
 					continue;
 				
 				int edgeID = g.incoming(u, i).id;
-				int v = g.all_edges[edgeID].from;
+				int v = g.getEdge(edgeID).from;
 				Weight alt = dbg_dist[v] + weights[edgeID];
 				assert(alt >= dbg_dist[u]);
 				/*	if (alt==dbg_dist[u]){
@@ -168,7 +213,7 @@ public:
 					continue;
 				
 				int edgeID = g.incident(u, i).id;
-				int v = g.all_edges[edgeID].to;
+				int v = g.getEdge(edgeID).to;
 				Weight alt = dbg_dist[u] + weights[edgeID];
 				if (alt < dbg_dist[v]) {
 					
@@ -193,7 +238,7 @@ public:
 					continue;
 				
 				int edgeID = g.incoming(u, i).id;
-				int v = g.all_edges[edgeID].from;
+				int v = g.getEdge(edgeID).from;
 				
 				Weight alt = dbg_dist[v] + weights[edgeID];
 				assert(alt >= dbg_dist[u]);
@@ -230,8 +275,8 @@ public:
 		assert(g.edgeEnabled(edgeID));
 		if (edgeInShortestPathGraph[edgeID])
 			return;
-		int ru = g.all_edges[edgeID].from;
-		int rv = g.all_edges[edgeID].to;
+		int ru = g.getEdge(edgeID).from;
+		int rv = g.getEdge(edgeID).to;
 		
 		Weight & rdv = dist[rv];
 		Weight & rdu = dist[ru];
@@ -252,7 +297,6 @@ public:
 		q.insert(rv);
 		
 		while (q.size()) {
-			
 			int u = q.removeMin();
 			
 			if (!node_changed[u]) {
@@ -266,8 +310,8 @@ public:
 				int adjID = e.id;
 				if (g.edgeEnabled(adjID)) {
 					
-					assert(g.all_edges[adjID].to == u);
-					int v = g.all_edges[adjID].from;
+					assert(g.getEdge(adjID).to == u);
+					int v = g.getEdge(adjID).from;
 					Weight & w = weights[adjID]; //assume a weight of one for now
 					Weight & du = dist[u];
 					Weight & dv = dist[v];
@@ -293,8 +337,8 @@ public:
 				auto & e = g.incident(u, i);
 				int adjID = e.id;
 				if (g.edgeEnabled(adjID)) {
-					assert(g.all_edges[adjID].from == u);
-					int s = g.all_edges[adjID].to;
+					assert(g.getEdge(adjID).from == u);
+					int s = g.getEdge(adjID).to;
 					Weight & w = weights[adjID];							//assume a weight of one for now
 					Weight & du = dist[u];
 					Weight & ds = dist[s];
@@ -311,7 +355,7 @@ public:
 		dbg_delta_lite();
 	}
 	void dbg_delta_lite() {
-#ifndef NDEBUG
+#ifdef DEBUG_RAMAL
 		for (int u = 0; u < g.nodes(); u++) {
 			int del = delta[u];
 			Weight d = dist[u];
@@ -319,7 +363,7 @@ public:
 			for (int i = 0; i < g.nIncoming(u); i++) {
 				auto & e = g.incoming(u, i);
 				int adjID = e.id;
-				int from = g.all_edges[adjID].from;
+				int from = g.getEdge(adjID).from;
 				
 				Weight dfrom = dist[from];
 				if (edgeInShortestPathGraph[adjID])
@@ -339,8 +383,8 @@ public:
 			return;
 		edgeInShortestPathGraph[edgeID] = false;						//remove this edge from the shortest path graph
 				
-		int ru = g.all_edges[edgeID].from;
-		int rv = g.all_edges[edgeID].to;
+		int ru = g.getEdge(edgeID).from;
+		int rv = g.getEdge(edgeID).to;
 		assert(delta[rv] > 0);
 		delta[rv]--;
 		if (delta[rv] > 0)
@@ -360,8 +404,8 @@ public:
 				if (g.edgeEnabled(adjID)) {
 					if (edgeInShortestPathGraph[adjID]) {
 						edgeInShortestPathGraph[adjID] = false;
-						assert(g.all_edges[adjID].from == u);
-						int s = g.all_edges[adjID].to;
+						assert(g.getEdge(adjID).from == u);
+						int s = g.getEdge(adjID).to;
 						assert(delta[s] > 0);
 						delta[s]--;
 						if (delta[s] == 0) {
@@ -380,8 +424,8 @@ public:
 				int adjID = e.id;
 				
 				if (g.edgeEnabled(adjID)) {
-					assert(g.all_edges[adjID].to == u);
-					int v = g.all_edges[adjID].from;
+					assert(g.getEdge(adjID).to == u);
+					int v = g.getEdge(adjID).from;
 					Weight & w = weights[adjID]; //assume a weight of one for now
 					Weight alt = dist[v] + w;
 					assert(!edgeInShortestPathGraph[adjID]);
@@ -432,8 +476,8 @@ public:
 				auto & e = g.incident(u, i);
 				int adjID = e.id;
 				if (g.edgeEnabled(adjID)) {
-					assert(g.all_edges[adjID].from == u);
-					int s = g.all_edges[adjID].to;
+					assert(g.getEdge(adjID).from == u);
+					int s = g.getEdge(adjID).to;
 					Weight w = weights[adjID];				//assume a weight of one for now
 					Weight alt = dist[u] + w;
 					if (dist[s] > alt) {
@@ -460,8 +504,8 @@ public:
 				int adjID = e.id;
 				if (g.edgeEnabled(adjID)) {
 					
-					assert(g.all_edges[adjID].to == u);
-					int v = g.all_edges[adjID].from;
+					assert(g.getEdge(adjID).to == u);
+					int v = g.getEdge(adjID).from;
 					Weight & dv = dist[v];
 					Weight & du = dist[u];
 					bool edgeIn = edgeInShortestPathGraph[adjID];
@@ -489,11 +533,11 @@ public:
 	}
 	
 	void update() {
-#ifdef RECORD
+
 		if (g.outfile) {
 			fprintf(g.outfile, "r %d\n", getSource());
 		}
-#endif
+
 		static int iteration = 0;
 		int local_it = ++iteration;
 		if (local_it == 7668) {
@@ -503,12 +547,14 @@ public:
 			return;
 		if (last_modification <= 0 || g.changed()) {
 			INF = 1;							//g.nodes()+1;
+			has_zero_weights=false;
 			for (Weight & w : weights) {
 				if (w <= 0) {
 					//Note: in the future, we could implement the DFMN algorithm (Maintaining Shortest Paths in Digraphs with Arbitrary Arc Weights: An Experimental Study), which does support negative length weights, but is slower than RR.
-					fprintf(stderr,
-							"Ramalingham-Reps doesn't support zero-weight edges (select a different distance algorithm, such as dijkstra).\n");
-					exit(1);
+					//throw std::invalid_argument("Ramalingham-Reps doesn't support zero-weight edges (select a different distance algorithm, such as dijkstra)");
+					//for the moment: the _first_ time <0 weights are detected, simply fallback on dijkstra's, permanently.
+
+					has_zero_weights=true;
 				}
 				INF += w;
 			}
@@ -531,46 +577,55 @@ public:
 			
 		}
 		
-		for (int i = history_qhead; i < g.history.size(); i++) {
-			int edgeid = g.history[i].id;
-			if (g.history[i].addition && g.edgeEnabled(edgeid)) {
-				GRRInc(edgeid);
-			} else if (!g.history[i].addition && !g.edgeEnabled(edgeid)) {
-				GRRDec(edgeid);
+		if(has_zero_weights){
+			if(!ever_warned_about_zero_weights){
+				ever_warned_about_zero_weights=true;
+				fprintf(stderr,"Warning: Ramalingham-Reps doesn't support zero-weight edges; falling back on Dijkstra's (which is much slower)\n");
+			}
+			dijkstras.update();
+		}else{
+			for (int i = history_qhead; i < g.historySize(); i++) {
+				int edgeid = g.getChange(i).id;
+				if (g.getChange(i).addition && g.edgeEnabled(edgeid)) {
+					GRRInc(edgeid);
+				} else if (!g.getChange(i).addition && !g.edgeEnabled(edgeid)) {
+					GRRDec(edgeid);
+				}
 			}
 		}
-		
-		//for(int i = 0;i<g.nodes();i++){
-		//	int u=i;
-		for (int u : changed) {
-			//int u = changed[i];
-			node_changed[u] = false;
-			//CANNOT clear the change flag here, because if we backtrack and then immediately re-propagate an edge before calling theoryPropagate, the change to this node may be missed.
-			
-			if (reportPolarity <= 0 && dist[u] >= INF) {
-				status.setReachable(u, false);
-				status.setMininumDistance(u, dist[u] < INF, dist[u]);
-			} else if (reportPolarity >= 0 && dist[u] < INF) {
-				status.setReachable(u, true);
-				status.setMininumDistance(u, dist[u] < INF, dist[u]);
+			//for(int i = 0;i<g.nodes();i++){
+			//	int u=i;
+			for (int u : changed) {
+				//int u = changed[i];
+				node_changed[u] = false;
+				//CANNOT clear the change flag here, because if we backtrack and then immediately re-propagate an edge before calling theoryPropagate, the change to this node may be missed.
+				if (reportPolarity <= 0 && dist[u] >= INF) {
+					status.setReachable(u, false);
+					status.setMininumDistance(u, dist[u] < INF, dist[u]);
+				} else if (reportPolarity >= 0 && dist[u] < INF) {
+					status.setReachable(u, true);
+					status.setMininumDistance(u, dist[u] < INF, dist[u]);
+				}
 			}
-		}
-		changed.clear();
-		//}
+			changed.clear();
+
+
 		assert(dbg_uptodate());
 		num_updates++;
 		last_modification = g.modifications;
 		last_deletion = g.deletions;
 		last_addition = g.additions;
-		
-		history_qhead = g.history.size();
+		g.updateAlgorithmHistory(this,alg_id,history_qhead);
+		history_qhead = g.historySize();
 		last_history_clear = g.historyclears;
 		
 		;
 	}
-	
+	void updateHistory(){
+		update();
+	}
 	bool dbg_path(int to) {
-#ifdef DEBUG_DIJKSTRA
+#ifdef DEBUG_RAMAL
 		/*	assert(connected(to));
 		 if(to == source){
 		 return true;
@@ -590,7 +645,7 @@ public:
 		return true;
 	}
 	bool dbg_uptodate() {
-#ifdef DEBUG_DIJKSTRA
+#ifdef DEBUG_RAMAL
 		/*if(last_modification<0)
 		 return true;
 		 dbg_delta();
@@ -606,7 +661,7 @@ public:
 
 		 if(dis!=dbgdist){
 		 assert(false);
-		 exit(4);
+		 throw std::logic_error();
 		 }
 		 }*/
 //#endif
@@ -625,7 +680,7 @@ public:
 	bool connected(int t) {
 		if (last_modification != g.modifications)
 			update();
-		
+
 		assert(dbg_uptodate());
 		
 		return dist[t] < INF;
@@ -651,8 +706,7 @@ public:
 		 assert(prev[t]>=-1 );
 		 return prev[t];*/
 		//not supported
-		assert(false);
-		exit(1);
+		 throw std::runtime_error("not implemented");
 	}
 	int previous(int t) {
 		/*if(prev[t]<0)
@@ -660,15 +714,14 @@ public:
 
 		 assert(g.all_edges[incomingEdge(t)].to==t);
 		 return g.all_edges[incomingEdge(t)].from;*/
-		assert(false);
-		exit(1);
+		 throw std::runtime_error("not implemented");
 	}
 };
 
-template<class Status>
-class UnweightedRamalReps: public Distance<int> {
+template<typename Weight, class Status>
+class UnweightedRamalReps: public Distance<int>, public DynamicGraphAlgorithm {
 public:
-	DynamicGraph & g;
+	DynamicGraph<Weight> & g;
 	Status & status;
 	int reportPolarity;
 	bool reportDistance;
@@ -707,6 +760,7 @@ public:
 	std::vector<int> edgeInShortestPathGraph;
 	std::vector<int> delta;
 	std::vector<int> changeset;
+	int alg_id;
 public:
 	
 	long stats_full_updates=0;
@@ -719,16 +773,17 @@ public:
 
 	double stats_full_update_time=0;
 	double stats_fast_update_time=0;
-	UnweightedRamalReps(int s, DynamicGraph & graph, Status & status, int reportPolarity = 0,
+	UnweightedRamalReps(int s, DynamicGraph<Weight> & graph, Status & status, int reportPolarity = 0,
 			bool reportDistance = true) :
 			g(graph), status(status), reportPolarity(reportPolarity), reportDistance(reportDistance), last_modification(
 					-1), last_addition(-1), last_deletion(-1), history_qhead(0), last_history_clear(0), source(s), INF(
 					-1) {
 		maxDistance = -1;
 		mod_percentage = 0.2;
+		alg_id=g.addDynamicAlgorithm(this);
 	}
 	//Dijkstra(const Dijkstra& d):g(d.g), last_modification(-1),last_addition(-1),last_deletion(-1),history_qhead(0),last_history_clear(0),source(d.source),INF(0),q(DistCmp(dist)),stats_full_updates(0),stats_fast_updates(0),stats_skip_deletes(0),stats_skipped_updates(0),stats_full_update_time(0),stats_fast_update_time(0){marked=false;};
-	void setMaxDistance(int _maxDistance) {
+	void setMaxDistance(int &_maxDistance) {
 		if (_maxDistance != maxDistance) {
 			last_modification = -1;		//force the next update to recompute from scratch
 			if (_maxDistance < 0) {
@@ -760,8 +815,8 @@ public:
 	}
 	
 	void dbg_delta() {
-#ifndef NDEBUG
-		
+#ifdef DEBUG_RAMAL
+		//g.drawFull();
 		dbg_delta_lite();
 		assert(delta.size() == g.nodes());
 		
@@ -769,7 +824,7 @@ public:
 			if (!g.edgeEnabled(i)) {
 				assert(!edgeInShortestPathGraph[i]);
 				if (edgeInShortestPathGraph[i]) {
-					exit(3);
+					throw std::runtime_error("");
 				}
 			}
 		}
@@ -805,7 +860,7 @@ public:
 					continue;
 				
 				int edgeID = g.incoming(u, i).id;
-				int v = g.all_edges[edgeID].from;
+				int v = g.getEdge(edgeID).from;
 				int alt = dbg_dist[v] + 1;
 				if (maxDistance >= 0 && alt > maxDistance)
 					alt = INF;
@@ -820,7 +875,7 @@ public:
 					continue;
 				
 				int edgeID = g.incident(u, i).id;
-				int v = g.all_edges[edgeID].to;
+				int v = g.getEdge(edgeID).to;
 				int alt = dbg_dist[u] + 1;
 				if (maxDistance >= 0 && alt > maxDistance)
 					alt = INF;
@@ -847,7 +902,7 @@ public:
 					continue;
 				
 				int edgeID = g.incoming(u, i).id;
-				int v = g.all_edges[edgeID].from;
+				int v = g.getEdge(edgeID).from;
 				int alt = dbg_dist[v] + 1;
 				int du = dbg_dist[u];
 				if (maxDistance >= 0 && alt > maxDistance)
@@ -886,8 +941,8 @@ public:
 		assert(g.edgeEnabled(edgeID));
 		if (edgeInShortestPathGraph[edgeID])
 			return;
-		int ru = g.all_edges[edgeID].from;
-		int rv = g.all_edges[edgeID].to;
+		int ru = g.getEdge(edgeID).from;
+		int rv = g.getEdge(edgeID).to;
 		
 		int rdv = dist[rv];
 		int rdu = dist[ru];
@@ -933,8 +988,8 @@ public:
 				int adjID = e.id;
 				if (g.edgeEnabled(adjID)) {
 					
-					assert(g.all_edges[adjID].to == u);
-					int v = g.all_edges[adjID].from;
+					assert(g.getEdge(adjID).to == u);
+					int v = g.getEdge(adjID).from;
 					int w = 1;		//assume a weight of one for now
 					int du = dist[u];
 					int dv = dist[v];
@@ -964,8 +1019,8 @@ public:
 				auto & e = g.incident(u, j);
 				int adjID = e.id;
 				if (g.edgeEnabled(adjID)) {
-					assert(g.all_edges[adjID].from == u);
-					int s = g.all_edges[adjID].to;
+					assert(g.getEdge(adjID).from == u);
+					int s = g.getEdge(adjID).to;
 					int w = 1;							//assume a weight of one for now
 					int du = dist[u];
 					int ds = dist[s];
@@ -992,6 +1047,7 @@ public:
 		dbg_delta_lite();
 	}
 	void dbg_not_seen_q(std::vector<int> & q, int u, int from) {
+#ifdef DEBUG_RAMAL
 		bool found = false;
 		for (int i = from; i < q.size(); i++) {
 			if (q[i] == u) {
@@ -1000,9 +1056,10 @@ public:
 			}
 		}
 		assert(found);
+#endif
 	}
 	void dbg_Q_add(std::vector<int> & q, int u) {
-#ifndef NDEBUG
+#ifdef DEBUG_RAMAL
 		//assert(!in_queue[u]);
 		for (int v : q) {
 			assert(u != v);
@@ -1013,7 +1070,7 @@ public:
 #endif
 	}
 	void dbg_Q_order(std::vector<int> & _q) {
-#ifndef NDEBUG
+#ifdef DEBUG_RAMAL
 		
 		for (int i = 1; i < _q.size(); i++) {
 			int v = _q[i];
@@ -1037,7 +1094,7 @@ public:
 	}
 	
 	void dbg_delta_lite() {
-#ifndef NDEBUG
+#ifdef DEBUG_RAMAL
 		for (int u = 0; u < g.nodes(); u++) {
 			int del = delta[u];
 			int d = dist[u];
@@ -1045,7 +1102,7 @@ public:
 			for (int i = 0; i < g.nIncoming(u); i++) {
 				auto & e = g.incoming(u, i);
 				int adjID = e.id;
-				int from = g.all_edges[adjID].from;
+				int from = g.getEdge(adjID).from;
 				
 				int dfrom = dist[from];
 				if (edgeInShortestPathGraph[adjID]) {
@@ -1068,8 +1125,8 @@ public:
 			return;
 		edgeInShortestPathGraph[edgeID] = false;						//remove this edge from the shortest path graph
 				
-		int ru = g.all_edges[edgeID].from;
-		int rv = g.all_edges[edgeID].to;
+		int ru = g.getEdge(edgeID).from;
+		int rv = g.getEdge(edgeID).to;
 		
 		assert(delta[rv] > 0);
 		delta[rv]--;
@@ -1097,8 +1154,8 @@ public:
 				if (g.edgeEnabled(adjID)) {
 					if (edgeInShortestPathGraph[adjID]) {
 						edgeInShortestPathGraph[adjID] = false;
-						assert(g.all_edges[adjID].from == u);
-						int s = g.all_edges[adjID].to;
+						assert(g.getEdge(adjID).from == u);
+						int s = g.getEdge(adjID).to;
 						
 						assert(delta[s] > 0);
 						delta[s]--;
@@ -1120,8 +1177,8 @@ public:
 				int adjID = e.id;
 				
 				if (g.edgeEnabled(adjID)) {
-					assert(g.all_edges[adjID].to == u);
-					int v = g.all_edges[adjID].from;
+					assert(g.getEdge(adjID).to == u);
+					int v = g.getEdge(adjID).from;
 					int w = 1; //assume a weight of one for now
 					int alt = dist[v] + w;
 					if (alt > maxDistance)
@@ -1193,8 +1250,8 @@ public:
 				auto & e = g.incident(u, i);
 				int adjID = e.id;
 				if (g.edgeEnabled(adjID)) {
-					assert(g.all_edges[adjID].from == u);
-					int s = g.all_edges[adjID].to;
+					assert(g.getEdge(adjID).from == u);
+					int s = g.getEdge(adjID).to;
 					int w = 1;				//assume a weight of one for now
 					int alt = dist[u] + w;
 					if (alt > maxDistance)
@@ -1231,8 +1288,8 @@ public:
 				int adjID = e.id;
 				if (g.edgeEnabled(adjID)) {
 					
-					assert(g.all_edges[adjID].to == u);
-					int v = g.all_edges[adjID].from;
+					assert(g.getEdge(adjID).to == u);
+					int v = g.getEdge(adjID).from;
 					int dv = dist[v];
 					int du = dist[u];
 					bool edgeIn = edgeInShortestPathGraph[adjID];
@@ -1265,19 +1322,14 @@ public:
 	}
 	
 	void update() {
-#ifdef RECORD
+
 		if (g.outfile) {
-			fprintf(g.outfile, "r %d\n", getSource());
+			fprintf(g.outfile, "r %d %d %d %d %d\n", getSource(),last_modification, g.modifications,g.changed(), g.historySize() );
 		}
-#endif
-		
-		static int iteration = 0;
-		int local_it = ++iteration;
-		if (local_it == 671) {
-			int a = 1;
-		}
-		if (last_modification > 0 && g.modifications == last_modification)
+
+		if (last_modification > 0 && g.modifications == last_modification){
 			return;
+		}
 		if (last_modification <= 0 || g.changed()) {//Note for the future: there is probably room to improve this further.
 			stats_full_updates++;
 			INF = g.nodes() + 1;
@@ -1309,11 +1361,11 @@ public:
 			}
 		}
 		
-		for (int i = history_qhead; i < g.history.size(); i++) {
-			int edgeid = g.history[i].id;
-			if (g.history[i].addition && g.edgeEnabled(edgeid)) {
+		for (int i = history_qhead; i < g.historySize(); i++) {
+			int edgeid = g.getChange(i).id;
+			if (g.getChange(i).addition && g.edgeEnabled(edgeid)) {
 				GRRInc(edgeid);
-			} else if (!g.history[i].addition && !g.edgeEnabled(edgeid)) {
+			} else if (!g.getChange(i).addition && !g.edgeEnabled(edgeid)) {
 				GRRDec(edgeid);
 			}
 		}
@@ -1340,13 +1392,18 @@ public:
 		last_deletion = g.deletions;
 		last_addition = g.additions;
 		
-		history_qhead = g.history.size();
+		history_qhead = g.historySize();
+		g.updateAlgorithmHistory(this,alg_id,history_qhead);
 		last_history_clear = g.historyclears;
 		assert(dbg_uptodate());
-		
+
 	}
+	void updateHistory(){
+		update();
+	}
+
 	bool dbg_path(int to) {
-#ifdef DEBUG_DIJKSTRA
+#ifdef DEBUG_RAMAL
 		assert(connected(to));
 		if(to == source) {
 			return true;
@@ -1367,11 +1424,11 @@ public:
 	}
 	bool dbg_uptodate() {
 //#ifdef DEBUG_GRAPH
-#ifdef DEBUG_DIJKSTRA
+#ifdef DEBUG_RAMAL
 		if(last_modification<0)
 		return true;
 		dbg_delta();
-		UnweightedDijkstra<Reach::NullStatus,false> d(source,g);
+		UnweightedDijkstra<Weight> d(source,g);
 
 		for(int i = 0;i<g.nodes();i++) {
 			int dis = dist[i];
@@ -1387,8 +1444,27 @@ public:
 			}
 			if(dis!=dbgdist) {
 				assert(false);
-				exit(4);
+				throw std::runtime_error("");
 			}
+			if(d.connected(i) && d.distance(i)<maxDistance){
+
+				int dd =d.dist[i];
+				int mdis = dist[i];
+				if(! (mdis< INF)){
+					assert(false);
+					throw std::runtime_error("");
+				}
+				if(dd!=mdis) {
+					assert(false);
+					throw std::runtime_error("");
+				}
+			}else{
+				if(dist[i]<maxDistance){
+					assert(false);
+					throw std::runtime_error("");
+				}
+			}
+
 		}
 //#endif
 #endif
@@ -1404,16 +1480,18 @@ public:
 		return connected_unsafe(t);
 	}
 	bool connected(int t) {
-		if (last_modification != g.modifications)
+		if (last_modification < 0 ||  last_modification != g.modifications)
 			update();
-		
+
+
 		assert(dbg_uptodate());
 		
 		return dist[t] < INF;
 	}
 	int& distance(int t) {
-		if (last_modification != g.modifications)
+		if (last_modification < 0 ||  last_modification != g.modifications)
 			update();
+
 		if (connected_unsafe(t))
 			return dist[t];
 		else
@@ -1431,8 +1509,8 @@ public:
 		 assert(t>=0 && t<prev.size());
 		 assert(prev[t]>=-1 );
 		 return prev[t];*/
-		assert(false);
-		exit(1);
+
+		throw std::runtime_error("not implemented");
 	}
 	int previous(int t) {
 		/*		if(prev[t]<0)
@@ -1440,11 +1518,11 @@ public:
 
 		 assert(g.all_edges[incomingEdge(t)].to==t);
 		 return g.all_edges[incomingEdge(t)].from;*/
-		assert(false);
-		exit(1);
+		 throw std::runtime_error("not implemented");
 	}
 };
-
+template<typename Weight, class Status>
+bool RamalReps<Weight,Status>::ever_warned_about_zero_weights = 0;
 }
 ;
 #endif

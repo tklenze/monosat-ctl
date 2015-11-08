@@ -55,9 +55,15 @@
 #include "graph/GraphTheory.h"
 #include "geometry/GeometryTheory.h"
 #include "geometry/GeometryParser.h"
+<<<<<<< HEAD
 #include "ctl/DynamicKripke.h"
 #include "mtl/Bitset.h"
 
+=======
+#include "bv/BVParser.h"
+#include "amo/AMOTheory.h"
+#include "amo/AMOParser.h"
+>>>>>>> other-working
 
 using namespace Monosat;
 using namespace std;
@@ -462,13 +468,21 @@ int main(int argc, char** argv) {
 		BoolOption opt_witness("MAIN", "witness", "print solution", false);
 		StringOption opt_witness_file("MAIN", "witness-file", "write witness to file", "");
 		StringOption opt_theory_witness_file("MAIN", "theory-witness-file", "write witness for theories to file", "");
-		BoolOption pre("MAIN", "pre", "Completely turn on/off any preprocessing.", true);
+
 		BoolOption opb("PB", "opb", "Parse the input as pseudo-boolean constraints in .opb format", false);
 		BoolOption precise("GEOM", "precise",
 				"Solve geometry using precise rational arithmetic (instead of unsound, but faster, floating point arithmetic)",
 				true);
 
 		parseOptions(argc, argv, true);
+		Monosat::opt_record=strlen(opt_record_file)>0;
+
+		if(strlen(opt_debug_learnt_clauses)>0){
+			opt_write_learnt_clauses=fopen(opt_debug_learnt_clauses,"w");
+		}else{
+			opt_write_learnt_clauses=nullptr;
+		}
+
 		if (opt_adaptive_conflict_mincut == 1) {
 			opt_conflict_min_cut = true;
 			opt_conflict_min_cut_maxflow = true;
@@ -491,7 +505,7 @@ int main(int argc, char** argv) {
 		//Select which algorithms to apply for graph and geometric theory solvers, by parsing command line arguments and defaults.
 		selectAlgorithms();
 
-		double initial_time = cpuTime();
+		double initial_time = rtime(0);
 
 		// Use signal handlers that forcibly quit until the solver will be able to respond to
 		// interrupts:
@@ -536,7 +550,7 @@ int main(int argc, char** argv) {
 					"Decision variables restricted to the range (%d..%d), which means a result of satisfiable may not be trustworthy.\n",
 					(uint) opt_min_decision_var, (uint) opt_max_decision_var);
 		}
-		if (!pre)
+		if (!opt_pre)
 			S.eliminate(true);
 
 		gzFile in = (argc == 1) ? gzdopen(0, "rb") : gzopen(argv[1], "rb");
@@ -549,14 +563,16 @@ int main(int argc, char** argv) {
 		}
 
 		Dimacs<StreamBuffer, SimpSolver> parser;
+		BVParser<char *, SimpSolver> bvParser;
+		parser.addParser(&bvParser);
 
 		SymbolParser<char*,SimpSolver> symbolParser;
 		parser.addParser(&symbolParser);
 
-		GraphParser<char *, SimpSolver> graphParser(precise);
-
-
+		GraphParser<char *, SimpSolver> graphParser(precise,bvParser.theory);
 		parser.addParser(&graphParser);
+
+
 
 		FSMParser<char*,SimpSolver> fsmParser;
 		parser.addParser(&fsmParser);
@@ -565,6 +581,8 @@ int main(int argc, char** argv) {
 		LSystemParser<char*,SimpSolver>  lparser;
 		parser.addParser(&lparser);
 
+		AMOParser<char *, SimpSolver> amo;
+		parser.addParser(&amo);
 
 
 
@@ -575,14 +593,12 @@ int main(int argc, char** argv) {
 		if (precise) {
 			GeometryParser<char *, SimpSolver, mpq_class>  geometryParser;
 			parser.addParser(&geometryParser);
-			parser.parse_DIMACS(in, S);
+			parser.parse_DIMACS(in, S);//this call must happen here, otherwise the geometryParser will be de-allocated!
 		} else {
 			GeometryParser<char *, SimpSolver, double> geometryParser;
 			parser.addParser(&geometryParser);
-			parser.parse_DIMACS(in, S);
+			parser.parse_DIMACS(in, S);//this call must happen here, otherwise the geometryParser will be de-allocated!
 		}
-
-
 
 		gzclose(in);
 
@@ -612,7 +628,7 @@ int main(int argc, char** argv) {
 				int p = 0;
 				int total_read = 0;
 				while (fscanf(f, " %d %d ", &v, &p) == 2) {
-					if (v < 1 || v > S.nVars() || p < 0) {
+					if (v < 1 || v > S.nVars() ) {
 						fprintf(stderr, "Bad priority line: %d %d", v, p);
 						exit(1);
 					}
@@ -728,6 +744,7 @@ int main(int argc, char** argv) {
 		if (opt_verb > 0 && decidable.size()) {
 			printf("Decidable theories: ");
 		}
+		S.decidable_theories.clear();
 		for (int i = 0; i < decidable.size(); i++) {
 			int t = decidable[i];
 			if (t < 0 || t >= S.theories.size()) {
@@ -742,6 +759,16 @@ int main(int argc, char** argv) {
 		}
 		if (opt_verb > 0 && decidable.size()) {
 			printf("\n");
+		}
+
+		if(opt_decide_theories_reverse){
+			vec<Theory*> v;
+			for (int i = S.decidable_theories.size()-1;i>=0;i--){
+				v.push(S.decidable_theories[i]);
+			}
+			S.decidable_theories.clear();
+			for (Theory * t:v)
+				S.decidable_theories.push(t);
 		}
 
 		if (strlen((const char*) opt_assume_symbols) > 0) {
@@ -798,17 +825,35 @@ int main(int argc, char** argv) {
 		}
 
 		double before_pre_processing = rtime(0);
-		printf("simplify:\n");
-		fflush(stdout);
-		if (pre)
+		double parsing_time = before_pre_processing - initial_time;
+		if (opt_verb > 0) {
+			printf("Parsing time = %f\n", parsing_time);
+		}
+		S.preprocess();//do this _even_ if sat based preprocessing is disabled! Some of the theory solvers depend on a preprocessing call being made!
+
+		if (opt_pre){
+			if (opt_verb > 0){
+				printf("simplify:\n");
+				fflush(stdout);
+			}
 			S.eliminate(true);
+		}
 		fflush(stdout);
 		//exit(0);
-		double preprocessing_time = rtime(0) - before_pre_processing;
-		if (opt_verb > 0 && pre) {
+		double after_preprocessing =  rtime(0);
+		double preprocessing_time =after_preprocessing - before_pre_processing;
+		if (opt_verb > 0 && opt_pre) {
 			printf("Preprocessing time = %f\n", preprocessing_time);
 		}
+		if (opt_verb > 0){
+			printf("solving:\n");
+			fflush(stdout);
+		}
 		lbool ret = S.solve(assume) ? l_True : l_False;
+		double solving_time = rtime(0) - after_preprocessing;
+		if (opt_verb > 0) {
+			printf("Solving time = %f\n", solving_time);
+		}
 
 		if (ret == l_True) {
 
@@ -831,6 +876,7 @@ int main(int argc, char** argv) {
 			}
 
 			if (strlen(opt_theory_witness_file) > 0) {
+				std::cout<<"Writing witness to file " << (const char*) opt_theory_witness_file <<"\n";
 				std::ofstream theory_out(opt_theory_witness_file, ios::out);
 				S.writeTheoryWitness(theory_out);
 				for (auto p : symbols) {
@@ -897,7 +943,7 @@ int main(int argc, char** argv) {
 				}
 				printf("\n");
 			}
-			if (opt_verb >= 2) {
+			if (opt_verb > 2) {
 				for (int i = 0; i < S.theories.size(); i++)
 					S.theories[i]->printSolution();
 			}
@@ -908,7 +954,7 @@ int main(int argc, char** argv) {
 		} else {
 			printf("UNKNOWN\n");
 		}
-		if (opt_verb > 0) {
+		if (opt_verb > 1) {
 			printStats(S);
 
 		}

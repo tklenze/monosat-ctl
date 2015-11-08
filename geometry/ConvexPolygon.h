@@ -25,7 +25,7 @@
 #include <gmpxx.h>
 #include "core/Config.h"
 #include "Line.h"
-
+#include <cmath>
 #include <iostream>
 template<unsigned int D, class T>
 class NConvexPolygon;
@@ -487,7 +487,7 @@ bool ConvexPolygon<D, T>::containsInSplit2d(const Point<2, T> & point, int first
 			T dxl = p2.x - p1.x;
 			T dyl = p2.y - p1.y;
 			bool contains;
-			
+			using namespace std;
 			//check if the point is between the end points
 			if (abs(dxl) >= abs(dyl))
 				contains = dxl > 0 ? p1.x <= point.x && point.x <= p2.x : p2.x <= point.x && point.x <= p1.x;
@@ -646,11 +646,12 @@ bool ConvexPolygon<D, T>::containsInSplit2d_helper(const Point<2, T> & point, in
 			return false;
 		}
 		//Then this is a line. depending on our notion of containment, we either give up, or test if the line contains this point
-		
-		if (excludeVertices && (a == point || b == point)) {
+		assert(!excludeVertices);
+		/*	if (excludeVertices && (a == point || b == point)) {
+			//unreachable, because of above.
 			return false;
-		}
-		
+		}*/
+
 		triangle_out.clear();
 		triangle_out.addVertexUnchecked(a);
 		triangle_out.addVertexUnchecked(b);
@@ -777,6 +778,7 @@ bool ConvexPolygon<D, T>::containsInRange2d(const Point<2, T> & point, int first
 			T dxl = p2.x - p1.x;
 			T dyl = p2.y - p1.y;
 			bool contains;
+			using namespace std;
 			//check if the point is between the end points
 			if (abs(dxl) >= abs(dyl)) {
 				contains = dxl > 0 ? p1.x <= point.x && point.x <= p2.x : p2.x <= point.x && point.x <= p1.x;
@@ -1586,8 +1588,8 @@ bool ConvexPolygon<D, T>::intersects2d(Shape<2, T> & shape, NConvexPolygon<2, T>
 					if (h2.contains(h1[i], polygon_out_other, inclusive)) {
 						if (polygon_out_this) {
 							polygon_out_this->addVertex(h1[i]);
+							assert(polygon_out_this->orderClockwise());
 						}
-						assert(polygon_out_this->orderClockwise());
 						return true;
 					}
 				}
@@ -1596,8 +1598,8 @@ bool ConvexPolygon<D, T>::intersects2d(Shape<2, T> & shape, NConvexPolygon<2, T>
 					if (h1.contains(h2[i], polygon_out_this, inclusive)) {
 						if (polygon_out_other) {
 							polygon_out_other->addVertex(h2[i]);
+							assert(polygon_out_other->orderClockwise());
 						}
-						assert(polygon_out_other->orderClockwise());
 						return true;
 					}
 				}
@@ -1781,8 +1783,9 @@ void NConvexPolygon<D, T>::reorderVertices2d() {
 		centerX += p.x;
 		centerY += p.y;
 	}
-	centerX /= vertices.size();
-	centerY /= vertices.size();
+	T npoints =  (int)vertices.size();
+	centerX /=npoints;
+	centerY /=npoints;
 	
 	//from http://stackoverflow.com/a/6989383
 	

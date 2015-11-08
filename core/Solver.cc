@@ -60,14 +60,12 @@ Solver::Solver() :
 				0), stats_pure_theory_lits(0), pure_literal_detections(0), stats_removed_clauses(0), dec_vars(0), clauses_literals(
 				0), learnts_literals(0), max_literals(0), tot_literals(0), stats_pure_lit_time(0),  ok(
 				true), cla_inc(1), var_inc(1), watches(WatcherDeleted(ca)), qhead(0), simpDB_assigns(-1), simpDB_props(
-				0), order_heap(VarOrderLt(activity, priority)), progress_estimate(0), remove_satisfied(true)
+				0), order_heap(VarOrderLt(activity, priority)), progress_estimate(0), remove_satisfied(true) //lazy_heap( LazyLevelLt(this)),
 
 		// Resource constraints:
 		//
 				, conflict_budget(-1), propagation_budget(-1) {
-#ifdef DEBUG_SOLVER
-	dbg_solver=NULL;
-#endif
+
 }
 
 Solver::~Solver() {
@@ -83,12 +81,7 @@ Solver::~Solver() {
 // used as a decision variable (NOTE! This has effects on the meaning of a SATISFIABLE result).
 //
 Var Solver::newVar(bool sign, bool dvar) {
-	
-#ifdef DEBUG_SOLVER
-	if( dbg_solver) {
-		dbg_solver->newVar();
-	}
-#endif
+
 	int v = nVars();
 	watches.init(mkLit(v, false));
 	watches.init(mkLit(v, true));
@@ -111,18 +104,16 @@ Var Solver::newVar(bool sign, bool dvar) {
 	if (v < min_decision_var)
 		dvar = false;
 	setDecisionVar(v, dvar);
+
+
+
+
 	return v;
 }
 
 bool Solver::addClause_(vec<Lit>& ps) {
 	
-#ifdef DEBUG_SOLVER
-	if( dbg_solver) {
-		static vec<Lit> c;
-		ps.copyTo(c);
-		dbg_solver->addClause(c);
-	}
-#endif
+
 	assert(decisionLevel() == 0);
 	if (!ok)
 		return false;
@@ -154,8 +145,21 @@ bool Solver::addClause_(vec<Lit>& ps) {
 	return true;
 }
 
-CRef Solver::attachClauseSafe(vec<Lit> & ps) {
-	
+CRef Solver::attachReasonClause(Lit r,vec<Lit> & ps) {
+	assert(value(r)==l_True);
+
+	if(opt_write_learnt_clauses){
+		if((++opt_n_learnts)==58108|| opt_n_learnts==58109){
+			int a=1;
+		}
+		fprintf(opt_write_learnt_clauses,"learnt ");
+		for (Lit l:ps){
+			fprintf(opt_write_learnt_clauses," %d", dimacs(l));
+		}
+		fprintf(opt_write_learnt_clauses," 0\n");
+		fflush(opt_write_learnt_clauses);
+	}
+
 	//sort(ps);
 	Lit p;
 	int i, j;
@@ -169,20 +173,77 @@ CRef Solver::attachClauseSafe(vec<Lit> & ps) {
 	CRef confl_out = CRef_Undef;
 	if (ps.size() == 0) {
 		ok = false;
-		cancelUntil(0);
+		//cancelUntil(0);
 		return CRef_Undef;
 	} else if (ps.size() == 1) {
-		cancelUntil(0);
+		//cancelUntil(0);
 		assert(var(ps[0]) < nVars());
-		dbg_check_propagation(ps[0]);
-		if (!enqueue(ps[0])) {
-			ok = false;
-			
-		}
+
+		enqueueLazy(ps[0],0);
+
 		return CRef_Undef;
 	} else {
+
+		int nfalse = 0;
+		int max_lev = 0;
+		//bool satisfied = false;
+		int notFalsePos1 = -1;
+		int notFalsePos2 = -1;
+		for (int j = 0; j < ps.size(); j++) {
+			assert(var(ps[j]) < nVars());
+			//assert(value(ps[j])==l_False);
+			if (value(ps[j]) == l_False) {
+				nfalse++;
+			} else {
+
+				//if (value(ps[j]) == l_True)
+				//	satisfied = true;
+				if (notFalsePos1 < 0)
+					notFalsePos1 = j;
+				else if (notFalsePos2 < 0) {
+					notFalsePos2 = j;
+				}
+			}
+			if (value(ps[j]) != l_Undef) {
+				int l = level(var(ps[j]));
+				if (l > max_lev) {
+					max_lev = l;
+				}
+			}
+		}
+
+		if(notFalsePos1<0){
+			//all literals in this clause are false - this is the usual case for reason clauses.
+			//so just treat the first literal as the non-false one
+			notFalsePos1=0;
+		}
+
+		assert(notFalsePos1 >= 0);
+		if (notFalsePos1 >= 0 && notFalsePos2 >= 0) {
+			assert(notFalsePos1 != notFalsePos2);
+			if (notFalsePos1 == 1) {
+				std::swap(ps[0], ps[notFalsePos2]);
+			} else {
+				std::swap(ps[0], ps[notFalsePos1]);
+				std::swap(ps[1], ps[notFalsePos2]);
+			}
+		} else {
+			std::swap(ps[0], ps[notFalsePos1]);
+		}
+		assert(value(ps[0])!=l_False);
+		if (notFalsePos2 >= 0) {
+			assert(value(ps[1])!=l_False);
+		}
+
+
+		CRef cr = ca.alloc(ps);
+		ca[cr].setFromTheory(true);
+		clauses.push(cr);
+		attachClause(cr);
+		enqueueLazy(ps[0],max_lev,cr);
+
 		//find the highest level in the conflict (should be the current decision level, but we won't require that)
-		if (ps.size() > opt_temporary_theory_reasons) {
+	/*	if (ps.size() > opt_temporary_theory_reasons) {
 			if (tmp_clause == CRef_Undef) {
 				tmp_clause = ca.alloc(ps, false);
 				tmp_clause_sz = ps.size();
@@ -226,8 +287,8 @@ CRef Solver::attachClauseSafe(vec<Lit> & ps) {
 			attachClause(cr);
 			
 			confl_out = cr;
-		}
-		return confl_out;
+		}*/
+		return cr;
 	}
 }
 
@@ -298,16 +359,36 @@ bool Solver::satisfied(const Clause& c) const {
 
 // Revert to the state at given level (keeping all assignment at 'level' but not beyond).
 //
-void Solver::cancelUntil(int level) {
-	if (decisionLevel() > level) {
-		for (int c = trail.size() - 1; c >= trail_lim[level]; c--) {
-			Var x = var(trail[c]);
-			assigns[x] = l_Undef;
-			if (phase_saving > 1 || ((phase_saving == 1) && c > trail_lim.last()))
-				polarity[x] = sign(trail[c]);
-			insertVarOrder(x);
+void Solver::cancelUntil(int lev) {
+	if (decisionLevel() > lev) {
+
+		for (int i = 0; i < theories.size(); i++) {
+			if(opt_lazy_backtrack  && theories[i]->supportsLazyBacktracking()){
+				//if we _are_ backtracking lazily, then the assumption is that the theory solver will, after backtracking, mostly re-assign the same literals.
+				//so instead, we will backtrack the theory lazily, in the future, if it encounters an apparent conflict (and this backtracking may alter or eliminate that conflict.)
+			}else{
+				theories[i]->backtrackUntil(lev);
+			}
 		}
-		qhead = trail_lim[level];
+
+		//printf("s: cancel %d\n",lev);
+		for (int c = trail.size() - 1; c >= trail_lim[lev]; c--) {
+			Var x = var(trail[c]);
+			int xlev = level(x);
+
+			if(xlev<=lev){
+				to_reenqueue.push(trail[c]);
+			}else{
+				if(hasTheory(x)){
+					theories[getTheoryID(x)]->undecideTheory(getTheoryLit(trail[c]));
+				}
+				assigns[x] = l_Undef;
+				if (phase_saving > 1 || ((phase_saving == 1) && c > trail_lim.last()))
+					polarity[x] = sign(trail[c]);
+				insertVarOrder(x);
+			}
+		}
+		qhead = trail_lim[lev];
 		if (local_qhead > qhead) {
 			local_qhead = qhead;
 		}
@@ -315,9 +396,14 @@ void Solver::cancelUntil(int level) {
 			super_qhead = S->qhead;
 		}
 		
-		trail.shrink(trail.size() - trail_lim[level]);
-		trail_lim.shrink(trail_lim.size() - level);
-		
+		trail.shrink(trail.size() - trail_lim[lev]);
+		trail_lim.shrink(trail_lim.size() - lev);
+
+		//remove any lits from the lazy heap that are now unassigned.
+/*		while(lazy_heap.size() && value(toLit( lazy_heap.peakMin())) == l_Undef ){
+			lazy_heap.pop();
+		}*/
+
 		if (decisionLevel() < track_min_level) {
 			track_min_level = decisionLevel();
 		}
@@ -325,13 +411,28 @@ void Solver::cancelUntil(int level) {
 			in_theory_queue[i] = false;
 		}
 		theory_queue.clear();
-		for (int i = 0; i < theories.size(); i++) {
-			theories[i]->backtrackUntil(level);
+
+
+
+		//re-enqueue any lazy lits as appropriate
+		while(to_reenqueue.size()){
+			Lit p = to_reenqueue.last();
+			to_reenqueue.pop();
+			assert(level(var(p)) <=lev);
+			trail.push(p);
+			//is this really needed?
+			if (hasTheory(p)) {
+				int theoryID = getTheoryID(p);
+				needsPropagation(theoryID);
+				theories[theoryID]->enqueueTheory(getTheoryLit(p));
+			}
 		}
+		//should qhead be adjusted, here? Or do we want to repropagate these literals? (currently, re-propagating these literals).
+
 	}
 }
 
-void Solver::backtrackUntil(int level) {
+void Solver::backtrackUntil(int lev) {
 	if (S->trail.size() < super_qhead)
 		super_qhead = S->trail.size();
 }
@@ -356,9 +457,33 @@ Lit Solver::pickBranchLit() {
 			break;
 		} else
 			next = order_heap.removeMin();
-	
+
 	return next == var_Undef ? lit_Undef : mkLit(next, rnd_pol ? drand(random_seed) < 0.5 : polarity[next]);
 }
+
+void Solver::instantiateLazyDecision(Lit p,int atLevel, CRef reason){
+	assert(value(p) == l_Undef);
+	assigns[var(p)] = lbool(!sign(p));
+	vardata[var(p)] = mkVarData(reason, atLevel);
+	assert(atLevel<=decisionLevel());
+	assert(atLevel>0);
+	int trail_pos = trail_lim[atLevel-1];
+	Lit curDec = trail[trail_pos];
+	if(curDec==p)//this lit was already the decision at this level
+		return;
+	assert(curDec==theoryDecision);
+	if(curDec!=theoryDecision){
+		exit(6);
+	}
+	trail[trail_pos]=p;
+
+	if (hasTheory(p)) {
+		int theoryID = getTheoryID(p);
+		needsPropagation(theoryID);
+		theories[theoryID]->enqueueTheory(getTheoryLit(p));
+	}
+}
+
 
 /*_________________________________________________________________________________________________
  |
@@ -379,13 +504,40 @@ Lit Solver::pickBranchLit() {
  |________________________________________________________________________________________________@*/
 void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel) {
 	int pathC = 0;
+	CRef original_confl = confl;
 	Lit p = lit_Undef;
 	assert(confl != CRef_Undef);
+	int maxlev = 0;
+	{
+		Clause & check = ca[confl];
+		for(Lit p:check){
+			int lev = level(var(p));
+			if(lev>maxlev){
+				maxlev=lev;
+			}
+		}
+/*		int maxcount = 0;
+		for(Lit l:check){
+			if(level(var(l))>=maxlev){
+				maxcount++;
+			}
+		}
+		if(maxcount==1){
+		//	exit(7);
+		}*/
+	}
+
+	cancelUntil(maxlev);//use of lazily enqueued literals can trigger conflicts at earlier decision levels
 	// Generate conflict clause:
 	//
+#ifndef NDEBUG
+	assert(!seen.contains(1));
+#endif
+	bool possibly_missed_1uip=false;
+	to_analyze.clear();
 	out_learnt.push();      // (leave room for the asserting literal)
 	int index = trail.size() - 1;
-	
+	int stop = trail_lim.last();
 	do {
 		if (confl != CRef_Undef) {
 			assert(!isTheoryCause(confl));
@@ -396,10 +548,13 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel) {
 			
 			for (int j = (p == lit_Undef) ? 0 : 1; j < c.size(); j++) {
 				Lit q = c[j];
-				
 				if (!seen[var(q)] && level(var(q)) > 0) {
+					assert(value(q)==l_False);assert(var(q)!=var(theoryDecision));
 					varBumpActivity(var(q));
 					seen[var(q)] = 1;
+					if(var(q)==10){
+						int a=1;
+					}
 					if (level(var(q)) >= decisionLevel())
 						pathC++;
 					else
@@ -409,25 +564,64 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel) {
 		} else {
 			out_learnt.push(~p);
 		}
-		// Select next clause to look at:
-		while (!seen[var(trail[index--])])
-			;
-		assert(index >= -1);
-		p = trail[index + 1];
-		confl = reason(var(p));
-		if (isTheoryCause(confl)) {
-			//lazily construct the reason for this theory propagation now that we need it
-			confl = constructReason(p);
+		bool searching=true;
+		while(searching){
+			searching=false;
+
+			// Select next clause to look at:
+			while (index>= stop && (!seen[var(trail[index--])] || (level(var(trail[index+1]))<decisionLevel())));
+			assert(index >= -1);
+			p = trail[index + 1];
+			if(var(p)==10){
+				int a=1;
+			}
+			assert(var(p)!=var(theoryDecision));
+			confl = reason(var(p));
+			int was_at_level = level(var(p));
+			if (isTheoryCause(confl)) {
+				//lazily construct the reason for this theory propagation now that we need it
+				confl = constructReason(p);
+				//for some theories, we may discover while constructing the cause that p is at a lower level than we thought.
+			}
+			if(level(var(p))<decisionLevel()){
+				assert(value(p)==l_True);
+				if(was_at_level==decisionLevel()){
+					//the level of this variable changed while deriving a reason for it.
+					if(level(var(p))>0){
+						out_learnt.push(~p);
+					}
+					pathC--;
+					possibly_missed_1uip=true;
+				}
+				seen[var(p)] = 0;
+				searching=pathC>0;
+			}
 		}
+
 		seen[var(p)] = 0;
 		pathC--;
 		
 	} while (pathC > 0);
 	out_learnt[0] = ~p;
-	dbg_check(out_learnt);
+	assert(var(p)!=var(theoryDecision));
+
+	if(possibly_missed_1uip){
+		//because of literals that were enqueued lazily, at the wrong level, and only discovered during lazy reason construction,
+		//in rare circumstances the 1uip may be missed. If that happens, re-start clause learning now that all the relevant reasons have
+		//been constructed and all relevant levels are corrected.
+		for(Lit l:out_learnt){
+			seen[var(l)]=0;
+		}
+		assert(!seen.contains(1));
+		out_learnt.clear();
+		analyze(original_confl,out_learnt,out_btlevel);
+		return;
+	}
+
 #ifndef NDEBUG
 	for (Lit p : out_learnt)
 		assert(value(p)==l_False);
+
 #endif
 	// Simplify conflict clause:
 	//
@@ -481,12 +675,17 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel) {
 		out_btlevel = level(var(p));
 	}
 #ifndef NDEBUG
-	for (Lit p : out_learnt)
+	for (Lit p : out_learnt){
+		assert(var(p)!=var(theoryDecision));
 		assert(value(p)==l_False);
+	}
 #endif
-	dbg_check(out_learnt);
+
 	for (int j = 0; j < analyze_toclear.size(); j++)
 		seen[var(analyze_toclear[j])] = 0;    // ('seen[]' is now cleared)
+#ifndef NDEBUG
+	assert(!seen.contains(1));
+#endif
 }
 
 // Check if 'p' can be removed. 'abstract_levels' is used to abort early if the algorithm is
@@ -570,20 +769,38 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict) {
 	seen[var(p)] = 0;
 }
 
+void Solver::enqueueLazy(Lit p, int lev, CRef from){
+	assert(value(p)!=l_False);
+	if(value(p)==l_True && lev < level(var(p))){
+		//then the lit was already implied, but needs to be (lazily) moved to an earlier level.
+		vardata[var(p)] = mkVarData(from, lev);
+	}else if(value(p)==l_Undef && lev<decisionLevel()){
+		assert(value(p) == l_Undef);
+		assigns[var(p)] = lbool(!sign(p));
+		vardata[var(p)] = mkVarData(from, lev);
+		trail.push_(p);
+		//lazy_heap.insert(toInt(p));
+		if (hasTheory(p)) {
+			int theoryID = getTheoryID(p);
+			needsPropagation(theoryID);
+			theories[theoryID]->enqueueTheory(getTheoryLit(p));
+		}
+	}else if(value(p)==l_Undef){
+			uncheckedEnqueue(p, from);
+	}else{
+		//do nothing
+	}
+}
+
 void Solver::uncheckedEnqueue(Lit p, CRef from) {
 	assert(value(p) == l_Undef);
 	assigns[var(p)] = lbool(!sign(p));
 	vardata[var(p)] = mkVarData(from, decisionLevel());
 	trail.push_(p);
-	//printf("%d\n",dimacs(p));
 	if (hasTheory(p)) {
 		int theoryID = getTheoryID(p);
+		needsPropagation(theoryID);
 		theories[theoryID]->enqueueTheory(getTheoryLit(p));
-		if (!in_theory_queue[theoryID]) {
-			in_theory_queue[theoryID] = true;
-			theory_queue.push(theoryID);
-			assert(theory_queue.size() <= theories.size());
-		}
 	}
 }
 
@@ -618,8 +835,8 @@ void Solver::analyzeFinal(CRef confl, Lit skip_lit, vec<Lit>& out_conflict) {
 			assert(x != var(skip_lit));
 			CRef r = reason(x);
 			if (r == CRef_Undef) {
-				Var v = var(trail[i]);
-				int lev = level(v);
+				//Var v = var(trail[i]);
+				//int lev = level(v);
 				out_conflict.push(~trail[i]);
 			} else {
 				if (isTheoryCause(r)) {
@@ -662,7 +879,7 @@ bool Solver::propagateTheory(vec<Lit> & conflict_out) {
 	assert(decisionLevel() <= S->decisionLevel());
 	
 	CRef confl = CRef_Undef;
-	int curLev = decisionLevel();
+
 	while (confl == CRef_Undef && super_qhead < S->qhead) {
 		Lit out_l = S->trail[super_qhead++];
 		
@@ -764,8 +981,7 @@ bool Solver::propagateTheory(vec<Lit> & conflict_out) {
  |      * the propagation queue is empty, even if there was a conflict.
  |________________________________________________________________________________________________@*/
 CRef Solver::propagate(bool propagate_theories) {
-	if (qhead == trail.size() && !initialPropagate) {
-		assert(!theory_queue.size());
+	if (qhead == trail.size() && (!initialPropagate || decisionLevel() > 0) && (!propagate_theories || !theory_queue.size())) {//it is possible that the theory solvers need propagation, even if the sat solver has an empty queue.
 		return CRef_Undef;
 	}
 	CRef confl = CRef_Undef;
@@ -786,7 +1002,6 @@ CRef Solver::propagate(bool propagate_theories) {
 					in_theory_queue[theoryID] = false;
 					if (!theories[theoryID]->propagateTheory(theory_conflict)) {
 						if (!addConflictClause(theory_conflict, confl)) {
-							in_theory_queue[theoryID] = false;
 							qhead = trail.size();
 							return confl;
 						}
@@ -795,10 +1010,10 @@ CRef Solver::propagate(bool propagate_theories) {
 			}
 			
 			Lit p = trail[qhead++];     // 'p' is enqueued fact to propagate.
+
 			vec<Watcher>& ws = watches[p];
 			Watcher *i, *j, *end;
 			num_props++;
-			
 			for (i = j = (Watcher*) ws, end = i + ws.size(); i != end;) {
 				// Try to avoid inspecting the clause:
 				Lit blocker = i->blocker;
@@ -849,7 +1064,7 @@ CRef Solver::propagate(bool propagate_theories) {
 			ws.shrink(i - j);
 		}
 		
-		if (initialPropagate && propagate_theories) {
+		if (initialPropagate && decisionLevel() == 0 && propagate_theories) {
 			assert(decisionLevel() == 0);
 			//propagate any as yet unpropagated literals to each theory
 			for (int i = 0; i < qhead; i++) {
@@ -862,26 +1077,27 @@ CRef Solver::propagate(bool propagate_theories) {
 			}
 			//Have to check _all_ the theories, even if we haven't eneueued of their literals, in case they have constants to propagate up.
 			for (int theoryID = 0; theoryID < theories.size(); theoryID++) {
-				if (!in_theory_queue[theoryID]) {
-					in_theory_queue[theoryID] = true;
-					theory_queue.push(theoryID);
-				}
+				needsPropagation(theoryID);
 			}
 			initialPropagate = false;
 		}
 		static int iter = 0;
-		if (++iter == 1452024) {
+		if (++iter == 52) {
+
 			int a = 1;
 		}
+		//printf("iter %d\n",iter);
+		//printf("iter %d\n",iter);
 		//propagate theories;
 		while (propagate_theories && theory_queue.size() && (opt_early_theory_prop || qhead == trail.size())
 				&& confl == CRef_Undef) {
 			theory_conflict.clear();
-			
+			//todo: ensure that the bv theory comes first, as otherwise dependent theories may have to be propagated twice...
 			int theoryID = theory_queue.last();
 			theory_queue.pop();
 			in_theory_queue[theoryID] = false;
 			if (!theories[theoryID]->propagateTheory(theory_conflict)) {
+<<<<<<< HEAD
 				for(int i =0;i<theory_conflict.size();i++){
 					if(value(theory_conflict[i])!=l_False){
 						throw std::runtime_error("Learnt clause is satisfiable!");
@@ -889,6 +1105,12 @@ CRef Solver::propagate(bool propagate_theories) {
 				}
 				if (!addConflictClause(theory_conflict, confl)) {
 					in_theory_queue[theoryID] = false;
+=======
+				bool has_conflict=true;
+
+				if (has_conflict && !addConflictClause(theory_conflict, confl)) {
+
+>>>>>>> other-working
 					qhead = trail.size();
 					return confl;
 				}
@@ -1105,19 +1327,157 @@ bool Solver::simplify() {
 	
 	return true;
 }
+void Solver::addClauseSafely(vec<Lit> & ps) {
+	if(opt_write_learnt_clauses){
+		if(++opt_n_learnts==58108){
+			int a=1;
+		}
+		fprintf(opt_write_learnt_clauses,"learnt fact ");
+		for (Lit l:ps){
+			fprintf(opt_write_learnt_clauses," %d", dimacs(l));
+		}
+		fprintf(opt_write_learnt_clauses," 0\n");
+		fflush(opt_write_learnt_clauses);
+	}
 
+	if(decisionLevel()==0){
+		addClause(ps);
+	}else{
+		//clauses_to_add.push();
+		//ps.copyTo(clauses_to_add.last());
+		//
+		//check if this clause should imply a literal right now.
+		//and IF that literal is already implied, then we may still need to adjust the level the literal should be implied at.
+		int undef_count=0;
+		int false_count=0;
+		sort(ps);
+		Lit p;
+		int i, j;
+		for (i = j = 0, p = lit_Undef; i < ps.size(); i++){
+			assert(var(ps[i])!=var(theoryDecision));
+			if (((value(ps[i]) == l_True && level(var(ps[i])) == 0)) || ps[i] == ~p)
+				return;
+			else if ((value(ps[i]) != l_False || level(var(ps[i])) != 0) && ps[i] != p){
+				ps[j++] = p = ps[i];
+				if(value(ps[i])==l_Undef)
+					undef_count++;
+				else if (value(ps[i])==l_False){
+					false_count++;
+				}
+			}
+		}
+		ps.shrink(i - j);
+		if(false_count==ps.size()-1){
+			//this clause is unit under the current assignment.
+			//although we _could_ wait until a restart to add this clause, in many cases this will lead to very poor solver behaviour.
+			//so we are going to propagate this clause now.
+
+			if(ps.size()==0){
+				ok=false;
+				return;
+			}else if (ps.size()==1){
+				enqueueLazy(ps[0],0,CRef_Undef);
+			}else{
+
+				bool conflicting = true;
+				int nfalse = 0;
+				int max_lev = 0;
+				//bool satisfied = false;
+				int notFalsePos1 = -1;
+				int notFalsePos2 = -1;
+				for (int j = 0; j < ps.size(); j++) {
+					assert(var(ps[j]) < nVars());
+					//assert(value(ps[j])==l_False);
+					if (value(ps[j]) == l_False) {
+						nfalse++;
+					} else {
+						conflicting = false;
+						//if (value(ps[j]) == l_True)
+						//	satisfied = true;
+						if (notFalsePos1 < 0)
+							notFalsePos1 = j;
+						else if (notFalsePos2 < 0) {
+							notFalsePos2 = j;
+						}
+					}
+					if (value(ps[j]) != l_Undef) {
+						int l = level(var(ps[j]));
+						if (l > max_lev) {
+							max_lev = l;
+						}
+					}
+				}
+				assert(!conflicting);
+				if (!conflicting) {
+					assert(notFalsePos1 >= 0);
+					if (notFalsePos1 >= 0 && notFalsePos2 >= 0) {
+						assert(notFalsePos1 != notFalsePos2);
+						if (notFalsePos1 == 1) {
+							std::swap(ps[0], ps[notFalsePos2]);
+						} else {
+							std::swap(ps[0], ps[notFalsePos1]);
+							std::swap(ps[1], ps[notFalsePos2]);
+						}
+					} else {
+						std::swap(ps[0], ps[notFalsePos1]);
+					}
+					assert(value(ps[0])!=l_False);
+					if (notFalsePos2 >= 0) {
+						assert(value(ps[1])!=l_False);
+					}
+				}
+
+				CRef cr = ca.alloc(ps);
+				ca[cr].setFromTheory(true);
+				clauses.push(cr);
+				attachClause(cr);
+				enqueueLazy(ps[0],max_lev,cr);
+			}
+		}else{
+			//add this clause at the next solver restart
+			clauses_to_add.push();
+			ps.copyTo(clauses_to_add.last());
+		}
+
+
+
+
+	}
+}
 bool Solver::addConflictClause(vec<Lit> & ps, CRef & confl_out, bool permanent) {
-	dbg_check(theory_conflict);
+	static int nlearnt=0;
+	if(++nlearnt== 111){
+		int a=1;
+	}
+	if(opt_write_learnt_clauses){
+		if(++opt_n_learnts==58108){
+			int a=1;
+		}
+		fprintf(opt_write_learnt_clauses,"learnt ");
+		for (Lit l:ps){
+			fprintf(opt_write_learnt_clauses," %d", dimacs(l));
+		}
+		fprintf(opt_write_learnt_clauses," 0\n");
+		fflush(opt_write_learnt_clauses);
+	}
+	//bool any_undef=false;
 	sort(ps);
 	Lit p;
 	int i, j;
-	for (i = j = 0, p = lit_Undef; i < ps.size(); i++)
+	for (i = j = 0, p = lit_Undef; i < ps.size(); i++){
+		assert(var(ps[i])!=var(theoryDecision));
+		//if(decisionLevel()>0 && value(ps[i])==l_Undef)
+		//	any_undef=true;
 		if (((value(ps[i]) == l_True && level(var(ps[i])) == 0)) || ps[i] == ~p)
 			return true;
 		else if ((value(ps[i]) != l_False || level(var(ps[i])) != 0) && ps[i] != p)
 			ps[j++] = p = ps[i];
+
+	}
 	ps.shrink(i - j);
-	
+/*	if(any_undef){
+		cancelUntil(0);//this is _not_ a conflict clause.
+	}*/
 	confl_out = CRef_Undef;
 	if (ps.size() == 0) {
 		ok = false;
@@ -1125,14 +1485,15 @@ bool Solver::addConflictClause(vec<Lit> & ps, CRef & confl_out, bool permanent) 
 		return false;
 	} else if (ps.size() == 1) {
 		cancelUntil(0);
+
 		assert(var(ps[0]) < nVars());
-		dbg_check_propagation(ps[0]);
+
 		if (!enqueue(ps[0])) {
 			ok = false;
 			return false;
 		}
-		
-	} else {
+
+	}else {
 		//find the highest level in the conflict (should be the current decision level, but we won't require that)
 		bool conflicting = true;
 		int nfalse = 0;
@@ -1222,7 +1583,7 @@ bool Solver::addConflictClause(vec<Lit> & ps, CRef & confl_out, bool permanent) 
 					max_learnts *= learntsize_inc;
 					
 					if (verbosity >= 1)
-						printf("| %9d | %7d %8d %8d | %8d %8d %6.0f | %ld removed |\n", (int) conflicts,
+						printf("| %9d | %7d %8d %8d | %8d %8d %6.0f | %" PRId64 " removed |\n", (int) conflicts,
 								(int) dec_vars - (trail_lim.size() == 0 ? trail.size() : trail_lim[0]), nClauses(),
 								(int) clauses_literals, (int) max_learnts, nLearnts(),
 								(double) learnts_literals / nLearnts(), stats_removed_clauses);
@@ -1233,16 +1594,20 @@ bool Solver::addConflictClause(vec<Lit> & ps, CRef & confl_out, bool permanent) 
 			attachClause(cr);
 			confl_out = cr;
 		}
-		if (!satisfied)
-			cancelUntil(max_lev);
+		//if (!satisfied )
+		//	cancelUntil(max_lev);
 		
 		if (!satisfied && nfalse == ps.size() - 1) {
+			cancelUntil(max_lev);
+			assert(!conflicting);
 			assert(value(ps[0])!=l_False);
 			assert(value(ps[1])==l_False);
 			if (value(ps[0]) == l_Undef) {
 				uncheckedEnqueue(ps[0], confl_out);
 			}
-			confl_out = CRef_Undef;
+		}
+		if(!conflicting){
+			confl_out=CRef_Undef;
 		}
 		return !conflicting;
 	}
@@ -1279,12 +1644,14 @@ lbool Solver::search(int nof_conflicts) {
 	int backtrack_level;
 	int conflictC = 0;
 	vec<Lit> learnt_clause;
-	
+	bool last_decision_was_theory=false;
 	starts++;
+	bool using_theory_decisions= opt_decide_theories && drand(random_seed) < opt_random_theory_freq;
+	n_theory_decision_rounds+=using_theory_decisions;
 	//last_dec = var_Undef;
 	for (;;) {
 		static int iter = 0;
-		if (++iter == 5) {
+		if (++iter == 183) {//40097
 			int a = 1;
 		}
 		propagate: CRef confl = propagate();
@@ -1292,6 +1659,16 @@ lbool Solver::search(int nof_conflicts) {
 			// CONFLICT
 			conflicts++;
 			conflictC++;
+			if(last_decision_was_theory){
+				n_theory_conflicts++;
+				consecutive_theory_conflicts++;
+				if(opt_theory_conflict_max && consecutive_theory_conflicts>=opt_theory_conflict_max){
+					next_theory_decision=conflicts+consecutive_theory_conflicts;
+					consecutive_theory_conflicts=0;
+				}
+			}else{
+				consecutive_theory_conflicts=0;
+			}
 			if (decisionLevel() == 0)
 				return l_False;
 			learnt_clause.clear();
@@ -1313,7 +1690,11 @@ lbool Solver::search(int nof_conflicts) {
 				if (value(learnt_clause[0]) == l_Undef) {
 					uncheckedEnqueue(learnt_clause[0], cr);
 				} else {
+
 					assert(S);
+					if(!S){
+						exit(1);
+					}
 					//this is _not_ an asserting clause, its a conflict that must be passed up to the super solver.
 					analyzeFinal(cr, lit_Undef, conflict);
 					
@@ -1333,7 +1714,7 @@ lbool Solver::search(int nof_conflicts) {
 				max_learnts *= learntsize_inc;
 				
 				if (verbosity >= 1)
-					printf("| %9d | %7d %8d %8d | %8d %8d %6.0f | %ld removed |\n", (int) conflicts,
+					printf("| %9d | %7d %8d %8d | %8d %8d %6.0f | %" PRId64 " removed |\n", (int) conflicts,
 							(int) dec_vars - (trail_lim.size() == 0 ? trail.size() : trail_lim[0]), nClauses(),
 							(int) clauses_literals, (int) max_learnts, nLearnts(),
 							(double) learnts_literals / nLearnts(), stats_removed_clauses);
@@ -1371,7 +1752,7 @@ lbool Solver::search(int nof_conflicts) {
 			if (learnts.size() - nAssigns() >= max_learnts)
 				// Reduce the set of learnt clauses:
 				reduceDB();
-			
+			last_decision_was_theory=false;
 			Lit next = lit_Undef;
 			while (decisionLevel() < assumptions.size()) {
 				// Perform user provided assumption:
@@ -1381,8 +1762,6 @@ lbool Solver::search(int nof_conflicts) {
 					newDecisionLevel();
 				} else if (value(p) == l_False) {
 					analyzeFinal(~p, conflict);
-					dbg_check(conflict);
-					dbg_check_propagation(~p);
 					return l_False;
 				} else {
 					next = p;
@@ -1390,14 +1769,22 @@ lbool Solver::search(int nof_conflicts) {
 				}
 			}
 			
-			if (opt_decide_theories && next == lit_Undef && drand(random_seed) < opt_random_theory_freq) {
+			//Note: decision level is now added before theories make their decisions, to allow them to decide multiple literals at once.
+			newDecisionLevel();
+
+			if (opt_decide_theories && using_theory_decisions && next == lit_Undef && (opt_theory_conflict_max==0 || conflicts>=next_theory_decision) ) {
 				/**
 				 * Give the theory solvers a chance to make decisions
 				 */
 				for (int i = 0; i < decidable_theories.size() && next == lit_Undef; i++) {
 					
 					next = decidable_theories[i]->decideTheory();
-					
+					if(theoryDecision !=lit_Undef && var(next)==var(theoryDecision)){
+						assigns[var(theoryDecision)]=l_Undef;
+					}
+				}
+				if (next!=lit_Undef){
+					last_decision_was_theory=true;
 				}
 			}
 			
@@ -1406,7 +1793,9 @@ lbool Solver::search(int nof_conflicts) {
 				decisions++;
 				next = pickBranchLit();
 				// int p = priority[var(next)];
-				
+				if(opt_verb>2){
+					printf("solver decision\n");
+				}
 				if (next == lit_Undef) {
 					
 					//solve theories if this solver is completely assigned
@@ -1432,8 +1821,10 @@ lbool Solver::search(int nof_conflicts) {
 			}
 			//last_dec = var(next);
 			// Increase decision level and enqueue 'next'
-			newDecisionLevel();
-			uncheckedEnqueue(next);
+			assert(next!=lit_Undef);
+			//if(next!=lit_Error)//lit_Error is used to signify a decision that has no literal in the SAT solver (some theories may support this)
+
+			enqueue(next);//not unchecked enqueue, because a theory solver _may_ have assigned this literal while making a decision
 		}
 	}
 	//Unreachable
@@ -1466,16 +1857,18 @@ double Solver::progressEstimate() const {
  */
 
 static double luby(double y, int x) {
-	
+	assert(x>=0);
 	// Find the finite subsequence that contains index 'x', and the
 	// size of that subsequence:
 	int size, seq;
-	for (size = 1, seq = 0; size < x + 1; seq++, size = 2 * size + 1)
-		;
-	
+	for (size = 1, seq = 0; size < x + 1; seq++, size = 2 * size + 1);
+
+	assert(size>x);
 	while (size - 1 != x) {
 		size = (size - 1) >> 1;
 		seq--;
+		//According to Coverity: size can be zero at this line, leading to a mod by zero...
+		//However, since size must be >= x+1 above, and always > x in this loop, and x is positive, this is safe.
 		x = x % size;
 	}
 	
@@ -1538,31 +1931,49 @@ lbool Solver::solve_() {
 			model[i] = value(i);
 		
 		if (opt_check_solution && theories.size()) {
-			Theory * t = theories[0];
-			
-			if (!t->check_solved()) {
-				fprintf(stderr, "Error! Solution doesn't satisfy theory properties!\n");
-				fflush(stderr);
-				exit(4);
+			if(opt_verb>0){
+				printf("Checking witnesses...\n");
 			}
+			double check_start=rtime(1);
+			for(Theory * t:theories){
+			
+				if (!t->check_solved()) {
+					fprintf(stderr, "Error! Solution doesn't satisfy theory properties!\n");
+					fflush(stderr);
+					exit(4);
+				}
+			}
+			stats_solution_checking_time+=rtime(1)-check_start;
 		}
-#ifdef DEBUG_SOLVER
-		if(dbg_solver)
-		assert(dbg_solver->solve(assumptions));
-#endif
+		if(opt_write_learnt_clauses && opt_debug_model){
+			//write the model out
+			fprintf(opt_write_learnt_clauses,"s SATISFIABLE\n");
+			fprintf(opt_write_learnt_clauses,"v ");
+			for (int i = 0;i<nVars();i++){
+				Lit l = mkLit(i,false);
+				if(value(i)==l_True){
+					fprintf(opt_write_learnt_clauses," %d",dimacs(l));
+				}else if(value(i)==l_False){
+					fprintf(opt_write_learnt_clauses," %d",dimacs(~l));
+				}else{
+					fprintf(opt_write_learnt_clauses," %d",dimacs(l));//optional
+				}
+			}
+			fprintf(opt_write_learnt_clauses,"\n");
+
+			for(Theory * t:theories){
+				std::stringstream ss;
+				t->writeTheoryWitness(ss);
+				fprintf(opt_write_learnt_clauses,"%s",ss.str().c_str());
+			}
+
+
+		}
 		
 	} else if (status == l_False && conflict.size() == 0) {
 		ok = false;
-#ifdef DEBUG_SOLVER
-		if(dbg_solver)
-		assert(!dbg_solver->solve());
-#endif
 	} else if (status == l_False) {
 		assert(ok);
-#ifdef DEBUG_SOLVER
-		if(dbg_solver)
-		assert(!dbg_solver->solve(assumptions));
-#endif
 	}
 	
 	assumptions.clear();
@@ -1707,7 +2118,8 @@ void Solver::relocAll(ClauseAllocator& to) {
 	//
 	// for (int i = 0; i < watches.size(); i++)
 	watches.cleanAll();
-	for (int v = 0; v < nVars(); v++)
+	for (int v = 0; v < nVars(); v++){
+
 		for (int s = 0; s < 2; s++) {
 			Lit p = mkLit(v, s);
 			// printf(" >>> RELOCING: %s%d\n", sign(p)?"-":"", var(p)+1);
@@ -1715,7 +2127,7 @@ void Solver::relocAll(ClauseAllocator& to) {
 			for (int j = 0; j < ws.size(); j++)
 				ca.reloc(ws[j].cref, to);
 		}
-	
+	}
 	// All reasons:
 	//
 	for (int i = 0; i < trail.size(); i++) {

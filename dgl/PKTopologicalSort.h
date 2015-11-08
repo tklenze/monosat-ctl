@@ -36,12 +36,12 @@
 #include "TarjansSCC.h"
 #include "DFSCycle.h"
 namespace dgl {
-
-class PKToplogicalSort: public Cycle {
+template<typename Weight>
+class PKToplogicalSort: public Cycle,public DynamicGraphAlgorithm {
 public:
 
-	DynamicGraph & g;
-	DFSCycle<true,false> dfs_cycle;
+	DynamicGraph<Weight> & g;
+	DFSCycle<Weight,true,false> dfs_cycle;
 
 	std::vector<bool> is_strict_scc;
 	std::vector<int> strict_sccs;
@@ -54,6 +54,7 @@ public:
 	int history_qhead=0;
 
 	int last_history_clear=0;
+	int alg_id=-1;
 
 	int INF;
 
@@ -83,6 +84,9 @@ public:
 	bool cycleComputed=false;
 	bool has_topo=false;
 	int nextOrd =0;
+
+	int lower_bound=0;
+	int upper_bound=0;
 	std::vector<bool> edge_enabled;
 	struct Ord_LT {
 		std::vector<int> & ord;
@@ -104,9 +108,9 @@ public:
 		force_dag=true;
 	}
 
-	PKToplogicalSort(DynamicGraph & graph, int _reportPolarity = 0) :
+	PKToplogicalSort(DynamicGraph<Weight> & graph, int _reportPolarity = 0) :
 			g(graph),dfs_cycle(g),INF(0), reportPolarity(_reportPolarity),ord_lt(ord) {
-
+		alg_id=g.addDynamicAlgorithm(this);
 
 	}
 
@@ -226,8 +230,6 @@ private:
 
 	//PK Algorithm:
 
-	int lower_bound;
-	int upper_bound;
 	void addEdge(int edgeID){
 #ifndef NDEBUG
 		for(int i = 0;i<visited.size();i++){
@@ -438,13 +440,13 @@ public:
 			}
 		}
 
-		for (int i = history_qhead; i < g.history.size(); i++) {
-			int edgeID = g.history[i].id;
+		for (int i = history_qhead; i < g.historySize(); i++) {
+			int edgeID = g.getChange(i).id;
 
-			if (g.history[i].addition && g.edgeEnabled(edgeID) && !edge_enabled[edgeID] ) {
+			if (g.getChange(i).addition && g.edgeEnabled(edgeID) && !edge_enabled[edgeID] ) {
 				edge_enabled[edgeID]=true;
 				addEdge(edgeID);
-			} else if (!g.history[i].addition && !g.edgeEnabled(edgeID) && edge_enabled[edgeID]) {
+			} else if (!g.getChange(i).addition && !g.edgeEnabled(edgeID) && edge_enabled[edgeID]) {
 				edge_enabled[edgeID]=false;
 				removeEdge(edgeID);
 			}
@@ -454,10 +456,16 @@ public:
 		last_deletion = g.deletions;
 		last_addition = g.additions;
 
-		history_qhead = g.history.size();
+		history_qhead = g.historySize();
+		g.updateAlgorithmHistory(this,alg_id,history_qhead);
 		last_history_clear = g.historyclears;
 
 	}
+
+	void updateHistory(){
+		update();
+	}
+
 private:
 	bool sortVisit(int node){
 		if(tmp_mark[node]){

@@ -36,6 +36,7 @@
 #include <gmpxx.h>
 #include "utils/System.h"
 #include "Detector.h"
+#include "bv/BVTheorySolver.h"
 #include <vector>
 using namespace dgl;
 namespace Monosat {
@@ -47,9 +48,8 @@ class DistanceDetector: public Detector {
 public:
 	GraphTheorySolver<Weight> * outer;
 
-	std::vector<Weight> & weights;
-	DynamicGraph &g_under;
-	DynamicGraph &g_over;
+	DynamicGraph<Weight>  &g_under;
+	DynamicGraph<Weight>  &g_over;
 	//int within;
 	int source;
 	double rnd_seed;
@@ -69,7 +69,11 @@ public:
 
 	//vec<Lit>  reach_lits;
 	Var first_reach_var;
-	vec<int> reach_lit_map;
+	struct ReachLit{
+		int to;
+		int within;
+	};
+	vec<ReachLit> reach_lit_map;
 	vec<int> force_reason;
 	bool has_unweighted_shortest_paths_overapprox = false;
 	bool has_weighted_shortest_paths_overapprox = false;
@@ -94,17 +98,27 @@ public:
 		int min_unweighted_distance;
 		
 	};
+
 	vec<vec<UnweightedDistLit> > unweighted_dist_lits;
 
 	struct WeightedDistLit {
 		Lit l;
 		int u;
 		Weight min_distance;
+		bool strictComparison;
 		bool operator <(WeightedDistLit & b) const {
 			return min_distance < b.min_distance;
 		}
 	};
 	vec<WeightedDistLit> weighted_dist_lits;
+
+	struct WeightedDistBVLit {
+		Lit l;
+		int u;
+		BitVector<Weight> bv;
+		bool strictComparison;
+	};
+	vec<WeightedDistBVLit> weighted_dist_bv_lits;
 
 	struct Change {
 		//Var v;
@@ -117,7 +131,7 @@ public:
 
 	std::vector<double> rnd_weight;
 
-	WeightedDijkstra<double> * rnd_path;
+	WeightedDijkstra<Weight,double> * rnd_path;
 	/*struct OptimalWeightEdgeStatus{
 	 DistanceDetector & detector;
 	 int operator [] (int edge) const ;
@@ -156,7 +170,7 @@ public:
 		}
 	};
 
-	struct CutStatus {
+	/*struct CutStatus {
 		long one = 1;
 		long inf = 0xFFFF;
 		DistanceDetector & outer;
@@ -175,7 +189,7 @@ public:
 				outer(_outer) {
 		}
 		
-	} cutStatus;
+	} cutStatus;*/
 	std::vector<MaxFlowEdge> cut;
 
 	ReachStatus *positiveReachStatus;
@@ -186,10 +200,16 @@ public:
 		assert(reachVar >= first_reach_var);
 		int index = reachVar - first_reach_var;
 		assert(index < reach_lit_map.size());
-		assert(reach_lit_map[index] >= 0);
-		return reach_lit_map[index];
+		assert(reach_lit_map[index].to >= 0);
+		return reach_lit_map[index].to;
 	}
-	
+	int getMaximumDistance(Var reachVar) {
+			assert(reachVar >= first_reach_var);
+			int index = reachVar - first_reach_var;
+			assert(index < reach_lit_map.size());
+			assert(reach_lit_map[index].within >= 0);
+			return reach_lit_map[index].within;
+		}
 	void printStats() {
 		//printf("Distance detector\n");
 		Detector::printStats();
@@ -210,43 +230,79 @@ public:
 	 return reach_lits[node];
 
 	 }*/
-	void backtrack(int level) {
-		
-	}
+
 	void unassign(Lit l) {
 		Detector::unassign(l);
 		int index = var(l) - first_reach_var;
 		
-		if (index >= 0 && index < reach_lit_map.size() && reach_lit_map[index] != -1) {
-			int node = reach_lit_map[index];
+		if (index >= 0 && index < reach_lit_map.size() && reach_lit_map[index].to != -1) {
+			int node = reach_lit_map[index].to;
 			if (!is_changed[node]) {
 				changed.push( { node });
 				is_changed[node] = true;
 			}
 		}
 	}
+	void preprocess();
 	bool propagate(vec<Lit> & conflict);
 	void buildUnweightedDistanceLEQReason(int node, vec<Lit> & conflict);
-	void buildUnweightedDistanceGTReason(int node, vec<Lit> & conflict);
-	void buildDistanceLEQReason(int to, Weight & min_distance, vec<Lit> & conflict);
-	void buildDistanceGTReason(int to, Weight & min_distance, vec<Lit> & conflict);
+	void buildUnweightedDistanceGTReason(int node, int within_steps, vec<Lit> & conflict);
+	void buildDistanceLEQReason(int to, Weight & min_distance, vec<Lit> & conflict, bool strictComparison=false);
+	void buildDistanceGTReason(int to, Weight & min_distance, vec<Lit> & conflict, bool strictComparison=true);
 
 	void buildReason(Lit p, vec<Lit> & reason, CRef marker);
 	bool checkSatisfied();
-	Lit decide(int level);
+	Lit decide();
 	void updateShortestPaths(bool unweighted);
 	void addUnweightedShortestPathLit(int from, int to, Var reach_var, int within_steps = -1);
-	void addWeightedShortestPathLit(int from, int to, Var reach_var, Weight within_distance);
-	DistanceDetector(int _detectorID, GraphTheorySolver<Weight> * _outer, std::vector<Weight> & weights,
-			DynamicGraph &_g, DynamicGraph &_antig, int _source, double seed = 1);//:Detector(_detectorID),outer(_outer),within(-1),source(_source),rnd_seed(seed),positive_reach_detector(NULL),negative_reach_detector(NULL),positive_path_detector(NULL),positiveReachStatus(NULL),negativeReachStatus(NULL){}
+	void addWeightedShortestPathLit(int from, int to, Var reach_var, Weight within_distance, bool strictComparison);
+	void addWeightedShortestPathBVLit(int from, int to, Var reach_var, const BitVector<Weight> & bv, bool strictComparison);
+
+	DistanceDetector(int _detectorID, GraphTheorySolver<Weight> * _outer,
+			DynamicGraph<Weight>  &_g, DynamicGraph<Weight>  &_antig, int _source, double seed = 1);//:Detector(_detectorID),outer(_outer),within(-1),source(_source),rnd_seed(seed),positive_reach_detector(NULL),negative_reach_detector(NULL),positive_path_detector(NULL),positiveReachStatus(NULL),negativeReachStatus(NULL){}
 	virtual ~DistanceDetector() {
-		
+		if (positiveDistanceStatus )
+			delete positiveDistanceStatus;
+		if (negativeDistanceStatus )
+			delete negativeDistanceStatus;
+		if (overapprox_unweighted_distance_detector)
+			delete overapprox_unweighted_distance_detector;
+
+		if (underapprox_path_detector && underapprox_path_detector != underapprox_unweighted_distance_detector)
+			delete underapprox_path_detector;
+
+		if (underapprox_weighted_path_detector && underapprox_weighted_path_detector != underapprox_weighted_distance_detector)
+			delete underapprox_weighted_path_detector;
+
+		if(positiveReachStatus)
+			delete positiveReachStatus;
+		if (negativeReachStatus)
+			delete negativeReachStatus;
+
+		if (underapprox_unweighted_distance_detector)
+			delete underapprox_unweighted_distance_detector;
+
+
+
+		if (underapprox_weighted_distance_detector)
+			delete underapprox_weighted_distance_detector;
+
+		if (overapprox_weighted_distance_detector)
+			delete overapprox_weighted_distance_detector;
+
+
+
+		if (rnd_path)
+			delete rnd_path;
+
+		if (conflict_flow)
+			delete conflict_flow;
 	}
 	const char* getName() {
 		return "Shortest Path Detector";
 	}
 private:
-	void buildSATConstraints(int distance = -1);
+	void buildUnweightedSATConstraints(bool onlyUnderApprox,int distance = -1);
 };
 
 }

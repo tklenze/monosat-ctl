@@ -88,7 +88,8 @@
 #include <assert.h>
 #include <new>
 #include <algorithm>
-// NOTE: in UNIX you need to use -DNDEBUG preprocessor option to supress assert's!!!
+#include <stdexcept>
+// NOTE: in UNIX you need to use -DNDEBUG preprocessor option to suppress assert's!!!
 
 namespace kohli_torr {
 
@@ -128,7 +129,7 @@ public:
 	// to the graph, and the second argument is an estimate of the maximum number of edges.
 	// The last (optional) argument is the pointer to the function which will be called 
 	// if an error occurs; an error message is passed to this function. 
-	// If this argument is omitted, exit(1) will be called.
+	// If this argument is omitted, an exception will be thrown.
 	//
 	// IMPORTANT: It is possible to add more nodes to the graph than node_num_max 
 	// (and node_num_max can be zero). However, if the count is exceeded, then 
@@ -254,7 +255,9 @@ public:
 	void edit_tweights_wt(node_id i, tcaptype cap_source, tcaptype cap_sink);
 
 	//(Added by Sam)
+	//Don't use - linear search!
 	bool has_edge(node_id from, node_id to) {
+
 		arc *a, *a_rev;
 		a = nodes[from].first;
 		
@@ -269,33 +272,44 @@ public:
 	}
 	
 	//(Added by Sam)
-	captype get_edge_capacity(node_id from, node_id to) {
+	//Don't use - linear search!
+	captype get_edge_capacity(node_id from, node_id to,arc*ac=nullptr) {
 		arc *a, *a_rev;
-		a = nodes[from].first;
-		
-		while ((a != NULL) && (a != a->next) && (a->head != &nodes[to]))
-			a = a->next;
+		if(!ac){
+			assert(false);
+			a = nodes[from].first;
+
+			while ((a != NULL) && (a != a->next) && (a->head != &nodes[to]))
+				a = a->next;
+		}else{
+#ifndef NDEBUG
+			a = nodes[from].first;
+			while ((a != NULL) && (a != a->next) && (a->head != &nodes[to]))
+				a = a->next;
+			assert(a==ac);
+#endif
+			a = ac;
+			assert(a->head==&nodes[to]);
+
+		}
 		
 		if (a->head != &nodes[to]) {
-			printf("Error: Specified edge doesn't exist\n");
-			assert(false);
-			exit(4);
-			return -1;
+			throw std::invalid_argument("Specified edge doesn't exist");
 		} else {
 			return a->e_cap;
 		}
 	}
-	
+
 	// Edit capacity of n-edge when "using" tree-recycling, by adding (or subtracting) from the existing capacity
 	//(Added by Sam)
-	void edit_edge_inc(node_id from, node_id to, captype added_cap, captype added_rev_cap);
+	void edit_edge_inc(node_id from, node_id to, captype added_cap, captype added_rev_cap,arc*a=nullptr);
 
 	// Edit capacity of n-edge when "using" tree-recycling 
-	void edit_edge(node_id from, node_id to, captype cap, captype rev_cap);
+	void edit_edge(node_id from, node_id to, captype cap, captype rev_cap,arc*a=nullptr);
 
 	// Edit capacity of n-edge when "not using" tree-recycling :		
 	// If you are editing capacities using this function, "maxflow(false)" needs to be called
-	void edit_edge_wt(node_id from, node_id to, captype cap, captype rev_cap);
+	void edit_edge_wt(node_id from, node_id to, captype cap, captype rev_cap,arc*a=nullptr);
 
 	tcaptype MIN(tcaptype a, tcaptype b);
 	tcaptype MAX(tcaptype a, tcaptype b);
@@ -400,7 +414,7 @@ private:
 
 	void (*error_function)(const char *);	// this function is called if a error occurs,
 	// with a corresponding error message
-	// (or exit(1) is called if it's NULL)
+	// An exception will be thrown if this is NULL.
 	/////////////////////////////////////////////////////////////////////////
 	
 	node *queue_first[2], *queue_last[2];	// list of active nodes
@@ -547,7 +561,6 @@ public:
 			edge->sister->might_have_flow = true;
 			changed_edges.push_back(edge - get_first_arc());
 			changed_edges.push_back(edge->sister - get_first_arc());
-			
 		}
 		assert(edge->might_have_flow);
 		assert(edge->sister->might_have_flow);
@@ -675,7 +688,7 @@ public:
 				}
 				assert(edge->e_cap - edge->r_cap >= f);
 				edge->r_cap += f; //remove this flow from this edge by adding it to its remaining capacity;
-				markFlowEdge(edge);
+				markFlowEdge(edge->sister);
 				assert(edge->sister->r_cap >= f);
 				edge->sister->r_cap -= f;
 				int u = edge->sister->head - nodes;
@@ -893,7 +906,7 @@ Graph<captype, tcaptype, flowtype>::Graph(int node_num_max, int edge_num_max, vo
 	if (!nodes || !arcs) {
 		if (error_function)
 			(*error_function)("Not enough memory!");
-		exit(1);
+		throw  std::bad_alloc();
 	}
 	
 	for (int i = 0; i < node_num_max; i++) {
@@ -957,7 +970,7 @@ void Graph<captype, tcaptype, flowtype>::reallocate_nodes(int num) {
 	if (!nodes) {
 		if (error_function)
 			(*error_function)("Not enough memory!");
-		exit(1);
+		throw  std::bad_alloc();
 	}
 	
 	for (int i = num_nodes; i < node_num_max; i++) {
@@ -988,7 +1001,7 @@ void Graph<captype, tcaptype, flowtype>::reallocate_arcs() {
 	if (!arcs) {
 		if (error_function)
 			(*error_function)("Not enough memory!");
-		exit(1);
+		throw  std::bad_alloc();
 	}
 	
 	for (int i = arc_num; i < arc_num_max; i++) {
@@ -1020,7 +1033,7 @@ void Graph<captype, tcaptype, flowtype>::reallocate_arcs() {
 template<typename captype, typename tcaptype, typename flowtype>
 void Graph<captype, tcaptype, flowtype>::edit_tweights(node_id i, tcaptype cap_source, tcaptype cap_sink) {
 	tcaptype oldRes = nodes[i].t_cap;
-	
+	assert(cap_source>=0);assert(cap_sink>=0);
 	if (nodes[i].t_cap != cap_source - cap_sink) {
 		if (nodes[i].t_cap > 0)
 			flow -= MIN(nodes[i].t_cap - nodes[i].tr_cap, nodes[i].t_cap);
@@ -1048,7 +1061,6 @@ void Graph<captype, tcaptype, flowtype>::edit_tweights(node_id i, tcaptype cap_s
 		nodes[i].in_s_edges_set = 1;
 		s_edge_nodes.push_back(i);
 	}
-	
 }
 
 template<typename captype, typename tcaptype, typename flowtype>
@@ -1087,17 +1099,29 @@ void Graph<captype, tcaptype, flowtype>::edit_tweights_wt(node_id i, tcaptype ca
 // Edit capacity of n-edge when "using" tree-recycling, by adding (or subtracting) from the existing capacity
 template<typename captype, typename tcaptype, typename flowtype>
 void Graph<captype, tcaptype, flowtype>::edit_edge_inc(node_id from, node_id to, captype added_cap,
-		captype added_rev_cap) {
+		captype added_rev_cap,arc*ac) {
 	arc *a, *a_rev;
-	a = nodes[from].first;
 	
-	while ((a != NULL) && (a != a->next) && (a->head != &nodes[to]))
-		a = a->next;
+	if(!ac){
+		assert(false);
+		a = nodes[from].first;
+		while ((a != NULL) && (a != a->next) && (a->head != &nodes[to]))
+			a = a->next;
+	}else{
+#ifndef NDEBUG
+		a = nodes[from].first;
+		while ((a != NULL) && (a != a->next) && (a->head != &nodes[to]))
+			a = a->next;
+		assert(a==ac);
+#endif
+		a = ac;
+		assert(a->head==&nodes[to]);
+
+	}
+
 	
 	if (!a || a->head != &nodes[to]) {
-		fprintf(stderr, "Error: Specified edge doesn't exist\n");
-		assert(false);
-		exit(4);
+		throw std::invalid_argument("Specified edge doesn't exist");
 	} else {
 		// Modifying flow value
 		
@@ -1126,6 +1150,10 @@ void Graph<captype, tcaptype, flowtype>::edit_edge_inc(node_id from, node_id to,
 			a->r_cap += (cap - a->e_cap);
 			a_rev->r_cap += (rev_cap - a_rev->e_cap);
 		} else if (eflow > 0) {
+			markFlowEdge(a);//IMPORTANT: the capacity of this edge has changed (possibly enough to reduce the total flow, possibly not).
+			//REGARDLESS of whether this is a capacity increase or decrease, and regardless of whether there is now enough capacity for the flow on this edge, because this edge previously carried flow,
+			//the assignment of which DGL edge is assigned that flow may have changed. So the edge must be marked.
+
 			if (cap >= a->e_cap) {
 				if (eflow >= a->e_cap) {
 					mark_node(from);
@@ -1165,6 +1193,9 @@ void Graph<captype, tcaptype, flowtype>::edit_edge_inc(node_id from, node_id to,
 				}
 			}
 		} else {
+			markFlowEdge(a_rev);//IMPORTANT: the capacity of this edge has changed (possibly enough to reduce the total flow, possibly not).
+			//REGARDLESS of whether this is a capacity increase or decrease, and regardless of whether there is now enough capacity for the flow on this edge, because this edge previously carried flow,
+			//the assignment of which DGL edge is assigned that flow may have changed. So the edge must be marked.
 			eflow *= -1;
 			if (rev_cap >= a_rev->e_cap) {
 				if (eflow == a_rev->e_cap) {
@@ -1222,17 +1253,27 @@ void Graph<captype, tcaptype, flowtype>::edit_edge_inc(node_id from, node_id to,
 }
 
 template<typename captype, typename tcaptype, typename flowtype>
-void Graph<captype, tcaptype, flowtype>::edit_edge(node_id from, node_id to, captype cap, captype rev_cap) {
+void Graph<captype, tcaptype, flowtype>::edit_edge(node_id from, node_id to, captype cap, captype rev_cap, arc*ac) {
 	arc *a, *a_rev;
-	a = nodes[from].first;
-	
-	while ((a != NULL) && (a != a->next) && (a->head != &nodes[to]))
-		a = a->next;
+	if(!ac){
+		assert(false);
+		a = nodes[from].first;
+
+		while ((a != NULL) && (a != a->next) && (a->head != &nodes[to]))
+			a = a->next;
+	}else{
+#ifndef NDEBUG
+		a = nodes[from].first;
+		while ((a != NULL) && (a != a->next) && (a->head != &nodes[to]))
+			a = a->next;
+		assert(a==ac);
+#endif
+		a = ac;
+		assert(a->head==&nodes[to]);
+	}
 	
 	if (a->head != &nodes[to]) {
-		fprintf(stderr, "Error: Specified edge doesn't exist\n");
-		assert(false);
-		exit(4);
+		throw std::invalid_argument("Specified edge doesn't exist");
 	} else {
 		// Modifying flow value 
 		
@@ -1258,6 +1299,10 @@ void Graph<captype, tcaptype, flowtype>::edit_edge(node_id from, node_id to, cap
 			a->r_cap += (cap - a->e_cap);
 			a_rev->r_cap += (rev_cap - a_rev->e_cap);
 		} else if (eflow > 0) {
+			markFlowEdge(a);//IMPORTANT: the capacity of this edge has changed (possibly enough to reduce the total flow, possibly not).
+			//REGARDLESS of whether this is a capacity increase or decrease, and regardless of whether there is now enough capacity for the flow on this edge, because this edge previously carried flow,
+			//the assignment of which DGL edge is assigned that flow may have changed. So the edge must be marked.
+
 			if (cap >= a->e_cap) {
 				if (eflow >= a->e_cap) {
 					mark_node(from);
@@ -1296,6 +1341,10 @@ void Graph<captype, tcaptype, flowtype>::edit_edge(node_id from, node_id to, cap
 				}
 			}
 		} else {
+			markFlowEdge(a_rev);//IMPORTANT: the capacity of this edge has changed (possibly enough to reduce the total flow, possibly not).
+			//REGARDLESS of whether this is a capacity increase or decrease, and regardless of whether there is now enough capacity for the flow on this edge, because this edge previously carried flow,
+			//the assignment of which DGL edge is assigned that flow may have changed. So the edge must be marked.
+
 			eflow *= -1;
 			if (rev_cap >= a_rev->e_cap) {
 				if (eflow == a_rev->e_cap) {
@@ -1356,17 +1405,26 @@ void Graph<captype, tcaptype, flowtype>::edit_edge(node_id from, node_id to, cap
 /***********************************************************************************************/
 
 template<typename captype, typename tcaptype, typename flowtype>
-void Graph<captype, tcaptype, flowtype>::edit_edge_wt(node_id from, node_id to, captype cap, captype rev_cap) {
+void Graph<captype, tcaptype, flowtype>::edit_edge_wt(node_id from, node_id to, captype cap, captype rev_cap, arc * ac) {
 	arc *a, *a_rev;
-	a = nodes[from].first;
-	
-	while ((a != NULL) && (a != a->next) && (a->head != &nodes[to]))
-		a = a->next;
-	
-	if (a->head != &nodes[to]) {
-		fprintf(stderr, "Error: Specified edge doesn't exist\n");
+	if(!ac){
 		assert(false);
-		exit(4);
+		a = nodes[from].first;
+
+		while ((a != NULL) && (a != a->next) && (a->head != &nodes[to]))
+			a = a->next;
+	}else{
+	#ifndef NDEBUG
+			a = nodes[from].first;
+			while ((a != NULL) && (a != a->next) && (a->head != &nodes[to]))
+				a = a->next;
+			assert(a==ac);
+	#endif
+			a = ac;
+			assert(a->head==&nodes[to]);
+		}
+	if (a->head != &nodes[to]) {
+		throw std::invalid_argument("Specified edge doesn't exist");
 	} else {
 		if (nodes[from].t_cap > 0)
 			flow -= MIN(nodes[from].t_cap - nodes[from].tr_cap, nodes[from].t_cap);
@@ -1380,7 +1438,16 @@ void Graph<captype, tcaptype, flowtype>::edit_edge_wt(node_id from, node_id to, 
 		captype eflow, excess;
 		a_rev = a->sister;
 		eflow = a->e_cap - a->r_cap;
-		
+		if (eflow>0){
+			markFlowEdge(a);//IMPORTANT: the capacity of this edge has changed (possibly enough to reduce the total flow, possibly not).
+			//REGARDLESS of whether this is a capacity increase or decrease, and regardless of whether there is now enough capacity for the flow on this edge, because this edge previously carried flow,
+			//the assignment of which DGL edge is assigned that flow may have changed. So the edge must be marked.
+		}else if (eflow<0){
+			markFlowEdge(a_rev);//IMPORTANT: the capacity of this edge has changed (possibly enough to reduce the total flow, possibly not).
+			//REGARDLESS of whether this is a capacity increase or decrease, and regardless of whether there is now enough capacity for the flow on this edge, because this edge previously carried flow,
+			//the assignment of which DGL edge is assigned that flow may have changed. So the edge must be marked.
+
+		}
 		if ((eflow > 0 && eflow > cap) || (eflow < 0 && -eflow > rev_cap)) {
 			if (eflow > 0) {
 				excess = eflow - cap;
