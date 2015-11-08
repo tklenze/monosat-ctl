@@ -112,10 +112,10 @@ class CTLParser: public Parser<B, Solver> {
 		int edgeVar = parseInt(in) - 1;
 
 		if (kripkeID < 0 || kripkeID >= kripkes.size()) {
-			printf("PARSE ERROR! Undeclared graph identifier %d for edge %d\n", kripkeID, edgeVar), exit(1);
+			parse_errorf("PARSE ERROR! Undeclared graph identifier %d for edge %d\n", kripkeID, edgeVar);
 		}
 		if (edgeVar < 0) {
-			printf("PARSE ERROR! Edge variables must be >=0, was %d\n", edgeVar), exit(1);
+			parse_errorf("PARSE ERROR! Edge variables must be >=0, was %d\n", edgeVar);
 		}
 		while (edgeVar >= S.nVars())
 			S.newVar();
@@ -127,8 +127,8 @@ class CTLParser: public Parser<B, Solver> {
 				// TODO not implemented yet
 				kripkes[kripkeID]->newTransition(from, to, edgeVar);
 			} else {
-				printf("PARSE ERROR! Undeclared kripke identifier %d for edge %d\n", kripkeID, edgeVar), exit(1);
-				exit(1);
+				parse_errorf("PARSE ERROR! Undeclared kripke identifier %d for edge %d\n", kripkeID, edgeVar);
+
 			}
 
 		}
@@ -342,7 +342,7 @@ class CTLParser: public Parser<B, Solver> {
 	}
 
 public:
-	CTLParser():Parser<B, Solver> ("CTL Parser"){
+	CTLParser():Parser<B, Solver> ("CTL"){
 
 	}
 
