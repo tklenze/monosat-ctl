@@ -221,6 +221,20 @@ public:
           	}
           	return true;
     	}
+    bool GreaterThan(const Bitset & with){
+          	int max = size();
+          	if(max != with.size()){
+          		return false;
+          	}
+          	int max_i=max/BITSET_ELEMENT_SIZE+1;
+          	for(int i = max_i;i>=0;i--){
+          		if (buf[i] < with.buf[i])
+          			return false;
+          		if (buf[i] > with.buf[i])
+          			return true;
+          	}
+          	return false;
+    	}
 };
 //=================================================================================================
 }

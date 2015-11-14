@@ -42,8 +42,8 @@ public:
 	std::vector<bool> transitions;
 
 	// This represents the labels of states, which are sets of atomic propositions
-	// Access via statelabel[stateID][AP]
-	std::vector<std::vector<bool>> statelabel;
+	// <s>Access via statelabel[stateID][AP]</s>
+	std::vector<Bitset*> statelabel;
 	int apcount = 0;
 
 	bool adaptive_history_clear = false;
@@ -92,18 +92,18 @@ public:
 	}
 
 
-	void setStateLabel(int state, std::vector<bool> label) {
-		statelabel[state] = label;
+	void setStateLabel(int state, Bitset& label) {
+		statelabel[state] = &label;
 	}
 
-	std::vector<bool> getStateLabel(int state) {
+	Bitset* getStateLabel(int state) {
 		return statelabel[state];
 	}
 
 	int isAPinStateLabel(int state, int ap) {
 		assert(state < statelabel.size());
-		assert(ap < statelabel[state].size());
-		return statelabel[state][ap];
+		assert(ap < statelabel[state]->size());
+		return statelabel[state]->operator [](ap);
 	}
 
 	void enableAPinStateLabel(int state, int ap) {
@@ -112,13 +112,13 @@ public:
 		if (state >= statelabel.size()) {
 			statelabel.resize(state+1);
 		}
-		if (ap >= statelabel[state].size()) {
-			statelabel[state].resize(ap+1);
+		if (ap >= statelabel[state]->size()) {
+			statelabel[state]->growTo(ap+1);
 		}
 		assert(state < statelabel.size());
-		assert(ap < statelabel[state].size());
-		if (!statelabel[state][ap]) {
-			statelabel[state][ap] = true;
+		assert(ap < statelabel[state]->size());
+		if (!statelabel[state]->operator [](ap)) {
+			statelabel[state]->set(ap);
 			modifications++;
 			additions = modifications;
 			history.push_back( { true, true, state, ap, modifications });
@@ -131,13 +131,13 @@ public:
 		if (state >= statelabel.size()) {
 			statelabel.resize(state+1);
 		}
-		if (ap >= statelabel[state].size()) {
-			statelabel[state].resize(ap+1);
+		if (ap >= statelabel[state]->size()) {
+			statelabel[state]->growTo(ap+1);
 		}
 		assert(state < statelabel.size());
-		assert(ap < statelabel[state].size());
-		if (statelabel[state][ap]) {
-			statelabel[state][ap] = false;
+		assert(ap < statelabel[state]->size());
+		if (statelabel[state]->operator [](ap)) {
+			statelabel[state]->clear(ap);
 			modifications++;
 			deletions = modifications;
 			history.push_back( { true, true, state, ap, modifications });
@@ -202,18 +202,18 @@ public:
 		}
 	}
 	int addEmptyState(){
-		std::vector<bool> empty;
-		return addNode(empty);
+		Bitset *empty = new Bitset(apcount);
+		return addNode(*empty);
 	}
-	int addState(std::vector<bool>& v){
+	int addState(Bitset& v){
 		return addNode(v);
 	}
-	int addNode(std::vector<bool>& v) {
+	int addNode(Bitset& v) {
 		g.addNode();
 		modifications++;
 		additions = modifications;
 		deletions = modifications;
-		statelabel.push_back(v);
+		statelabel.push_back(&v);
 		markChanged();
 		clearHistory(true);
 
@@ -333,10 +333,10 @@ public:
 	// Turns a state label into a human readable string
 	std::string statelabelToString(int state) {
 		std::string s = "";
-		for (int i = 0; i < statelabel[state].size(); i++) {
-			if (statelabel[state][i] == true) {
+		for (int i = 0; i < statelabel[state]->size(); i++) {
+			if (statelabel[state]->operator [](i) == true) {
 				s += "1";
-			} else if (statelabel[state][i] == false) {
+			} else if (statelabel[state]->operator [](i) == false) {
 				s += "0";
 			} else {
 				s += "E";
@@ -390,7 +390,7 @@ public:
 		// TODO Does this actually make a copy? This suggests so: http://www.cplusplus.com/reference/vector/vector/operator=/
 		std::vector<bool> transcopy = transitions;
 		to.transitions = transcopy;
-		std::vector<std::vector<bool>> statelabelcopy = statelabel;
+		std::vector<Bitset*> statelabelcopy = statelabel;
 		to.statelabel = statelabelcopy;
 	}
 

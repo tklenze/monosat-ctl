@@ -745,10 +745,13 @@ public:
 			}
 		}*/
 
+		// TODO
+		vec<Lit> symmetryConflict;
+    	checkSymmetryConstraints(symmetryConflict, initialNode); // check if there is a conflict with the symmetry constraints under the current assignment, and if there is, build a clause to learn
+
         if (value(ctl_lit)==l_True &&  !bit_over->operator [](initialNode)) {
 
         	// THIS IS WHERE I DO CLAUSE LEARNING 1
-
         	learnClausePos(conflict, *f, initialNode);
         	/*  // old method, rather naive clause
         	for (int v = 0; v < vars.size(); v++) {
@@ -823,6 +826,34 @@ public:
 		return true;
 	}
 	;
+
+	/*
+	 * Do Symmetry Reduction. Check if any of the symmetry constraints are violated, and if so, build a clause describing this conflict
+	 */
+	void checkSymmetryConstraints(vec<Lit> & conflict, int startNode) {
+		for (int i = 0; i < g_over->states(); i++) {
+			for (int j = i+1; j < g_over->states(); j++) {
+				if (i != startNode && j != startNode) {
+					if(opt_verb>1) {
+						printf("SYMMETRY: checking %d > %d\n", i, j);
+					}
+					if (g_under->statelabel[i]->Equiv( *g_over->statelabel[j] )) {
+						if(opt_verb>1) {
+							printf("SYMMETRY: %d and %d have the same state label\n", i, j);
+						}
+					}
+
+					if (g_under->statelabel[i]->GreaterThan( *g_over->statelabel[j] )) {
+						if(opt_verb>1) {
+							printf("SYMMETRY: %d has a higher state label than %d\n", i, j);
+						}
+
+						//learnClauseSymmetryConflict(conflict, i, j);
+					}
+				}
+			}
+		}
+	}
 
 	// Clause learning for when a CTL formula is supposed to be true, but is false in the overapproximation
     // Starting from some initial state startNode (on the most toplevel call this will be the KripkeStructure's initial state,
@@ -2210,7 +2241,7 @@ SPEC
 		nuSMVInput = nuSMVInput + "};\n";
 
 		// print out all state variables
-		for (int i = 0; i < g_under->statelabel[0].size(); i++) {
+		for (int i = 0; i < g_under->statelabel[0]->size(); i++) {
 			nuSMVInput = nuSMVInput + "  v" + std::to_string(i) + " : boolean;\n";
 		}
 		nuSMVInput += "ASSIGN\n  init(state) := 0;\n  next(state) :=\n    case\n";
@@ -2248,7 +2279,7 @@ SPEC
     esac;
     */
 
-		for (int i = 0; i < g_under->statelabel[0].size(); i++) {
+		for (int i = 0; i < g_under->statelabel[0]->size(); i++) {
 			nuSMVInput += "  v"+std::to_string(i)+" :=\n    case\n";
 			for (int j = 0; j < g_under->states(); j++) {
 				if (infinitePaths->operator [](j)) { // only do this for states that belong on an infinite paths

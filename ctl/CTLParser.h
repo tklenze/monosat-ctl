@@ -74,8 +74,9 @@ class CTLParser: public Parser<B, Solver> {
 
 		CTLTheorySolver *kripke = new CTLTheorySolver(&S, g);
 		kripke->newNodes(n);
+		kripke->g_under->setAPCount(a);
+		kripke->g_over->setAPCount(a);
 		nodeCount = n;
-		edgeCount = e;
 		kripke->initNodeAPVarLookup(n, a);
 		kripkes[g] = kripke;
 		S.addTheory(kripke);

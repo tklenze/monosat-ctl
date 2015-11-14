@@ -91,7 +91,7 @@ public:
 		assert(f.op == ID);
 		Bitset *st = new Bitset(k->states());
 		for (int i=0; i<k->states();i++) {
-			if (k->statelabel[i][f.value])
+			if (k->statelabel[i]->operator [](f.value))
 				st->set(i);
 		}
 		return st;
