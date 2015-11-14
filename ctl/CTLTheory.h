@@ -432,7 +432,7 @@ public:
 				Assignment & e = trail[i];
 				assert(assigns[e.var]!=l_Undef);
 				if (e.type == EDGE) {
-					assert(dbg_value(e.var)==l_Undef);
+					//assert(dbg_value(e.var)==l_Undef);
 					int edgeID = getEdgeID(e.var); //e.var-min_edge_var;
 					assert(edgeID==e.ID);
 					if(opt_verb>1)
@@ -445,7 +445,7 @@ public:
 						g_over->enableTransition(edgeID);
 					}
 				} else if (e.type == NODEAP) {
-					assert(dbg_value(e.var)==l_Undef);
+					//assert(dbg_value(e.var)==l_Undef);
 					int nodeID = getNodeID(e.var);
 					int apID = getAPID(e.var);
 					assert(nodeID==e.ID);
@@ -2267,11 +2267,12 @@ SPEC
 
 		std::ofstream inputConvertedToNuSMVInput;
 
-		inputConvertedToNuSMVInput.open("inputConvertedToNuSMVInput.txt", std::ios_base::out);
+		inputConvertedToNuSMVInput.open("regression-testing/inputConvertedToNuSMVInput.txt", std::ios_base::out);
 		inputConvertedToNuSMVInput << nuSMVInput;
 		inputConvertedToNuSMVInput.close();
 
-		std::system("NuSMV inputConvertedToNuSMVInput.txt | grep Counterexample");
+		std::system("NuSMV regression-testing/inputConvertedToNuSMVInput.txt | grep Counterexample");
+
 
 		return true;
 	}
