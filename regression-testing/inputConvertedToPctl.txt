@@ -1,0 +1,1 @@
+(not P>0/1 (true U not P>0/1 (X true)) and (not P>0/1 (true U not P>0/1 (v0 U v1 )) and not P>=1/1 (true U v1 )))

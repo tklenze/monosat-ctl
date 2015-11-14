@@ -1,0 +1,22 @@
+c     <#Vars> <#Clauses>
+p cnf 13      1
+13 0
+c kripke <#Nodes> <#Edges> <#APs> <KripkeID>
+kripke   3        6       2      0
+c kedge <KripkeID> <from> <to> <edgevar>
+kedge   0          0      1    1
+kedge   0          0      2    2
+kedge   0          1      0    3
+kedge   0          1      2    4
+kedge   0          2      0    5
+kedge   0          2      1    6
+c knodeap <KripkeID> <node> <ap> <nodeapvar>
+knodeap   0          0      0    7
+knodeap   0          0      1    8
+knodeap   0          1      0    9
+knodeap   0          1      1    10
+knodeap   0          2      0    11
+knodeap   0          2      1    12
+c kctl <KripkeID> <initialnode> <ctlvar> <CTL formula>
+kctl   0          0             13        (AG (0 EU 1) AND EG NOT 1)
+

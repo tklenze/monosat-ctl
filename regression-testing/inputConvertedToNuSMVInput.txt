@@ -1,0 +1,29 @@
+MODULE main
+VAR
+  state: {0, 1, 2};
+  v0 : boolean;
+  v1 : boolean;
+ASSIGN
+  init(state) := 0;
+  next(state) :=
+    case
+       state = 0 : {2};
+       state = 1 : {2};
+       state = 2 : {0, 1};
+    esac;
+
+  v0 :=
+    case
+       state = 0 : TRUE;
+       state = 1 : FALSE;
+       state = 2 : TRUE;
+    esac;
+  v1 :=
+    case
+       state = 0 : FALSE;
+       state = 1 : TRUE;
+       state = 2 : FALSE;
+    esac;
+
+SPEC
+  (AG EX TRUE & (AG E [v0 U v1 ] & EG !v1))
