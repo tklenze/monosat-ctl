@@ -599,6 +599,8 @@ protected:
 	bool ok;            // If FALSE, the constraints are already unsatisfiable. No part of the solver state may be used!
 	vec<CRef> clauses;          // List of problem clauses.
 	vec<CRef> learnts;          // List of learnt clauses.
+	bool store_original_clauses=false;
+	vec<vec<Lit> > original_clauses;
 	double cla_inc;          // Amount to bump next clause with.
 	vec<double> activity;         // A heuristic measurement of the activity of a variable.
 	double var_inc;          // Amount to bump next variable with.
@@ -660,6 +662,16 @@ public:
 	void uncheckedEnqueue(Lit p, CRef from = CRef_Undef);   // Enqueue a literal. Assumes value of literal is undefined.
 	bool enqueue(Lit p, CRef from = CRef_Undef);       // Test if fact 'p' contradicts current state, enqueue otherwise.
 	void enqueueLazy(Lit p,int level, CRef from = CRef_Undef);
+	void setStoreClauses(bool storeClauses){
+		store_original_clauses=storeClauses;
+	}
+	void clearOriginalClauses(){
+		original_clauses.clear();
+	}
+	vec<vec<Lit>> &getOriginalClauses(){
+		assert(store_original_clauses);
+		return original_clauses;
+	}
 protected:
 	CRef propagate(bool propagate_theories = true);    // Perform unit propagation. Returns possibly conflicting clause.
 	void enqueueTheory(Lit l);

@@ -112,8 +112,10 @@ Var Solver::newVar(bool sign, bool dvar) {
 }
 
 bool Solver::addClause_(vec<Lit>& ps) {
-	
-
+	if(store_original_clauses){
+		original_clauses.push();
+		ps.copyTo(original_clauses.last());
+	}
 	assert(decisionLevel() == 0);
 	if (!ok)
 		return false;
