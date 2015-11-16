@@ -734,7 +734,7 @@ public:
 			}
 		}*/
 
-		vec<Lit> symmetryConflict;
+		vec<Lit> symmetryConflict;//this allocates a new symmetryConflict vector at each propagateTheory call, which is needlessly expensive.
     	checkSymmetryConstraints(symmetryConflict, initialNode); // check if there is a conflict with the symmetry constraints under the current assignment, and if there is, build a clause to learn
 
         if (value(ctl_lit)==l_True &&  !bit_over->operator [](initialNode)) {
@@ -800,8 +800,10 @@ public:
         		printFullClause();
         		printf("Learnt Symmetry Clause:\n");
         		printLearntClause(symmetryConflict);
+
         	}
-        	toSolver(symmetryConflict);
+        	symmetryConflict.copyTo(conflict);
+        	toSolver(conflict);
 
 			delete bit_under;
 			delete bit_over;
