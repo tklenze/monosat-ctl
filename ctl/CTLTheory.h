@@ -720,17 +720,6 @@ public:
 		ctl_under->resetSwap();
 		ctl_over->resetSwap();
 
-		if(opt_verb>1)
-			printf("Over:\n");
-
-		ctl_over->printStateSet(*bit_over);
-
-		if(opt_verb>1)
-			printf("\nSolution:\nUnder:\n");
-
-		ctl_under->printStateSet(*bit_under);
-
-
 		// If we have a conflict, populate conflict set
 		/*if ((value(ctl_lit)==l_True &&  !bit_over->operator [](initialNode)) ||
 				(value(ctl_lit)==l_False &&  bit_under->operator [](initialNode))) {
@@ -745,7 +734,6 @@ public:
 			}
 		}*/
 
-		// TODO
 		vec<Lit> symmetryConflict;
     	checkSymmetryConstraints(symmetryConflict, initialNode); // check if there is a conflict with the symmetry constraints under the current assignment, and if there is, build a clause to learn
 
@@ -765,8 +753,18 @@ public:
 
 			if(opt_verb>1){
 				printFullClause();
+		  		printf("Learnt CTL Clause:\n");
 				printLearntClause(conflict);
+		  		printf("Learnt Symmetry Clause:\n");
+		  		printLearntClause(symmetryConflict);
 			}
+
+			if (symmetryConflict.size() != 0 && symmetryConflict.size()<conflict.size()) {
+				if(opt_verb>1)
+					printf("Choosing to learn symmetry conflict rather than CTL conflict, since it is smaller (%d literals vs %d literals)", symmetryConflict.size(), conflict.size());
+				symmetryConflict.copyTo(conflict);
+			}
+
 			toSolver(conflict);
 			if(opt_verb>1){
 				printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
@@ -775,11 +773,10 @@ public:
 			delete bit_under;
 			delete bit_over;
         	return false; // It does not hold in the overapproximation
-        }
-
-        if (value(ctl_lit)==l_False &&  bit_under->operator [](initialNode)) {
+        } else if (value(ctl_lit)==l_False &&  bit_under->operator [](initialNode)) {
 
         	// THIS IS WHERE I DO CLAUSE LEARNING 2
+        	// This is not really well implemented yet (i.e. no good clause learning, no symmetry reduction).
 
           	for (int v = 0; v < vars.size(); v++) {
 				if(value(v)!=l_Undef){
@@ -788,18 +785,6 @@ public:
 					conflict.push(l);
 				}
 			}
-          	if(opt_verb>1){
-          		printf("Learned clause (2):\n");
-				for (int v = 0; v < conflict.size(); v++) {
-					if (sign(conflict[v])) {
-						printf("-%d ", var(conflict[v]));
-					} else {
-						printf("%d ", var(conflict[v]));
-					}
-				}
-				printf("\n");
-          	}
-
 			toSolver(conflict);
 			if(opt_verb>1){
 				printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
@@ -808,6 +793,19 @@ public:
 			delete bit_under;
 			delete bit_over;
             return false; // It does not hold in the underapproximation
+        } else if (symmetryConflict.size() != 0 && value(ctl_lit)!=l_Undef) { // CTL formula does not seem to be unsatisfiable, but there is a conflict with the symmetry constraints
+        	if(opt_verb>1) {
+        		printf("Learning symmetry conflict, since there is nothing else to learn\n");
+
+        		printFullClause();
+        		printf("Learnt Symmetry Clause:\n");
+        		printLearntClause(symmetryConflict);
+        	}
+        	toSolver(symmetryConflict);
+
+			delete bit_under;
+			delete bit_over;
+            return false; // Symmetry condition violated
         }
 
 		requiresPropagation = false;
@@ -828,9 +826,11 @@ public:
 	;
 
 	/*
-	 * Do Symmetry Reduction. Check if any of the symmetry constraints are violated, and if so, build a clause describing this conflict
+	 * Do Symmetry Reduction. Check if any of the symmetry constraints are violated, and if so, build a clause describing this conflict.
+	 * Calling this function might yield a conflict, but it does not have to if there is none.
 	 */
 	void checkSymmetryConstraints(vec<Lit> & conflict, int startNode) {
+		vec<Lit> tmpConflict;
 		for (int i = 0; i < g_over->states(); i++) {
 			for (int j = i+1; j < g_over->states(); j++) {
 				if (i != startNode && j != startNode) {
@@ -847,13 +847,51 @@ public:
 						if(opt_verb>1) {
 							printf("SYMMETRY: %d has a higher state label than %d\n", i, j);
 						}
-
-						//learnClauseSymmetryConflict(conflict, i, j);
+						tmpConflict.clear();
+						learnClauseSymmetryConflict(tmpConflict, i, j);
+						if (conflict.size() == 0 || conflict.size() > tmpConflict.size()) {
+							if(opt_verb>1) {
+								printf("SYMMETRY: The currently smallest symmetry conflict is with states %d and %d\n", i, j);
+							}
+							tmpConflict.copyTo(conflict);
+						}
 					}
 				}
 			}
 		}
 	}
+
+	// Build a clause that describes a symmetry conflict with respect to state labels. We assume that the state label for b is
+	// under the current assignment smaller than the state label for a, despite b>a. Learn a conflict to change this.
+	// We start at the most significant bit and work our way down from there. We basically match the longest matching prefix.
+	// For everything in the prefix, we learn that the stateLabel has to become 1 in b's overapproximation (if it is 0 currently)
+	// or 0 in a's underapproximation (if it is 1 currently).
+	// The bits after the longest matching prefix HAVE to be 1 in a's underapprox and 0 in b's overapprox. We add to the clause,
+	// that they both could change.
+	void learnClauseSymmetryConflict(vec<Lit> & conflict, int a, int b) { // b>a, but over_APsToInt(b) < under_APstoInt(a).
+		int i = g_over->apcount;
+		do {
+			i--;
+			if (g_under->isAPinStateLabel(a, i)) {
+				if(opt_verb>1) {
+					printf("SYMMETRY: label(%d)>label(%d): learning that AP %d in state %d could be false\n", b, a, i, a);
+				}
+				Lit l = ~mkLit(getNodeAPVar(a, i), false);
+				conflict.push(l);
+				assert(value(l)==l_False);
+			}
+			if (!g_over->isAPinStateLabel(b, i)) {
+				if(opt_verb>1) {
+					printf("SYMMETRY: label(%d)>label(%d): learning that AP %d in state %d could be true\n", b, a, i, b);
+				}
+				Lit l = ~mkLit(getNodeAPVar(b, i), true);
+				conflict.push(l);
+				assert(value(l)==l_False);
+			}
+		} while ((!g_under->isAPinStateLabel(a, i) || g_over->isAPinStateLabel(b, i)) && i != 0); // stop when under_AP(a, i)=1 and over_AP(b, i)=0
+		assert(g_under->isAPinStateLabel(a, i) && !g_over->isAPinStateLabel(b, i)); // there must be something that differentiates them, otherwise a and b have the same statelabel!
+	}
+
 
 	// Clause learning for when a CTL formula is supposed to be true, but is false in the overapproximation
     // Starting from some initial state startNode (on the most toplevel call this will be the KripkeStructure's initial state,
@@ -2083,8 +2121,6 @@ public:
 
 	void printLearntClause(vec<Lit> & conflict) {
 		if(opt_verb>1){
-  		printf("Learnt Clause:\n");
-
       	for (int v = 0; v < conflict.size(); v++) {
       		if (sign(conflict[v])) {
       			printf("-%d ", var(conflict[v])+1);
