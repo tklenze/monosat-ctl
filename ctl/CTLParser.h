@@ -189,12 +189,13 @@ class CTLParser: public Parser<B, Solver> {
 		   if (getcwd(cwd, sizeof(cwd)) != NULL)
 		       fprintf(stdout, "Current working dir: %s\n", cwd);*/
 		std::string pctlsyscall = "java -jar regression-testing/pctl.jar regression-testing/inputConvertedToPctl.txt "+std::to_string(nodeCount)+" | regression-testing/yices-1.0.40/bin/yices | grep sat";
-		//std::cout << pctlsyscall;
-		printf("Calling external PCTL solver to verify result. Press Ctrl+c to cancel.\n");
+		printf("Run this command to verify result with PCTL, in case phi is in the intersection of PCTL and CTL:\n");
+		std::cout << pctlsyscall;
 		char pctlsyscallchar[1024];
 		strncpy(pctlsyscallchar, pctlsyscall.c_str(), sizeof(pctlsyscallchar));
 		pctlsyscallchar[sizeof(pctlsyscallchar) - 1] = 0;
-		std::system(pctlsyscallchar);
+		printf("\n\n");
+		//std::system(pctlsyscallchar);
 
 		return;
 	}

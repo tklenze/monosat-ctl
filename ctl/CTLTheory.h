@@ -2121,16 +2121,32 @@ public:
 
 
 
-	void printLearntClause(vec<Lit> & conflict) {
+	void printLearntClause(vec<Lit> & c) {
 		if(opt_verb>1){
-      	for (int v = 0; v < conflict.size(); v++) {
-      		if (sign(conflict[v])) {
-      			printf("-%d ", var(conflict[v])+1);
+      	for (int v = 0; v < c.size(); v++) {
+      		if (sign(c[v])) {
+      			printf("-%d ", var(c[v])+1);
       		} else {
-          		printf("%d ", var(conflict[v])+1);
+          		printf("%d ", var(c[v])+1);
       		}
 		}
-  		printf("\n");
+		printf("     ");
+		for (int v = 0; v < c.size(); v++) {
+			if (sign(c[v])) {
+				printf("-%d ", var(c[v])+1);
+				if (vars[var(c[v])].type == EDGE)
+					printf("-(Edge %d -> %d), ", g_over->getEdge(vars[var(c[v])].detector_node_edge).from, g_over->getEdge(vars[var(c[v])].detector_node_edge).to);
+				if (vars[var(c[v])].type == NODEAP)
+					printf("-(Node %d AP %d), ", vars[var(c[v])].detector_node_edge, vars[var(c[v])].ap);
+			} else {
+				printf("%d ", var(c[v])+1);
+				if (vars[var(c[v])].type == EDGE)
+					printf("(Edge %d -> %d), ", g_over->getEdge(vars[var(c[v])].detector_node_edge).from, g_over->getEdge(vars[var(c[v])].detector_node_edge).to);
+				if (vars[var(c[v])].type == NODEAP)
+					printf("(Node %d AP %d), ", vars[var(c[v])].detector_node_edge, vars[var(c[v])].ap);
+			}
+		}
+		printf("\n");
 		}
 	}
 
@@ -2146,14 +2162,8 @@ public:
 					c.push(l);
 				}
 			}
-			for (int v = 0; v < c.size(); v++) {
-				if (sign(c[v])) {
-					printf("-%d ", var(c[v])+1);
-				} else {
-					printf("%d ", var(c[v])+1);
-				}
-			}
-			printf("\n");
+
+			printLearntClause(c);
 		}
 	}
 
