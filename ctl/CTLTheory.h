@@ -2441,6 +2441,10 @@ SPEC
 	}
 
 	Lit newNodeAP(int node, int ap, Var outerVar = var_Undef) {
+		while (node >= g_under->statelabel.size()) {
+			g_under->addEmptyState();
+			g_over->addEmptyState();
+		}
 		g_under->disableAPinStateLabel(node,ap);
 		g_over->enableAPinStateLabel(node,ap);
 
