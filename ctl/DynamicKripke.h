@@ -203,6 +203,7 @@ public:
 	}
 	int addEmptyState(){
 		Bitset *empty = new Bitset(apcount);
+		empty->zero();
 		return addNode(*empty);
 	}
 	int addState(Bitset& v){

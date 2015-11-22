@@ -1,4 +1,4 @@
-states = 7
+states = 6
 APs = 6
 selfloops = 0 # set to 0 or 1
 z = 0 # Kripke ID

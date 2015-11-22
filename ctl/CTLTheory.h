@@ -760,7 +760,6 @@ public:
 			*/
 
 			if(opt_verb>1){
-				printf("opt_ctl_symmetry: %d\n", opt_ctl_symmetry.operator int());
 				printFullClause();
 		  		printf("Learnt CTL Clause:\n");
 				printLearntClause(conflict);
@@ -858,6 +857,8 @@ public:
 				if (i != startNode && j != startNode) {
 					if(opt_verb>1) {
 						printf("SYMMETRY: checking %d > %d\n", i, j);
+						ctl_standalone_over->printStateSet(* g_under->statelabel[i]);
+						ctl_standalone_over->printStateSet(* g_over->statelabel[j]);
 					}
 					if (g_under->statelabel[i]->Equiv( *g_over->statelabel[j] )) {
 						if(opt_verb>1) {
@@ -867,7 +868,11 @@ public:
 
 					if (g_under->statelabel[i]->GreaterThan( *g_over->statelabel[j] )) {
 						if(opt_verb>1) {
-							printf("SYMMETRY: %d has a higher state label than %d\n", i, j);
+							printf("SYMMETRY: %d (sz: %d) (", i, g_under->statelabel[i]->size());
+							ctl_standalone_over->printStateSet(* g_under->statelabel[i]);
+							printf(") has a higher state label than %d (sz: %d) (", j, g_over->statelabel[j]->size());
+							ctl_standalone_over->printStateSet(* g_over->statelabel[j]);
+							printf(")\n");
 						}
 						tmpConflict.clear();
 						learnClauseSymmetryConflict(tmpConflict, i, j);

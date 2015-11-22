@@ -226,12 +226,20 @@ public:
           	if(max != with.size()){
           		return false;
           	}
+          	if(size() == 0){
+          		return false;
+          	}
           	int max_i=max/BITSET_ELEMENT_SIZE+1;
           	for(int i = max_i;i>=0;i--){
-          		if (buf[i] < with.buf[i])
+          		if (buf[i] < with.buf[i]) {
+              		printf("   buf[%d] = %lu < with.buf[%d] = %lu\n", i, buf[i], i, with.buf[i]);
+
           			return false;
-          		if (buf[i] > with.buf[i])
+          		} if (buf[i] > with.buf[i]) {
+              		printf("   buf[%d] = %lu > with.buf[%d] = %lu\n", i, buf[i], i, with.buf[i]);
+
           			return true;
+          		}
           	}
           	return false;
     	}
