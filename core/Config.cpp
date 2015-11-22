@@ -34,6 +34,7 @@ static const char* _cat_bv = "BV";
 static const char* _cat_amo = "AMO";
 static const char* _cat_geom = "GEOMETRY";
 static const char* _cat_fsm = "FSM";
+static const char* _cat_ctl = "CTL";
 
 IntOption Monosat::opt_verb("MAIN", "verb", "Verbosity level (0=silent, 1=some, 2=more).", 1, IntRange(0, 3));
 DoubleOption Monosat::opt_var_decay(_cat, "var-decay", "The variable activity decay factor", 0.95,
@@ -304,6 +305,8 @@ BoolOption Monosat::opt_fsm_as_graph(_cat_fsm, "fsm-as-graph",
 		"", true);
 BoolOption Monosat::opt_learn_acyclic_flows(_cat_graph, "learn-acyclic-flows",
 		"", false);
+IntOption Monosat::opt_ctl_symmetry(_cat_ctl, "use-symmetry-reduction",
+		"0: No symmetry reduction, 1: learn first symmetry clause, 2: learn smallest symmetry clause, 3: learn smallest symmetry/ctl clause", 3, IntRange(0,INT32_MAX));
 
 
 IntOption Monosat::opt_width("GRAPH", "width", "Width of graph.\n", 0, IntRange(0, INT32_MAX));

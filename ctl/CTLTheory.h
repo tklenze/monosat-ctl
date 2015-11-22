@@ -101,6 +101,11 @@ public:
 	int initialNode; // Start state
 	Lit ctl_lit; // the Lit corresponding to the ctl formula
 
+	vec<Lit> symmetryConflict;//this allocates a new symmetryConflict vector at each propagateTheory call, which is needlessly expensive.
+	vec<Lit> tmpConflict; // for comparing other conflicts
+
+	Lit p; // temporary Lit to use by any function :)
+
 	//// Vector of CTL Formulas on the specific Kripke structure this solver deals with
 	//vec<CTLFormula> formulas;
 	
@@ -734,13 +739,16 @@ public:
 			}
 		}*/
 
-		vec<Lit> symmetryConflict;//this allocates a new symmetryConflict vector at each propagateTheory call, which is needlessly expensive.
-    	checkSymmetryConstraints(symmetryConflict, initialNode); // check if there is a conflict with the symmetry constraints under the current assignment, and if there is, build a clause to learn
+		if (opt_ctl_symmetry > 0) { // 0 means turn off symmetry reduction
+			symmetryConflict.clear();
+    		checkSymmetryConstraints(symmetryConflict, initialNode); // check if there is a conflict with the symmetry constraints under the current assignment, and if there is, build a clause to learn
+		}
 
         if (value(ctl_lit)==l_True &&  !bit_over->operator [](initialNode)) {
 
         	// THIS IS WHERE I DO CLAUSE LEARNING 1
         	learnClausePos(conflict, *f, initialNode);
+        	minimizeClause(conflict);
         	/*  // old method, rather naive clause
         	for (int v = 0; v < vars.size(); v++) {
         		if(value(v)!=l_Undef){
@@ -752,6 +760,7 @@ public:
 			*/
 
 			if(opt_verb>1){
+				printf("opt_ctl_symmetry: %d\n", opt_ctl_symmetry.operator int());
 				printFullClause();
 		  		printf("Learnt CTL Clause:\n");
 				printLearntClause(conflict);
@@ -759,10 +768,10 @@ public:
 		  		printLearntClause(symmetryConflict);
 			}
 
-			if (symmetryConflict.size() != 0 && symmetryConflict.size()<conflict.size()) {
+			if (opt_ctl_symmetry > 0 && (symmetryConflict.size() != 0) && (opt_ctl_symmetry < 3 || symmetryConflict.size()<conflict.size())) {
 				if(opt_verb>1)
-					printf("Choosing to learn symmetry conflict rather than CTL conflict, since it is smaller (%d literals vs %d literals)", symmetryConflict.size(), conflict.size());
-				symmetryConflict.copyTo(conflict);
+					printf("Choosing to learn symmetry conflict rather than CTL conflict, since it is smaller (%d literals vs %d literals) or because symmetry clauses are preferred due to opt_ctl_symmetry\n", symmetryConflict.size(), conflict.size());
+				symmetryConflict.copyTo(conflict); // Overwrite conflict
 			}
 
 			toSolver(conflict);
@@ -793,7 +802,7 @@ public:
 			delete bit_under;
 			delete bit_over;
             return false; // It does not hold in the underapproximation
-        } else if (symmetryConflict.size() != 0 && value(ctl_lit)!=l_Undef) { // CTL formula does not seem to be unsatisfiable, but there is a conflict with the symmetry constraints
+        } else if (symmetryConflict.size() != 0 && value(ctl_lit)!=l_Undef && opt_ctl_symmetry > 0) { // CTL formula does not seem to be unsatisfiable, but there is a conflict with the symmetry constraints
         	if(opt_verb>1) {
         		printf("Learning symmetry conflict, since there is nothing else to learn\n");
 
@@ -827,12 +836,23 @@ public:
 	}
 	;
 
+	// Sort and remove duplicates in the clause
+	void minimizeClause(vec<Lit> & ps) {
+    	sort(ps);
+    	int i, j;
+    	for (i = j = 0, p = lit_Undef; i < ps.size(); i++) {
+    		if (ps[i] != p) {
+    			ps[j++] = p = ps[i];
+    		}
+    	}
+    	ps.shrink(i - j);
+	}
+
 	/*
 	 * Do Symmetry Reduction. Check if any of the symmetry constraints are violated, and if so, build a clause describing this conflict.
 	 * Calling this function might yield a conflict, but it does not have to if there is none.
 	 */
 	void checkSymmetryConstraints(vec<Lit> & conflict, int startNode) {
-		vec<Lit> tmpConflict;
 		for (int i = 0; i < g_over->states(); i++) {
 			for (int j = i+1; j < g_over->states(); j++) {
 				if (i != startNode && j != startNode) {
@@ -856,6 +876,8 @@ public:
 								printf("SYMMETRY: The currently smallest symmetry conflict is with states %d and %d\n", i, j);
 							}
 							tmpConflict.copyTo(conflict);
+							if (opt_ctl_symmetry.operator int() == 1) // Mode 1: return first conflict instead of looking for smallest
+								return;
 						}
 					}
 				}
@@ -870,6 +892,8 @@ public:
 	// or 0 in a's underapproximation (if it is 1 currently).
 	// The bits after the longest matching prefix HAVE to be 1 in a's underapprox and 0 in b's overapprox. We add to the clause,
 	// that they both could change.
+	// Example:                        2>1 but state(1)= 01101 > state(2)= 00101. Note that we have Least significant bit first!
+	// We learn one of the following bits must change =   ^^ ^              ^ ^
 	void learnClauseSymmetryConflict(vec<Lit> & conflict, int a, int b) { // b>a, but over_APsToInt(b) < under_APstoInt(a).
 		int i = g_over->apcount;
 		do {
