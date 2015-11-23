@@ -148,10 +148,11 @@ public:
         		uint64_t b = with.buf[i];
         		buf[i]=a&b;
         	}
-        	for(int i = max_i;i<buf.size();i++){
+        	//not required
+        /*	for(int i = max_i;i<buf.size();i++){
         		uint64_t a = buf[i];
         		buf[i]=a;
-        	}
+        	}*/
 
         }
 
@@ -229,7 +230,7 @@ public:
           	if(size() == 0){
           		return false;
           	}
-          	int max_i=max/BITSET_ELEMENT_SIZE+1;
+          	int max_i=max/BITSET_ELEMENT_SIZE;
           	for(int i = max_i;i>=0;i--){
           		if (buf[i] < with.buf[i]) {
               		printf("   buf[%d] = %lu < with.buf[%d] = %lu\n", i, buf[i], i, with.buf[i]);
