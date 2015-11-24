@@ -175,9 +175,9 @@ class CTLParser: public Parser<B, Solver> {
 	    while((start_pos = pctlInput.find(notnot, start_pos)) != std::string::npos) {
 	    	pctlInput.replace(start_pos, notnot.length(), "");
 	    }
-		printf("pctlInput:\n\n");
-		std::cout << pctlInput;
-		printf("\n\n");
+		//printf("pctlInput:\n\n");
+		//std::cout << pctlInput;
+		//printf("\n\n");
 
 		std::ofstream inputConvertedToPctl;
 
