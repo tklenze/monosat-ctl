@@ -2302,11 +2302,6 @@ SPEC
 		// Compute set of states satisfying AG EX True
 		Bitset* infinitePaths = ctl_standalone_over->solve(*fAGEXTrue);
 
-		if(opt_verb>1) {
-			printf("Infinite paths AG EX True: ");
-			ctl_standalone_over->printStateSet(*infinitePaths);
-		}
-
 		std::string nuSMVInput = "MODULE main\nVAR\n  state: {"; // prints Output sentence on screen
 
 		// Print set of states, but only those that belong on an infinite path
@@ -2455,19 +2450,11 @@ SPEC
 		return mkLit(nodeap, false);
 	}
 
-	// FIXME WTF am I doing here anyway?
 	Lit newCTLVar(Var outerVar = var_Undef) {
-
 		Var ctlVar = newVar(outerVar, 0, -1, DETECTOR, true);
-
 		ctl_lit = mkLit(ctlVar, false);
-		if(opt_verb>1)
-			printf("Initialization: ctl_lit: true? %d, false? %d, undef? %d\n", value(ctl_lit) == l_True, value(ctl_lit) == l_False, value(ctl_lit) == l_Undef);
-
 		return ctl_lit;
 	}
-
-
 
 	void printSolution() {
 
@@ -2481,41 +2468,6 @@ SPEC
 		assert(!this->strings);
 		this->strings=strings;
 	}
-
-/*
-	void addAcceptLit(int source ,int reach, int strID, Var outer_var){
-		assert(g_under);
-		accepts.growTo(source+1);
-		if(!accepts[source]){
-			accepts[source] = new FSMAcceptDetector(detectors.size(), this, g_under,g_over, source,*strings,drand(rnd_seed));
-			detectors.push(accepts[source]);
-		}
-		accepts[source]->addAcceptLit(reach,strID,outer_var);
-	}
-
-	void addGenerateLit(int fsmID,int source, int strID, Var outer_var){
-		assert(g_under[fsmID]);
-		DynamicKripke & g_under = *g_under[fsmID];
-		DynamicKripke & g_over = *g_over[fsmID];
-		generates.growTo(source+1);
-		if(!generates[source]){
-			generates[source] = new FSMGeneratesDetector(detectors.size(), this, g_under,g_over, source,*strings,drand(rnd_seed));
-			detectors.push(generates[source]);
-		}
-		generates[source]->addGeneratesLit(strID,outer_var);
-	}
-	void addTransduceLit(int fsmID, int source,int dest, int strID, int strID2, Var outer_var){
-		assert(g_under[fsmID]);
-		DynamicKripke & g_under = *g_under[fsmID];
-		DynamicKripke & g_over = *g_over[fsmID];
-		transduces.growTo(source+1);
-		if(!transduces[source]){
-			transduces[source] = new FSMTransducesDetector(detectors.size(), this, g_under,g_over, source,*strings,drand(rnd_seed));
-			detectors.push(transduces[source]);
-		}
-		transduces[source]->addTransducesLit(dest,strID,strID2,outer_var);
-	}
-	*/
 };
 
 }
