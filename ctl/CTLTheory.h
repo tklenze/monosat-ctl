@@ -742,6 +742,7 @@ public:
 		if (opt_ctl_symmetry > 0) { // 0 means turn off symmetry reduction
 			symmetryConflict.clear();
     		checkSymmetryConstraints(symmetryConflict, initialNode); // check if there is a conflict with the symmetry constraints under the current assignment, and if there is, build a clause to learn
+        	minimizeClause(symmetryConflict);
 		}
 
         if (value(ctl_lit)==l_True &&  !bit_over->operator [](initialNode)) {
@@ -857,14 +858,13 @@ public:
 				if (i != startNode && j != startNode) {
 					if(opt_verb>1) {
 						printf("SYMMETRY: checking %d > %d\n", i, j);
-						ctl_standalone_over->printStateSet(* g_under->statelabel[i]);
-						ctl_standalone_over->printStateSet(* g_over->statelabel[j]);
 					}
 					if (g_under->statelabel[i]->Equiv( *g_over->statelabel[j] ) && g_under->statelabel[j]->Equiv( *g_over->statelabel[i])) {
 						if (g_under->nIncidentEnabled(i) > g_over->nIncidentEnabled(j)) {
 							if(opt_verb>1) {
 								printf("SYMMETRY: %d and %d have strictly the same state label and %d has %d > %d edges\n", i, j, i, g_under->nIncidentEnabled(i), g_over->nIncidentEnabled(j));
 							}
+							tmpConflict.clear();
 							learnClauseSymmetryConflictEdges(tmpConflict, i, j);
 							if (conflict.size() == 0 || conflict.size() > tmpConflict.size()) {
 								if(opt_verb>1) {
@@ -937,41 +937,66 @@ public:
 		DynamicGraph<int>::Edge e;
 		int to;
 
-		for (int k = 0; k < g_under->nIncident(i); k++) { // iterate over neighbours of current front of queue
+		// Disable i's edges
+		for (int k = 0; k < g_under->nIncident(i); k++) {
 			e = g_under->incident(i, k);
 			to = g_under->getEdge(e.id).to;
 			if (g_under->edgeEnabled(e.id)) {
+				if(opt_verb>1) {
+					printf("SYMMETRY-Edges: states(%d)>states(%d): learning that edge %d from state %d could be false\n", i, j, e.id, i);
+				}
 				Lit l = ~mkLit(getTransitionVar(e.id), false);
 				conflict.push(l);
 				assert(value(l)==l_False);
 			}
 		}
-		for (int k = 0; k < g_over->nIncident(j); k++) { // iterate over neighbours of current front of queue
+		// Enable j's edges
+		for (int k = 0; k < g_over->nIncident(j); k++) {
 			e = g_over->incident(j, k);
 			to = g_over->getEdge(e.id).to;
-			if (g_over->edgeEnabled(e.id)) {
+			if (!g_over->edgeEnabled(e.id)) {
+				if(opt_verb>1) {
+					printf("SYMMETRY-Edges: states(%d)>states(%d): learning that edge %d from state %d could be true\n", i, j, e.id, j);
+				}
 				Lit l = ~mkLit(getTransitionVar(e.id), true);
 				conflict.push(l);
 				assert(value(l)==l_False);
 			}
 		}
-		for (int k = 0; k < g_over->apcount; k++) { // iterate over neighbours of current front of queue
+		// TODO we only really need to learn the literals that will make the statelabel of j greater than of i. Right now we also learn the ones making the statelabel of i greater than of j
+		for (int k = 0; k < g_over->apcount; k++) {
 			if (g_under->isAPinStateLabel(i, k)) {
+				if(opt_verb>1) {
+					printf("SYMMETRY-Edges: states(%d)>states(%d): learning that AP %d in state %d could be false\n", i, j, k, i);
+				}
 				Lit l = ~mkLit(getNodeAPVar(i, k), false);
 				conflict.push(l);
 				assert(value(l)==l_False);
 			}
+			/*
 			if (g_under->isAPinStateLabel(j, k)) {
+				if(opt_verb>1) {
+					printf("SYMMETRY-Edges: states(%d)>states(%d): learning that AP %d in state %d could be false\n", i, j, k, j);
+				}
 				Lit l = ~mkLit(getNodeAPVar(j, k), false);
 				conflict.push(l);
 				assert(value(l)==l_False);
 			}
+			*/
+			/*
 			if (!g_over->isAPinStateLabel(i, k)) {
+				if(opt_verb>1) {
+					printf("SYMMETRY-Edges: states(%d)>states(%d): learning that AP %d in state %d could be true\n", i, j, k, i);
+				}
 				Lit l = ~mkLit(getNodeAPVar(i, k), true);
 				conflict.push(l);
 				assert(value(l)==l_False);
 			}
+			*/
 			if (!g_over->isAPinStateLabel(j, k)) {
+				if(opt_verb>1) {
+					printf("SYMMETRY-Edges: states(%d)>states(%d): learning that AP %d in state %d could be true\n", i, j, k, j);
+				}
 				Lit l = ~mkLit(getNodeAPVar(j, k), true);
 				conflict.push(l);
 				assert(value(l)==l_False);
