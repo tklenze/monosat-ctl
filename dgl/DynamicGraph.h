@@ -326,6 +326,10 @@ public:
 		return all_edges;
 	}
 
+	std::vector<Edge> & getIncidentDirectedEdges(int node){
+		return adjacency_list[node];
+	}
+
 	std::vector<Weight> & getWeights(){
 		return weights;
 	 }

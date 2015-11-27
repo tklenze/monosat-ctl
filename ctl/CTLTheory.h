@@ -860,19 +860,26 @@ public:
 						ctl_standalone_over->printStateSet(* g_under->statelabel[i]);
 						ctl_standalone_over->printStateSet(* g_over->statelabel[j]);
 					}
-					if (g_under->statelabel[i]->Equiv( *g_over->statelabel[j] )) {
-						if(opt_verb>1) {
-							printf("SYMMETRY: %d and %d have the same state label\n", i, j);
+					if (g_under->statelabel[i]->Equiv( *g_over->statelabel[j] ) && g_under->statelabel[j]->Equiv( *g_over->statelabel[i])) {
+						if (g_under->nIncidentEnabled(i) > g_over->nIncidentEnabled(j)) {
+							if(opt_verb>1) {
+								printf("SYMMETRY: %d and %d have strictly the same state label and %d has %d > %d edges\n", i, j, i, g_under->nIncidentEnabled(i), g_over->nIncidentEnabled(j));
+							}
+							learnClauseSymmetryConflictEdges(tmpConflict, i, j);
+							if (conflict.size() == 0 || conflict.size() > tmpConflict.size()) {
+								if(opt_verb>1) {
+									printf("SYMMETRY: The currently smallest symmetry conflict is with states %d and %d\n", i, j);
+								}
+								tmpConflict.copyTo(conflict);
+								if (opt_ctl_symmetry.operator int() == 1) // Mode 1: return first conflict instead of looking for smallest
+									return;
+							}
 						}
 					}
 
 					if (g_under->statelabel[i]->GreaterThan( *g_over->statelabel[j] )) {
 						if(opt_verb>1) {
-							printf("SYMMETRY: %d (sz: %d) (", i, g_under->statelabel[i]->size());
-							ctl_standalone_over->printStateSet(* g_under->statelabel[i]);
-							printf(") has a higher state label than %d (sz: %d) (", j, g_over->statelabel[j]->size());
-							ctl_standalone_over->printStateSet(* g_over->statelabel[j]);
-							printf(")\n");
+							printf("SYMMETRY: %d has a higher state label than %d\n", i, j);
 						}
 						tmpConflict.clear();
 						learnClauseSymmetryConflict(tmpConflict, i, j);
@@ -921,6 +928,55 @@ public:
 			}
 		} while ((!g_under->isAPinStateLabel(a, i) || g_over->isAPinStateLabel(b, i)) && i != 0); // stop when under_AP(a, i)=1 and over_AP(b, i)=0
 		assert(g_under->isAPinStateLabel(a, i) && !g_over->isAPinStateLabel(b, i)); // there must be something that differentiates them, otherwise a and b have the same statelabel!
+	}
+
+	/*
+	 * Only called when statelabels are strictly equal (i.e. have been fully determined by the assignment) and number of outgoing edges of i is greater than in j.
+	 */
+	void learnClauseSymmetryConflictEdges(vec<Lit> & conflict, int i, int j) { // j>i, but over_numedges(j) < under_numedges(i) and statelabels are equivalent.
+		DynamicGraph<int>::Edge e;
+		int to;
+
+		for (int k = 0; k < g_under->nIncident(i); k++) { // iterate over neighbours of current front of queue
+			e = g_under->incident(i, k);
+			to = g_under->getEdge(e.id).to;
+			if (g_under->edgeEnabled(e.id)) {
+				Lit l = ~mkLit(getTransitionVar(e.id), false);
+				conflict.push(l);
+				assert(value(l)==l_False);
+			}
+		}
+		for (int k = 0; k < g_over->nIncident(j); k++) { // iterate over neighbours of current front of queue
+			e = g_over->incident(j, k);
+			to = g_over->getEdge(e.id).to;
+			if (g_over->edgeEnabled(e.id)) {
+				Lit l = ~mkLit(getTransitionVar(e.id), true);
+				conflict.push(l);
+				assert(value(l)==l_False);
+			}
+		}
+		for (int k = 0; k < g_over->apcount; k++) { // iterate over neighbours of current front of queue
+			if (g_under->isAPinStateLabel(i, k)) {
+				Lit l = ~mkLit(getNodeAPVar(i, k), false);
+				conflict.push(l);
+				assert(value(l)==l_False);
+			}
+			if (g_under->isAPinStateLabel(j, k)) {
+				Lit l = ~mkLit(getNodeAPVar(j, k), false);
+				conflict.push(l);
+				assert(value(l)==l_False);
+			}
+			if (!g_over->isAPinStateLabel(i, k)) {
+				Lit l = ~mkLit(getNodeAPVar(i, k), true);
+				conflict.push(l);
+				assert(value(l)==l_False);
+			}
+			if (!g_over->isAPinStateLabel(j, k)) {
+				Lit l = ~mkLit(getNodeAPVar(j, k), true);
+				conflict.push(l);
+				assert(value(l)==l_False);
+			}
+		}
 	}
 
 
