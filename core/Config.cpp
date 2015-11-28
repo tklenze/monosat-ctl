@@ -307,6 +307,9 @@ BoolOption Monosat::opt_learn_acyclic_flows(_cat_graph, "learn-acyclic-flows",
 		"", false);
 IntOption Monosat::opt_ctl_symmetry(_cat_ctl, "use-symmetry-reduction",
 		"0: No symmetry reduction, 1: learn first symmetry clause, 2: learn smallest symmetry clause, 3: learn smallest symmetry/ctl clause", 3, IntRange(0,INT32_MAX));
+BoolOption Monosat::opt_ctl_symmetry_statelabelandedges(_cat_ctl, "symmetry-labelandedges",
+		"This variable may be used to enforce symmetry reduction strictly only on the state label and not on edges for similar-labelled states", true);
+
 
 
 IntOption Monosat::opt_width("GRAPH", "width", "Width of graph.\n", 0, IntRange(0, INT32_MAX));

@@ -178,6 +178,7 @@ extern BoolOption opt_fsm_as_graph;
 extern BoolOption opt_learn_acyclic_flows;
 
 extern IntOption opt_ctl_symmetry;
+extern BoolOption opt_ctl_symmetry_statelabelandedges;
 
 enum class PointInPolygonAlg {
 	ALG_FULL, ALG_RECURSIVE_SPLIT

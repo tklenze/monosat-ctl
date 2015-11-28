@@ -166,6 +166,8 @@ public:
 	long stats_mc_calls = 0;
 	long stats_propagations_skipped = 0;
 
+	Bitset* bit_over;
+	Bitset* bit_under;
 
 	// Compute AG EX True
 	CTLFormula* fAGEXTrue;
@@ -247,7 +249,7 @@ public:
 		assert(isNodeAPVar(v));
 		return vars[v].ap;
 	}
-	// FIXME do we need this?
+
 	inline Transition & getTransition(int edgeID){
 			return edge_labels[edgeID];
 		}
@@ -421,7 +423,7 @@ public:
 		initialNode = initial;
 	}
 
-	void backtrackUntil(int level) { // FIXME important
+	void backtrackUntil(int level) {
 		if(opt_verb>1)
 			printf("Backtracking until level %d\n", level);
 
@@ -618,7 +620,7 @@ public:
 
 	}
 
-	void enqueueTheory(Lit l) { // FIXME important
+	void enqueueTheory(Lit l) {
 		Var v = var(l);
 		
 		int lev = level(v);
@@ -714,16 +716,26 @@ public:
 			printf("Under:\n");
 			g_under->draw();
 		}
+		if (value(ctl_lit)==l_False) {
+			bit_under = ctl_under->solve(*f);
+			ctl_under->resetSwap();
+		} else if (value(ctl_lit)==l_True) {
+			bit_over = ctl_over->solve(*f);
+			ctl_over->resetSwap();
+		} else {
+			throw std::runtime_error("ctl_lit is unassigned by the SAT solver (l_Undef)!");
+		}
+		/*
+		//should leak exactly 2 bitsets ('bit_under' and 'bit_over') in the above calls
 		long bitsets = Bitset::remainingBitsets();
+
 		Bitset* bit_under = ctl_under->solve(*f);
 		Bitset* bit_over = ctl_over->solve(*f);
-		long leaked = Bitset::remainingBitsets()-bitsets;
-		//should leak exactly 2 bitsets ('bit_under' and 'bit_over') in the above calls
-		if(leaked!=2){
+		long remainingbitsets Bitset::remainingBitsets()-bitsets;
+		if(remainingbitsets !=2){
 			throw std::runtime_error("Leaked bitsets during solve call!");
 		}
-		ctl_under->resetSwap();
-		ctl_over->resetSwap();
+		*/
 
 		if (opt_ctl_symmetry > 0) { // 0 means turn off symmetry reduction
 			symmetryConflict.clear();
@@ -748,9 +760,9 @@ public:
 
 			if(opt_verb>1){
 				printFullClause();
-		  		printf("Learnt CTL Clause:\n");
+		  		printf("CTL Clause:\n");
 				printLearntClause(conflict);
-		  		printf("Learnt Symmetry Clause:\n");
+		  		printf("Symmetry Clause:\n");
 		  		printLearntClause(symmetryConflict);
 			}
 
@@ -765,8 +777,6 @@ public:
 				printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
 				printf("\npropagateTheory returns false, since formula is asserted true, but fails to hold in the overapproximation (and hence also fails to hold in the underapproximation) \n");
 			}
-			delete bit_under;
-			delete bit_over;
         	return false; // It does not hold in the overapproximation
         } else if (value(ctl_lit)==l_False &&  bit_under->operator [](initialNode)) {
 
@@ -785,8 +795,6 @@ public:
 				printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
 				printf("\npropagateTheory returns false, since formula is asserted false, but it holds in the underapproximation (and hence also holds in the overapproximation)\n");
 			}
-			delete bit_under;
-			delete bit_over;
             return false; // It does not hold in the underapproximation
         } else if (symmetryConflict.size() != 0 && value(ctl_lit)!=l_Undef && opt_ctl_symmetry > 0) { // CTL formula does not seem to be unsatisfiable, but there is a conflict with the symmetry constraints
         	if(opt_verb>1) {
@@ -800,8 +808,6 @@ public:
         	symmetryConflict.copyTo(conflict);
         	toSolver(conflict);
 
-			delete bit_under;
-			delete bit_over;
             return false; // Symmetry condition violated
         }
 
@@ -816,8 +822,6 @@ public:
 		
 		double elapsed = rtime(1) - startproptime;
 		propagationtime += elapsed;
-		delete bit_under;
-		delete bit_over;
 		return true;
 	}
 	;
@@ -845,7 +849,8 @@ public:
 					if(opt_verb>1) {
 						printf("SYMMETRY: checking %d > %d\n", i, j);
 					}
-					if (g_under->statelabel[i]->Equiv( *g_over->statelabel[j] ) && g_under->statelabel[j]->Equiv( *g_over->statelabel[i])) {
+					if (opt_ctl_symmetry_statelabelandedges.operator bool() &&
+							g_under->statelabel[i]->Equiv( *g_over->statelabel[j] ) && g_under->statelabel[j]->Equiv( *g_over->statelabel[i])) {
 						if (g_under->nIncidentEnabled(i) > g_over->nIncidentEnabled(j)) {
 							if(opt_verb>1) {
 								printf("SYMMETRY: %d and %d have strictly the same state label and %d has %d > %d edges\n", i, j, i, g_under->nIncidentEnabled(i), g_over->nIncidentEnabled(j));
