@@ -2308,7 +2308,7 @@ public:
 		}
 		for (int ap = 0; ap < g_over->apcount; ap++) {
 			for (int state = 0; state < g_over->states(); state++) {
-				Var v = getNodeAPVar(ap, state);
+				Var v = getNodeAPVar(state, ap);
 				lbool val = value(v);
 				if (val == l_Undef) {
 					return false;
