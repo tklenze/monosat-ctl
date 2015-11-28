@@ -273,11 +273,9 @@ public:
 		assert(node >= 0);
 		assert(node < nodes());
 		int count = 0;
-		//std::vector<DynamicGraph::Edge>& edges = g.getIncidentDirectedEdges(node);
 		Edge e;
 		for (auto & e : g.getIncidentDirectedEdges(node)) {
 			if (transitions[e.id]) {
-				printf("Edge %d, for node %d\n", e.id, e.node);
 				count++;
 			}
 		}

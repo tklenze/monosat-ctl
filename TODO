@@ -1,0 +1,9 @@
+
+
+ctl_lit is currently assumed to be true, and all optimizations are only working when ctl_lit is set to true (e.g. by a unit clause).
+
+ctl_lit is currently assumed to be present as a unit clause. Learnt clauses do not include ~ctl_lit. This is unsound, for instance in the following case:
+1 2 0
+[CTL specification where 2 refers to the ctl_lit]
+
+

@@ -680,7 +680,7 @@ public:
 		
 	}
 	;
-	bool propagateTheory(vec<Lit> & conflict) { // TODO this is the most important function
+	bool propagateTheory(vec<Lit> & conflict) {
 		static int itp = 0;
 		if (++itp == 62279) {
 			int a = 1;
@@ -724,20 +724,6 @@ public:
 		}
 		ctl_under->resetSwap();
 		ctl_over->resetSwap();
-
-		// If we have a conflict, populate conflict set
-		/*if ((value(ctl_lit)==l_True &&  !bit_over->operator [](initialNode)) ||
-				(value(ctl_lit)==l_False &&  bit_under->operator [](initialNode))) {
-			for (int i = 0; i < vars.size(); i++) {
-				if (vars[i].occursNegative) {
-					assert(value(mkLit(vars[i].solverVar, true))==l_False);
-					conflict.push(mkLit(vars[i].solverVar, true));
-				} else {
-					assert(value(mkLit(vars[i].solverVar, false))==l_False);
-					conflict.push(mkLit(vars[i].solverVar, false));
-				}
-			}
-		}*/
 
 		if (opt_ctl_symmetry > 0) { // 0 means turn off symmetry reduction
 			symmetryConflict.clear();
@@ -963,7 +949,6 @@ public:
 				assert(value(l)==l_False);
 			}
 		}
-		// TODO we only really need to learn the literals that will make the statelabel of j greater than of i. Right now we also learn the ones making the statelabel of i greater than of j
 		for (int k = 0; k < g_over->apcount; k++) {
 			if (g_under->isAPinStateLabel(i, k)) {
 				if(opt_verb>1) {
@@ -1257,7 +1242,6 @@ public:
 			if (conflict.size() > conflict2.size()) {
 				conflict2.copyTo(conflict);
 			}
-			//delete conflict2; // FIXME doesn't work...?
 		} else if (!phi1_over->operator [](startNode) && !phi1_under->operator [](startNode)) {
 			learnClausePos(conflict, subf1, startNode);
 		} else {
@@ -2290,16 +2274,11 @@ public:
 	}
 
 	bool check_solved() {
-		// TODO sanity check for NodeAPs. Thus far we only check for edges and whether the CTL formula is satisfied
-
-
 		// hacked in something to print out the solution
 		printf("\n--------------------\nSolution\n");
-		printf("\nOver:\n");
-		g_over->draw(0, -1, true);
-		printf("Under:\n");
 		g_under->draw(0, -1, true);
 
+		// Sanity check: Make sure that the solution is fully determined (no Undef) and the Kripke structure corresponds to the variables
 		for (int edgeID = 0; edgeID < edge_labels.size(); edgeID++) {
 			if (getTransition(edgeID).v < 0)
 				continue;
@@ -2312,12 +2291,6 @@ public:
 			}
 
 			if (val == l_True) {
-				/*	if(!g.hasEdge(e.from,e.to)){
-						 return false;
-						 }
-						 if(!antig.hasEdge(e.from,e.to)){
-						 return false;
-						 }*/
 				if (!g_under->transitionEnabled(edgeID)) {
 					return false;
 				}
@@ -2325,20 +2298,40 @@ public:
 					return false;
 				}
 			} else {
-				/*if(g.hasEdge(e.from,e.to)){
-						 return false;
-						 }*/
 				if (g_under->transitionEnabled(edgeID)) {
 					return false;
 				}
 				if (g_over->transitionEnabled(edgeID)) {
 					return false;
 				}
-				/*if(antig.hasEdge(e.from,e.to)){
-						 return false;
-						 }*/
 			}
 		}
+		for (int ap = 0; ap < g_over->apcount; ap++) {
+			for (int state = 0; state < g_over->states(); state++) {
+				Var v = getNodeAPVar(ap, state);
+				lbool val = value(v);
+				if (val == l_Undef) {
+					return false;
+				}
+				if (val == l_True) {
+					if (!g_under->isAPinStateLabel(state, ap)) {
+						return false;
+					}
+					if (!g_over->isAPinStateLabel(state, ap)) {
+						return false;
+					}
+				} else {
+					if (g_under->isAPinStateLabel(state, ap)) {
+						return false;
+					}
+					if (g_over->isAPinStateLabel(state, ap)) {
+						return false;
+					}
+				}
+			}
+		}
+
+		// Check solution against our own standalone CTL solver.
 		Bitset* bit_standalone_over = ctl_standalone_over->solve(*f);
 		Bitset* bit_standalone_under = ctl_standalone_under->solve(*f);
 		if(opt_verb>1)
@@ -2354,6 +2347,26 @@ public:
 		}
 
 
+		if(opt_verb>1)
+			printf("check_solved making sure that solution agrees with NuSMV solver...\n");
+
+		// Even more paranoidly, check solution against nuSMV's CTL solver to make sure it is sound
+		std::ofstream inputConvertedToNuSMVInput;
+		inputConvertedToNuSMVInput.open("regression-testing/inputConvertedToNuSMVInput.txt", std::ios_base::out);
+		inputConvertedToNuSMVInput << getNuSMVInput();
+		inputConvertedToNuSMVInput.close();
+		std::system("NuSMV regression-testing/inputConvertedToNuSMVInput.txt | grep Counterexample");
+
+		// Solution passed all checks
+		return true;
+	}
+
+	/*
+	 * Generate NuSMV Input so that check_solved() can make sure that the solution found is indeed a solution
+	 * The translation to the NuSMV input format is somewhat involved in that no states are allowed that don't have a successor.
+	 * We thus compute the set of states satisfying AG EX True and only output those.
+	 * */
+	std::string getNuSMVInput() {
 		/*
 		 * Format for NuSMV:
 MODULE main
@@ -2448,18 +2461,9 @@ SPEC
 		nuSMVInput += "\nSPEC\n  ";
 		nuSMVInput += getFormulaNuSMVFormat(*f);
 		nuSMVInput += "\n";
-
-		std::ofstream inputConvertedToNuSMVInput;
-
-		inputConvertedToNuSMVInput.open("regression-testing/inputConvertedToNuSMVInput.txt", std::ios_base::out);
-		inputConvertedToNuSMVInput << nuSMVInput;
-		inputConvertedToNuSMVInput.close();
-
-		std::system("NuSMV regression-testing/inputConvertedToNuSMVInput.txt | grep Counterexample");
-
-
-		return true;
+		return nuSMVInput;
 	}
+
 
 	bool dbg_solved() {
 
