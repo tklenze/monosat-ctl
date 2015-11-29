@@ -1,7 +1,7 @@
 #!/bin/bash
 for filename in sat-inputs/*; do
     echo $filename
-    bash -c '../Debug/monosat $0 >/tmp/monosat-regression-test 2>/tmp/monosat-regression-test-errors' $filename >/tmp/monosat-regression-test-errors-bash 2>&1
+    bash -c '../Debug/monosat -use-symmetry-reduction=3 $0 >/tmp/monosat-regression-test 2>/tmp/monosat-regression-test-errors' $filename >/tmp/monosat-regression-test-errors-bash 2>&1
     #./Debug/monosat "$filename" 2> /tmp/monosat-regression-test | grep UNSAT
     cat /tmp/monosat-regression-test* | grep -i "UNSAT\|Error"
     if [[ $? -ne 1 ]]; then
@@ -28,7 +28,7 @@ for filename in sat-inputs/*; do
 done
 for filename in unsat-inputs/*; do
     echo $filename
-    bash -c '../Debug/monosat $0 >/tmp/monosat-regression-test 2>/tmp/monosat-regression-test-errors' $filename >/tmp/monosat-regression-test-errors-bash 2>&1
+    bash -c '../Debug/monosat -use-symmetry-reduction=3 $0  >/tmp/monosat-regression-test 2>/tmp/monosat-regression-test-errors' $filename >/tmp/monosat-regression-test-errors-bash 2>&1
     cat /tmp/monosat-regression-test* | grep -i "SATISFIABLE\|Error" | grep -v UNSAT
     if [[ $? -ne 1 ]]; then
 	echo "REGRESSION PROBLEM"
