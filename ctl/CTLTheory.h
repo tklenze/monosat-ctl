@@ -959,11 +959,6 @@ public:
 				assert(value(l)==l_False);
 			}
 		}
-<<<<<<< HEAD
-=======
-
-
->>>>>>> refs/remotes/origin/master
 		// Besides the possibility of adding/removing edges, there is also the possibility that the state label can be non-equivalent.
 		// But, because we have g_under->nIncidentEnabled(i) > g_over->nIncidentEnabled(j), the only way for it to be non-equivalent is
 		// when the statelabel of i is greater than the state label of j. In this case, we have a state label symmetry violation.
