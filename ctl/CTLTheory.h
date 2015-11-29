@@ -849,16 +849,11 @@ public:
 					if(opt_verb>1) {
 						printf("SYMMETRY: checking %d > %d\n", i, j);
 					}
-<<<<<<< HEAD
 					// Reduce on edges in case of state label equivalence
 					// Mode 1: Require label to be exactly the same
 					// Mode 2: Require only that it is possible that the labels are the same, and if not, that there is a label symmetry violation
 					if (opt_ctl_symmetry_statelabelandedges > 0 && g_under->statelabel[i]->Equiv( *g_over->statelabel[j] )
 							&& (opt_ctl_symmetry_statelabelandedges == 2 || g_under->statelabel[j]->Equiv( *g_over->statelabel[i]))){
-=======
-					if (opt_ctl_symmetry_statelabelandedges.operator bool() &&
-							g_under->statelabel[i]->Equiv( *g_over->statelabel[j] ) ) { //&& g_under->statelabel[j]->Equiv( *g_over->statelabel[i])) {
->>>>>>> refs/heads/master
 						if (g_under->nIncidentEnabled(i) > g_over->nIncidentEnabled(j)) {
 							if(opt_verb>1) {
 								printf("SYMMETRY: %d and %d have possibly the same state label and %d has %d > %d edges\n", i, j, i, g_under->nIncidentEnabled(i), g_over->nIncidentEnabled(j));
@@ -926,10 +921,7 @@ public:
 				assert(value(l)==l_False);
 			}
 		} while ((!g_under->isAPinStateLabel(a, i) || g_over->isAPinStateLabel(b, i)) && i != 0); // stop when under_AP(a, i)=1 and over_AP(b, i)=0
-<<<<<<< HEAD
 		// Assertion not valid anymore, because we use this code from learnClauseSymmetryConflictEdges, where it is not the case
-=======
->>>>>>> refs/heads/master
 		//assert(g_under->isAPinStateLabel(a, i) && !g_over->isAPinStateLabel(b, i)); // there must be something that differentiates them, otherwise a and b have the same statelabel!
 	}
 
@@ -967,10 +959,6 @@ public:
 				assert(value(l)==l_False);
 			}
 		}
-<<<<<<< HEAD
-=======
-
->>>>>>> refs/heads/master
 		// Besides the possibility of adding/removing edges, there is also the possibility that the state label can be non-equivalent.
 		// But, because we have g_under->nIncidentEnabled(i) > g_over->nIncidentEnabled(j), the only way for it to be non-equivalent is
 		// when the statelabel of i is greater than the state label of j. In this case, we have a state label symmetry violation.
@@ -1048,22 +1036,22 @@ public:
 				Lit l = ~mkLit(getNodeAPVar(startNode, p), false);
 				conflict.push(l);
 				assert(value(l)==l_False);
-			} else if (subf.operand1->op == AU) { // ~(φ_1 AU φ_2) ≡ ~φ_2 EW ( ~φ_1 ^ ~φ_2 )
+			} else if (subf.operand1->op == AU) { // ~(Ï†_1 AU Ï†_2) â‰¡ ~Ï†_2 EW ( ~Ï†_1 ^ ~Ï†_2 )
 				CTLFormula inner2 {NEG, subf.operand1->operand2, NULL, 0};
 				CTLFormula outer1 {AND, &inner1, &inner2, 0};
 				CTLFormula outer2 {EW, &inner2, &outer1, 0};
 				learnClausePos(conflict, outer2, startNode);
-			} else if (subf.operand1->op == AW) { // ~(φ_1 AW φ_2) ≡ ~φ_2 EU ( ~φ_1 ^ ~φ_2 )
+			} else if (subf.operand1->op == AW) { // ~(Ï†_1 AW Ï†_2) â‰¡ ~Ï†_2 EU ( ~Ï†_1 ^ ~Ï†_2 )
 				CTLFormula inner2 {NEG, subf.operand1->operand2, NULL, 0};
 				CTLFormula outer1 {AND, &inner1, &inner2, 0};
 				CTLFormula outer2 {EU, &inner2, &outer1, 0};
 				learnClausePos(conflict, outer2, startNode);
-			} else if (subf.operand1->op == EU) { // ~(φ_1 EU φ_2) ≡ ~φ_2 AW ( ~φ_1 ^ ~φ_2 )
+			} else if (subf.operand1->op == EU) { // ~(Ï†_1 EU Ï†_2) â‰¡ ~Ï†_2 AW ( ~Ï†_1 ^ ~Ï†_2 )
 				CTLFormula inner2 {NEG, subf.operand1->operand2, NULL, 0};
 				CTLFormula outer1 {AND, &inner1, &inner2, 0};
 				CTLFormula outer2 {AW, &inner2, &outer1, 0};
 				learnClausePos(conflict, outer2, startNode);
-			} else if (subf.operand1->op == EW) { // ~(φ_1 EW φ_2) ≡ ~φ_2 AU ( ~φ_1 ^ ~φ_2 )
+			} else if (subf.operand1->op == EW) { // ~(Ï†_1 EW Ï†_2) â‰¡ ~Ï†_2 AU ( ~Ï†_1 ^ ~Ï†_2 )
 				CTLFormula inner2 {NEG, subf.operand1->operand2, NULL, 0};
 				CTLFormula outer1 {AND, &inner1, &inner2, 0};
 				CTLFormula outer2 {AU, &inner2, &outer1, 0};
