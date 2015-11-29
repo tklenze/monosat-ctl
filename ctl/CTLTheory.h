@@ -849,11 +849,14 @@ public:
 					if(opt_verb>1) {
 						printf("SYMMETRY: checking %d > %d\n", i, j);
 					}
-					if (opt_ctl_symmetry_statelabelandedges.operator bool() &&
-							g_under->statelabel[i]->Equiv( *g_over->statelabel[j] ) && g_under->statelabel[j]->Equiv( *g_over->statelabel[i])) {
+					// Reduce on edges in case of state label equivalence
+					// Mode 1: Require label to be exactly the same
+					// Mode 2: Require only that it is possible that the labels are the same, and if not, that there is a label symmetry violation
+					if (opt_ctl_symmetry_statelabelandedges > 0 && g_under->statelabel[i]->Equiv( *g_over->statelabel[j] )
+							&& (opt_ctl_symmetry_statelabelandedges == 2 || g_under->statelabel[j]->Equiv( *g_over->statelabel[i]))){
 						if (g_under->nIncidentEnabled(i) > g_over->nIncidentEnabled(j)) {
 							if(opt_verb>1) {
-								printf("SYMMETRY: %d and %d have strictly the same state label and %d has %d > %d edges\n", i, j, i, g_under->nIncidentEnabled(i), g_over->nIncidentEnabled(j));
+								printf("SYMMETRY: %d and %d have possibly the same state label and %d has %d > %d edges\n", i, j, i, g_under->nIncidentEnabled(i), g_over->nIncidentEnabled(j));
 							}
 							tmpConflict.clear();
 							learnClauseSymmetryConflictEdges(tmpConflict, i, j);
@@ -867,7 +870,7 @@ public:
 							}
 						}
 					}
-
+					// Reduce if i has a larger state label than j (for all extensions) despite i<j
 					if (g_under->statelabel[i]->GreaterThan( *g_over->statelabel[j] )) {
 						if(opt_verb>1) {
 							printf("SYMMETRY: %d has a higher state label than %d\n", i, j);
@@ -918,7 +921,8 @@ public:
 				assert(value(l)==l_False);
 			}
 		} while ((!g_under->isAPinStateLabel(a, i) || g_over->isAPinStateLabel(b, i)) && i != 0); // stop when under_AP(a, i)=1 and over_AP(b, i)=0
-		assert(g_under->isAPinStateLabel(a, i) && !g_over->isAPinStateLabel(b, i)); // there must be something that differentiates them, otherwise a and b have the same statelabel!
+		// Assertion not valid anymore, because we use this code from learnClauseSymmetryConflictEdges, where it is not the case
+		//assert(g_under->isAPinStateLabel(a, i) && !g_over->isAPinStateLabel(b, i)); // there must be something that differentiates them, otherwise a and b have the same statelabel!
 	}
 
 	/*
@@ -928,6 +932,7 @@ public:
 		DynamicGraph<int>::Edge e;
 		int to;
 
+		// The following edge-related literals are for the extensions of the current assignment, where both state labels are equivalent.
 		// Disable i's edges
 		for (int k = 0; k < g_under->nIncident(i); k++) {
 			e = g_under->incident(i, k);
@@ -954,44 +959,11 @@ public:
 				assert(value(l)==l_False);
 			}
 		}
-		for (int k = 0; k < g_over->apcount; k++) {
-			if (g_under->isAPinStateLabel(i, k)) {
-				if(opt_verb>1) {
-					printf("SYMMETRY-Edges: states(%d)>states(%d): learning that AP %d in state %d could be false\n", i, j, k, i);
-				}
-				Lit l = ~mkLit(getNodeAPVar(i, k), false);
-				conflict.push(l);
-				assert(value(l)==l_False);
-			}
-			/*
-			if (g_under->isAPinStateLabel(j, k)) {
-				if(opt_verb>1) {
-					printf("SYMMETRY-Edges: states(%d)>states(%d): learning that AP %d in state %d could be false\n", i, j, k, j);
-				}
-				Lit l = ~mkLit(getNodeAPVar(j, k), false);
-				conflict.push(l);
-				assert(value(l)==l_False);
-			}
-			*/
-			/*
-			if (!g_over->isAPinStateLabel(i, k)) {
-				if(opt_verb>1) {
-					printf("SYMMETRY-Edges: states(%d)>states(%d): learning that AP %d in state %d could be true\n", i, j, k, i);
-				}
-				Lit l = ~mkLit(getNodeAPVar(i, k), true);
-				conflict.push(l);
-				assert(value(l)==l_False);
-			}
-			*/
-			if (!g_over->isAPinStateLabel(j, k)) {
-				if(opt_verb>1) {
-					printf("SYMMETRY-Edges: states(%d)>states(%d): learning that AP %d in state %d could be true\n", i, j, k, j);
-				}
-				Lit l = ~mkLit(getNodeAPVar(j, k), true);
-				conflict.push(l);
-				assert(value(l)==l_False);
-			}
-		}
+		// Besides the possibility of adding/removing edges, there is also the possibility that the state label can be non-equivalent.
+		// But, because we have g_under->nIncidentEnabled(i) > g_over->nIncidentEnabled(j), the only way for it to be non-equivalent is
+		// when the statelabel of i is greater than the state label of j. In this case, we have a state label symmetry violation.
+		learnClauseSymmetryConflict(conflict, i, j);
+
 	}
 
 
