@@ -849,16 +849,11 @@ public:
 					if(opt_verb>1) {
 						printf("SYMMETRY: checking %d > %d\n", i, j);
 					}
-<<<<<<< HEAD
 					// Reduce on edges in case of state label equivalence
 					// Mode 1: Require label to be exactly the same
 					// Mode 2: Require only that it is possible that the labels are the same, and if not, that there is a label symmetry violation
 					if (opt_ctl_symmetry_statelabelandedges > 0 && g_under->statelabel[i]->Equiv( *g_over->statelabel[j] )
 							&& (opt_ctl_symmetry_statelabelandedges == 2 || g_under->statelabel[j]->Equiv( *g_over->statelabel[i]))){
-=======
-					if (opt_ctl_symmetry_statelabelandedges.operator bool() &&
-							g_under->statelabel[i]->Equiv( *g_over->statelabel[j] ) ) { //&& g_under->statelabel[j]->Equiv( *g_over->statelabel[i])) {
->>>>>>> refs/heads/master
 						if (g_under->nIncidentEnabled(i) > g_over->nIncidentEnabled(j)) {
 							if(opt_verb>1) {
 								printf("SYMMETRY: %d and %d have possibly the same state label and %d has %d > %d edges\n", i, j, i, g_under->nIncidentEnabled(i), g_over->nIncidentEnabled(j));
@@ -926,10 +921,7 @@ public:
 				assert(value(l)==l_False);
 			}
 		} while ((!g_under->isAPinStateLabel(a, i) || g_over->isAPinStateLabel(b, i)) && i != 0); // stop when under_AP(a, i)=1 and over_AP(b, i)=0
-<<<<<<< HEAD
 		// Assertion not valid anymore, because we use this code from learnClauseSymmetryConflictEdges, where it is not the case
-=======
->>>>>>> refs/heads/master
 		//assert(g_under->isAPinStateLabel(a, i) && !g_over->isAPinStateLabel(b, i)); // there must be something that differentiates them, otherwise a and b have the same statelabel!
 	}
 
@@ -967,10 +959,6 @@ public:
 				assert(value(l)==l_False);
 			}
 		}
-<<<<<<< HEAD
-=======
-
->>>>>>> refs/heads/master
 		// Besides the possibility of adding/removing edges, there is also the possibility that the state label can be non-equivalent.
 		// But, because we have g_under->nIncidentEnabled(i) > g_over->nIncidentEnabled(j), the only way for it to be non-equivalent is
 		// when the statelabel of i is greater than the state label of j. In this case, we have a state label symmetry violation.
