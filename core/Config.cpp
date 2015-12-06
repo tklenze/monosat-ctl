@@ -306,7 +306,7 @@ BoolOption Monosat::opt_fsm_as_graph(_cat_fsm, "fsm-as-graph",
 BoolOption Monosat::opt_learn_acyclic_flows(_cat_graph, "learn-acyclic-flows",
 		"", false);
 IntOption Monosat::opt_ctl_symmetry(_cat_ctl, "use-symmetry-reduction",
-		"0: No symmetry reduction, 1: learn first symmetry clause, 2: learn smallest symmetry clause, 3: learn smallest symmetry/ctl clause", 3, IntRange(0,INT32_MAX));
+		"0: No symmetry reduction, 1-3: NodeAP Symmetry (1: learn first symmetry clause, 2: learn smallest symmetry clause, 3: learn smallest symmetry/ctl clause), 4-6: Edge Symmetry (4: learn first edge symmetry clause, 5: learn smallest symmetry clause, 6: learn smallest symmetry/ctl clause)", 3, IntRange(0,INT32_MAX));
 IntOption Monosat::opt_ctl_symmetry_statelabelandedges(_cat_ctl, "symmetry-labelandedges",
 		"This variable may be used to enforce symmetry reduction strictly only on the state label and not on edges for similar-labelled states. 0: No edge symmetry reduction. 1: Edge reduction in case of strict label equivalence. 2: Edge reduction in case of possible label equivalence", 1, IntRange(0,INT32_MAX));
 

@@ -105,6 +105,8 @@ public:
 	vec<Lit> tmpConflict; // for comparing other conflicts
 
 	Lit p; // temporary Lit to use by any function :)
+	DynamicGraph<int>::Edge e;
+	int to;
 
 	//// Vector of CTL Formulas on the specific Kripke structure this solver deals with
 	//vec<CTLFormula> formulas;
@@ -716,15 +718,6 @@ public:
 			printf("Under:\n");
 			g_under->draw();
 		}
-		if (value(ctl_lit)==l_False) {
-			bit_under = ctl_under->solve(*f);
-			ctl_under->resetSwap();
-		} else if (value(ctl_lit)==l_True) {
-			bit_over = ctl_over->solve(*f);
-			ctl_over->resetSwap();
-		} else {
-			throw std::runtime_error("ctl_lit is unassigned by the SAT solver (l_Undef)!");
-		}
 		/*
 		//should leak exactly 2 bitsets ('bit_under' and 'bit_over') in the above calls
 		long bitsets = Bitset::remainingBitsets();
@@ -737,80 +730,95 @@ public:
 		}
 		*/
 
-		if (opt_ctl_symmetry > 0) { // 0 means turn off symmetry reduction
-			symmetryConflict.clear();
-			checkStateLabelSymmetryConstraints(symmetryConflict, initialNode); // check if there is a conflict with the symmetry constraints under the current assignment, and if there is, build a clause to learn
-        	minimizeClause(symmetryConflict);
+		if (value(ctl_lit)==l_False) {
+			throw std::runtime_error("ctl_lit is assigned false by the SAT solver. So far this is not supported. Please negate the CTL formula and assign ctl_lit true");
+		}
+		if (value(ctl_lit)==l_Undef) {
+			throw std::runtime_error("ctl_lit is unassigned false by the SAT solver. This is not permitted?");
 		}
 
-        if (value(ctl_lit)==l_True &&  !bit_over->operator [](initialNode)) {
+		/*
+		 * Try to find a clause to learn. With symmetry reduction disabled, this will be a CTL clause. Otherwise, it may also be a symmetry clause
+		 * Which clause is preferred depends on the mode in opt_ctl_symmetry.
+		 *
+		 * There are different modes in opt_ctl_symmetry.
+		 * 0: No symmetry reduction
+		 * 1-3: NodeAP Symmetry (1: learn first symmetry clause, 2: learn smallest symmetry clause, 3: learn smallest symmetry/ctl clause)
+		 * 4-6: Edge Symmetry (4: learn first edge symmetry clause, 5: learn smallest symmetry clause, 6: learn smallest symmetry/ctl clause)
+		 */
 
-        	// THIS IS WHERE I DO CLAUSE LEARNING 1
-        	learnClausePos(conflict, *f, initialNode);
-        	minimizeClause(conflict);
-        	/*  // old method, rather naive clause
-        	for (int v = 0; v < vars.size(); v++) {
-        		if(value(v)!=l_Undef){
-        			Lit l = ~mkLit(v,value(v)==l_False);
-        			assert(value(l)==l_False);
-					conflict.push(l);
-        		}
-        	}
-			*/
+		if (opt_ctl_symmetry > 0) { // >0 means we have symmetry reduction
+			symmetryConflict.clear();
+			if (opt_ctl_symmetry <= 3) // reduce on nodeAPs
+				checkStateLabelSymmetryConstraints(symmetryConflict, initialNode); // check if there is a conflict with the symmetry constraints under the current assignment, and if there is, build a clause to learn
+			else // reduce on number of outgoing edges
+				checkEdgeSymmetryConstraints(symmetryConflict, initialNode);
+			minimizeClause(symmetryConflict);
 
-			if(opt_verb>1){
-				printFullClause();
-		  		printf("CTL Clause:\n");
-				printLearntClause(conflict);
-		  		printf("Symmetry Clause:\n");
-		  		printLearntClause(symmetryConflict);
-			}
-
-			if (opt_ctl_symmetry > 0 && (symmetryConflict.size() != 0) && (opt_ctl_symmetry < 3 || symmetryConflict.size()<conflict.size())) {
-				if(opt_verb>1)
-					printf("Choosing to learn symmetry conflict rather than CTL conflict, since it is smaller (%d literals vs %d literals) or because symmetry clauses are preferred due to opt_ctl_symmetry\n", symmetryConflict.size(), conflict.size());
+			// Prefer the symmetry conflict without even of looking for a CTL conflict if:
+			//  - Symmetry reduction is enabled
+			//  - and, there is a symmetry conflict
+			//  - and, we are are in modes 1, 2, 4, or 5
+			if ((symmetryConflict.size() != 0) && (opt_ctl_symmetry < 3 || opt_ctl_symmetry == 4 || opt_ctl_symmetry == 5)) {
 				symmetryConflict.copyTo(conflict); // Overwrite conflict
-			}
-
-			toSolver(conflict);
-			if(opt_verb>1){
-				printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
-				printf("\npropagateTheory returns false, since formula is asserted true, but fails to hold in the overapproximation (and hence also fails to hold in the underapproximation) \n");
-			}
-        	return false; // It does not hold in the overapproximation
-        } else if (value(ctl_lit)==l_False &&  bit_under->operator [](initialNode)) {
-
-        	// THIS IS WHERE I DO CLAUSE LEARNING 2
-        	// This is not really well implemented yet (i.e. no good clause learning, no symmetry reduction).
-
-          	for (int v = 0; v < vars.size(); v++) {
-				if(value(v)!=l_Undef){
-					Lit l = ~mkLit(v,value(v)==l_False);
-					assert(value(l)==l_False);
-					conflict.push(l);
+				toSolver(conflict);
+				if(opt_verb>1){
+					printFullClause();
+			  		printf("Symmetry Clause:\n");
+			  		printLearntClause(symmetryConflict);
+					printf("propagateTheory returns false. Choosing to learn symmetry conflict rather than CTL conflict, since symmetry clauses are preferred due to opt_ctl_symmetry\n");
 				}
+				theoryPropagationAppendix(startproptime);
+				return false;
 			}
-			toSolver(conflict);
-			if(opt_verb>1){
-				printf("ctl_lit: %d, bit_over: %d", value(ctl_lit) == l_True, bit_over->operator [](initialNode));
-				printf("\npropagateTheory returns false, since formula is asserted false, but it holds in the underapproximation (and hence also holds in the overapproximation)\n");
+			// Otherwise, we have to look for a CTL conflict, too.
+			bit_over = ctl_over->solve(*f);
+			ctl_over->resetSwap();
+			if (!bit_over->operator [](initialNode)) { // we know value(ctl_lit)==l_True
+				learnClausePos(conflict, *f, initialNode);
+				minimizeClause(conflict);
+				if (symmetryConflict.size()<conflict.size() && (symmetryConflict.size() != 0)) {
+					if(opt_verb>1){
+						printFullClause();
+				  		printf("CTL Clause:\n");
+						printLearntClause(conflict);
+				  		printf("Symmetry Clause:\n");
+				  		printLearntClause(symmetryConflict);
+					}
+					symmetryConflict.copyTo(conflict); // Overwrite conflict
+					if(opt_verb>1)
+						printf("propagateTheory returns false. Choosing to learn symmetry conflict rather than CTL conflict, since it is smaller (%d literals vs %d literals)\n", symmetryConflict.size(), conflict.size());
+				} else
+					if(opt_verb>1)
+						printf("propagateTheory returns false, since formula is asserted true, but fails to hold in the overapproximation (and hence also fails to hold in the underapproximation) \n");
+
+				toSolver(conflict);
+				theoryPropagationAppendix(startproptime);
+				return false;
 			}
-            return false; // It does not hold in the underapproximation
-        } else if (symmetryConflict.size() != 0 && value(ctl_lit)!=l_Undef && opt_ctl_symmetry > 0) { // CTL formula does not seem to be unsatisfiable, but there is a conflict with the symmetry constraints
-        	if(opt_verb>1) {
-        		printf("Learning symmetry conflict, since there is nothing else to learn\n");
-
-        		printFullClause();
-        		printf("Learnt Symmetry Clause:\n");
-        		printLearntClause(symmetryConflict);
-
-        	}
-        	symmetryConflict.copyTo(conflict);
-        	toSolver(conflict);
-
-            return false; // Symmetry condition violated
-        }
-
+		} else { // Ignore symmetry
+			bit_over = ctl_over->solve(*f);
+			ctl_over->resetSwap();
+			if (!bit_over->operator [](initialNode)) { // we know value(ctl_lit)==l_True
+				learnClausePos(conflict, *f, initialNode);
+				minimizeClause(conflict);
+				toSolver(conflict);
+				if(opt_verb>1){
+					printFullClause();
+			  		printf("CTL Clause:\n");
+					printLearntClause(conflict);
+			  		printf("Symmetry Clause:\n");
+			  		printLearntClause(symmetryConflict);
+					printf("propagateTheory returns false, since formula is asserted true, but fails to hold in the overapproximation (and hence also fails to hold in the underapproximation) \n");
+				}
+				theoryPropagationAppendix(startproptime);
+				return false; // It does not hold in the overapproximation
+			}
+		}
+		theoryPropagationAppendix(startproptime);
+		return true;
+	}
+	void theoryPropagationAppendix(int startproptime) {
 		requiresPropagation = false;
 		g_under->clearChanged();
 		g_over->clearChanged();
@@ -822,7 +830,6 @@ public:
 		
 		double elapsed = rtime(1) - startproptime;
 		propagationtime += elapsed;
-		return true;
 	}
 	;
 
@@ -841,6 +848,9 @@ public:
 	/*
 	 * Do Symmetry Reduction. Check if any of the symmetry constraints are violated, and if so, build a clause describing this conflict.
 	 * Calling this function might yield a conflict, but it does not have to if there is none.
+	 *
+	 * 	opt_ctl_symmetry Modes 1-3
+	 *
 	 */
 	void checkStateLabelSymmetryConstraints(vec<Lit> & conflict, int startNode) {
 		for (int i = 0; i < g_over->states(); i++) {
@@ -891,9 +901,28 @@ public:
 		}
 	}
 
+	// opt_ctl_symmetry Modes 4-6
 	void checkEdgeSymmetryConstraints(vec<Lit> & conflict, int startNode) {
-
-		//learnClauseSymmetryConflictEdges
+		for (int i = 0; i < g_over->states(); i++) {
+			for (int j = i+1; j < g_over->states(); j++) {
+				if (i != startNode && j != startNode) {
+					if(opt_verb>1)
+						printf("SYMMETRY: checking %d > %d\n", i, j);
+					if (g_under->nIncident(i) > g_over->nIncident(j)) { // We have a conflict
+						tmpConflict.clear();
+						learnClauseSymmetryConflictEdges(tmpConflict, i, j);
+						if (conflict.size() == 0 || conflict.size() > tmpConflict.size()) {
+							if(opt_verb>1) {
+								printf("SYMMETRY: The currently smallest symmetry conflict is with states %d (%d edges) and %d (%d edges)\n", i, g_under->nIncident(i), j, g_over->nIncident(j));
+							}
+							tmpConflict.copyTo(conflict);
+							if (opt_ctl_symmetry.operator int() == 4) // Mode 4: return first conflict instead of looking for smallest
+								return;
+						}
+					}
+				}
+			}
+		}
 	}
 
 	// Build a clause that describes a symmetry conflict with respect to state labels. We assume that the state label for b is
@@ -930,17 +959,8 @@ public:
 		//assert(g_under->isAPinStateLabel(a, i) && !g_over->isAPinStateLabel(b, i)); // there must be something that differentiates them, otherwise a and b have the same statelabel!
 	}
 
-	void learnClauseSymmetryConflictEdges(vec<Lit> & conflict, int i, int j) { }
-
-	/*
-	 * Called when statelabels are equal and number of outgoing edges of i is greater than in j.
-	 */
-	void learnClauseSymmetryConflictEquivStateLabels(vec<Lit> & conflict, int i, int j) { // j>i, but over_numedges(j) < under_numedges(i) and statelabels are equivalent.
-		DynamicGraph<int>::Edge e;
-		int to;
-
-		// The following edge-related literals are for the extensions of the current assignment, where both state labels are equivalent.
-		// Disable i's edges
+	// i has more edges than j, despite i<j. Learn a conflict describing this
+	void learnClauseSymmetryConflictEdges(vec<Lit> & conflict, int i, int j) {
 		for (int k = 0; k < g_under->nIncident(i); k++) {
 			e = g_under->incident(i, k);
 			to = g_under->getEdge(e.id).to;
@@ -966,6 +986,15 @@ public:
 				assert(value(l)==l_False);
 			}
 		}
+
+
+	}
+	/*
+	 * Called when statelabels are equal and number of outgoing edges of i is greater than in j.
+	 */
+	void learnClauseSymmetryConflictEquivStateLabels(vec<Lit> & conflict, int i, int j) { // j>i, but over_numedges(j) < under_numedges(i) and statelabels are equivalent.
+		// The following edge-related literals are for the extensions of the current assignment, where both state labels are equivalent.
+		learnClauseSymmetryConflictEdges(conflict, i, j);
 		// Besides the possibility of adding/removing edges, there is also the possibility that the state label can be non-equivalent.
 		// But, because we have g_under->nIncidentEnabled(i) > g_over->nIncidentEnabled(j), the only way for it to be non-equivalent is
 		// when the statelabel of i is greater than the state label of j. In this case, we have a state label symmetry violation.
@@ -973,11 +1002,26 @@ public:
 
 	}
 
+	// Learn the trivial clause. Used for debugging purposes or to check if our clause learning algorithms are correct
+	void learnNaiveClause(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
+		for (int v = 0; v < vars.size(); v++) {
+			if(value(v)!=l_Undef){
+				Lit l = ~mkLit(v,value(v)==l_False);
+				assert(value(l)==l_False);
+				conflict.push(l);
+			}
+		}
+	}
 
 	// Clause learning for when a CTL formula is supposed to be true, but is false in the overapproximation
     // Starting from some initial state startNode (on the most toplevel call this will be the KripkeStructure's initial state,
 	// but not necessarily so on recursive calls).
 	void learnClausePos(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
+		 // only for debugging, you may uncomment this:
+
+		// learnNaiveClause(conflict, *f, initialNode);
+		// return
+
 		if(opt_verb>1) {
 			printf("Clause learning subformula... ");
 			printFormula2(subf);
