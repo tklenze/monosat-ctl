@@ -1,0 +1,6 @@
+c     <#Vars> <#Clauses>
+p cnf 100     1
+100 0
+c kctlsimp <KripkeID> <#Nodes> <#APs> <selfloops> <ctlvar> <CTL formula>"
+kctlsimp   0          6        3      1           100        ((((0 EW 1) AND (1 EW 2)) AND (2 EW 0)) AND ((NOT 0 EW NOT 1) AND (NOT 1 EW NOT 2)))
+

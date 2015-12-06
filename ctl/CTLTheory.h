@@ -771,27 +771,34 @@ public:
 				theoryPropagationAppendix(startproptime);
 				return false;
 			}
+
 			// Otherwise, we have to look for a CTL conflict, too.
 			bit_over = ctl_over->solve(*f);
 			ctl_over->resetSwap();
 			if (!bit_over->operator [](initialNode)) { // we know value(ctl_lit)==l_True
 				learnClausePos(conflict, *f, initialNode);
 				minimizeClause(conflict);
+				if(opt_verb>1){
+					printFullClause();
+					printf("CTL Clause:\n");
+					printLearntClause(conflict);
+					printf("Symmetry Clause:\n");
+					printLearntClause(symmetryConflict);
+				}
 				if (symmetryConflict.size()<conflict.size() && (symmetryConflict.size() != 0)) {
-					if(opt_verb>1){
-						printFullClause();
-				  		printf("CTL Clause:\n");
-						printLearntClause(conflict);
-				  		printf("Symmetry Clause:\n");
-				  		printLearntClause(symmetryConflict);
-					}
 					symmetryConflict.copyTo(conflict); // Overwrite conflict
 					if(opt_verb>1)
 						printf("propagateTheory returns false. Choosing to learn symmetry conflict rather than CTL conflict, since it is smaller (%d literals vs %d literals)\n", symmetryConflict.size(), conflict.size());
 				} else
 					if(opt_verb>1)
 						printf("propagateTheory returns false, since formula is asserted true, but fails to hold in the overapproximation (and hence also fails to hold in the underapproximation) \n");
-
+				toSolver(conflict);
+				theoryPropagationAppendix(startproptime);
+				return false;
+			}
+			// There is no CTL conflict, so just learn the symmetry conflict, if there is one
+			if (symmetryConflict.size() != 0) {
+				symmetryConflict.copyTo(conflict); // Overwrite conflict
 				toSolver(conflict);
 				theoryPropagationAppendix(startproptime);
 				return false;
@@ -907,13 +914,16 @@ public:
 			for (int j = i+1; j < g_over->states(); j++) {
 				if (i != startNode && j != startNode) {
 					if(opt_verb>1)
-						printf("SYMMETRY: checking %d > %d\n", i, j);
-					if (g_under->nIncident(i) > g_over->nIncident(j)) { // We have a conflict
+						printf("SYMMETRY: checking if edges(%d) = %d > %d = edges(%d)\n", i, g_under->nIncidentEnabled(i), g_over->nIncidentEnabled(j), j);
+					if (g_under->nIncidentEnabled(i) > g_over->nIncidentEnabled(j)) { // We have a conflict
+						if(opt_verb>1) {
+							printf("SYMMETRY: We have a conflict, with states %d (%d edges) and %d (%d edges)\n", i, g_under->nIncidentEnabled(i), j, g_over->nIncidentEnabled(j));
+						}
 						tmpConflict.clear();
 						learnClauseSymmetryConflictEdges(tmpConflict, i, j);
 						if (conflict.size() == 0 || conflict.size() > tmpConflict.size()) {
 							if(opt_verb>1) {
-								printf("SYMMETRY: The currently smallest symmetry conflict is with states %d (%d edges) and %d (%d edges)\n", i, g_under->nIncident(i), j, g_over->nIncident(j));
+								printf("SYMMETRY: The currently smallest symmetry conflict is with states %d (%d edges) and %d (%d edges)\n", i, g_under->nIncidentEnabled(i), j, g_over->nIncidentEnabled(j));
 							}
 							tmpConflict.copyTo(conflict);
 							if (opt_ctl_symmetry.operator int() == 4) // Mode 4: return first conflict instead of looking for smallest
@@ -966,7 +976,7 @@ public:
 			to = g_under->getEdge(e.id).to;
 			if (g_under->edgeEnabled(e.id)) {
 				if(opt_verb>1) {
-					printf("SYMMETRY-Edges: states(%d)>states(%d): learning that edge %d from state %d could be false\n", i, j, e.id, i);
+					printf("SYMMETRY-Edges: edges(%d)>edges(%d): learning that edge %d from state %d could be false\n", i, j, e.id, i);
 				}
 				Lit l = ~mkLit(getTransitionVar(e.id), false);
 				conflict.push(l);
