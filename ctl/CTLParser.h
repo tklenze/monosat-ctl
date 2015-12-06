@@ -56,6 +56,7 @@ class CTLParser: public Parser<B, Solver> {
 	int nodeCount = 0;
 	vec<char> tmp;
 
+	// kripke <#Nodes> <#Edges> <#APs> <KripkeID>
 	void readKripke(B& in, Solver& S) {
 		if (opt_ignore_theories) {
 			skipLine(in);
@@ -83,6 +84,59 @@ class CTLParser: public Parser<B, Solver> {
 
 
 		//  return ev;
+	}
+
+	// Shorthand form for a simpler input format, where edges and nodeAPs don't have to be explicitly added
+	// kctlsimp <KripkeID> <#Nodes> <#APs> <selfloops> <ctlvar> <CTL formula>"
+	void readCTLSimp(B& in, Solver& S) {
+		if (opt_ignore_theories) {
+			skipLine(in);
+			return;
+		}
+
+
+		int kripkeID = parseInt(in);
+		int n = parseInt(in); //num node
+		int a = parseInt(in);  //number of APs
+		int loops = parseInt(in);  //loops: 0 or 1
+		int ctlVar = parseInt(in) - 1;
+
+
+		kripkes.growTo(kripkeID + 1);
+
+		CTLTheorySolver *kripke = new CTLTheorySolver(&S, kripkeID);
+		kripke->newNodes(n);
+		kripke->g_under->setAPCount(a);
+		kripke->g_over->setAPCount(a);
+		nodeCount = n;
+		kripke->initNodeAPVarLookup(n, a);
+		kripkes[kripkeID] = kripke;
+
+
+		while (n * (n - 1 + loops) + n * a + 2 >= S.nVars())
+			S.newVar();
+
+		int var = 0;
+		// Add edges
+		for (int i = 0; i < n; i ++) {
+			for (int j = 0; j < n; j ++) {
+				if (i!=j || loops == 1) {
+					kripkes[kripkeID]->newTransition(i, j, var);
+					var++;
+				}
+			}
+		}
+		// Add stateAPs
+		for (int i = 0; i < n; i ++) {
+			for (int j = 0; j < a; j ++) {
+				kripkes[kripkeID]->newNodeAP(i, j, var);
+				var++;
+			}
+		}
+		// if we wanted, we could replace the explicit ctlVar by: (n * (n - 1 + loops) + n * a)
+		addCTL(in, S, kripkeID, 0, ctlVar); // set initial node to 0
+
+		S.addTheory(kripke);
 	}
 
 	void readNodeAP(B& in, Solver& S) {
@@ -149,7 +203,11 @@ class CTLParser: public Parser<B, Solver> {
 		int kripkeID = parseInt(in);
 		int initialNode = parseInt(in);
 		int ctlVar = parseInt(in) - 1;
+		addCTL(in, S, kripkeID, initialNode, ctlVar);
+	}
 
+	// Helper function that assumes everything besides the formula has already been read.
+	void addCTL(B& in, Solver& S, int kripkeID, int initialNode, int ctlVar) {
 
 		// OK, this is probably a bit controversial, but I will attach AND the formula together with AG (EX True).
 		// TODO properly document this, and make it able to switch it off
@@ -392,6 +450,11 @@ public:
 		else if (*in == 'c') {
 			//just a comment
 			return false;
+		} else if (match(in, "kctlsimp")) {
+			skipWhitespace(in);
+			readCTLSimp(in, S);
+			skipWhitespace(in);
+			return true;
 		} else if (match(in, "kripke")) {
 			skipWhitespace(in);
 			readKripke(in, S);

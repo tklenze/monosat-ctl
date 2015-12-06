@@ -739,7 +739,7 @@ public:
 
 		if (opt_ctl_symmetry > 0) { // 0 means turn off symmetry reduction
 			symmetryConflict.clear();
-    		checkSymmetryConstraints(symmetryConflict, initialNode); // check if there is a conflict with the symmetry constraints under the current assignment, and if there is, build a clause to learn
+			checkStateLabelSymmetryConstraints(symmetryConflict, initialNode); // check if there is a conflict with the symmetry constraints under the current assignment, and if there is, build a clause to learn
         	minimizeClause(symmetryConflict);
 		}
 
@@ -842,7 +842,7 @@ public:
 	 * Do Symmetry Reduction. Check if any of the symmetry constraints are violated, and if so, build a clause describing this conflict.
 	 * Calling this function might yield a conflict, but it does not have to if there is none.
 	 */
-	void checkSymmetryConstraints(vec<Lit> & conflict, int startNode) {
+	void checkStateLabelSymmetryConstraints(vec<Lit> & conflict, int startNode) {
 		for (int i = 0; i < g_over->states(); i++) {
 			for (int j = i+1; j < g_over->states(); j++) {
 				if (i != startNode && j != startNode) {
@@ -859,7 +859,7 @@ public:
 								printf("SYMMETRY: %d and %d have possibly the same state label and %d has %d > %d edges\n", i, j, i, g_under->nIncidentEnabled(i), g_over->nIncidentEnabled(j));
 							}
 							tmpConflict.clear();
-							learnClauseSymmetryConflictEdges(tmpConflict, i, j);
+							learnClauseSymmetryConflictEquivStateLabels(tmpConflict, i, j);
 							if (conflict.size() == 0 || conflict.size() > tmpConflict.size()) {
 								if(opt_verb>1) {
 									printf("SYMMETRY: The currently smallest symmetry conflict is with states %d and %d\n", i, j);
@@ -889,6 +889,11 @@ public:
 				}
 			}
 		}
+	}
+
+	void checkEdgeSymmetryConstraints(vec<Lit> & conflict, int startNode) {
+
+		//learnClauseSymmetryConflictEdges
 	}
 
 	// Build a clause that describes a symmetry conflict with respect to state labels. We assume that the state label for b is
@@ -921,14 +926,16 @@ public:
 				assert(value(l)==l_False);
 			}
 		} while ((!g_under->isAPinStateLabel(a, i) || g_over->isAPinStateLabel(b, i)) && i != 0); // stop when under_AP(a, i)=1 and over_AP(b, i)=0
-		// Assertion not valid anymore, because we use this code from learnClauseSymmetryConflictEdges, where it is not the case
+		// Assertion not valid anymore, because we use this code from learnClauseSymmetryConflictEquivStateLabels, where it is not the case
 		//assert(g_under->isAPinStateLabel(a, i) && !g_over->isAPinStateLabel(b, i)); // there must be something that differentiates them, otherwise a and b have the same statelabel!
 	}
 
+	void learnClauseSymmetryConflictEdges(vec<Lit> & conflict, int i, int j) { }
+
 	/*
-	 * Only called when statelabels are strictly equal (i.e. have been fully determined by the assignment) and number of outgoing edges of i is greater than in j.
+	 * Called when statelabels are equal and number of outgoing edges of i is greater than in j.
 	 */
-	void learnClauseSymmetryConflictEdges(vec<Lit> & conflict, int i, int j) { // j>i, but over_numedges(j) < under_numedges(i) and statelabels are equivalent.
+	void learnClauseSymmetryConflictEquivStateLabels(vec<Lit> & conflict, int i, int j) { // j>i, but over_numedges(j) < under_numedges(i) and statelabels are equivalent.
 		DynamicGraph<int>::Edge e;
 		int to;
 
