@@ -58,7 +58,10 @@ public:
 			}
 		}
 	}
-
+	// Just an alias, since this is what we call the function in CTLSolver
+	Bitset* solveFormula(CTLFormula& f) {
+		return solve(f);
+	}
 	// Main solve function.
 	Bitset* solve(CTLFormula& f) {
 		switch (f.op) {

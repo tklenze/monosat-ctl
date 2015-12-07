@@ -722,8 +722,8 @@ public:
 		//should leak exactly 2 bitsets ('bit_under' and 'bit_over') in the above calls
 		long bitsets = Bitset::remainingBitsets();
 
-		Bitset* bit_under = ctl_under->solve(*f);
-		Bitset* bit_over = ctl_over->solve(*f);
+		Bitset* bit_under = ctl_under->solveFormula(*f);
+		Bitset* bit_over = ctl_over->solveFormula(*f);
 		long remainingbitsets Bitset::remainingBitsets()-bitsets;
 		if(remainingbitsets !=2){
 			throw std::runtime_error("Leaked bitsets during solve call!");
@@ -773,8 +773,8 @@ public:
 			}
 
 			// Otherwise, we have to look for a CTL conflict, too.
-			bit_over = ctl_over->solve(*f);
-			ctl_over->resetSwap();
+			bit_over = ctl_over->solveFormula(*f);
+			ctl_over->reset();
 			if (!bit_over->operator [](initialNode)) { // we know value(ctl_lit)==l_True
 				learnClausePos(conflict, *f, initialNode);
 				minimizeClause(conflict);
@@ -804,8 +804,8 @@ public:
 				return false;
 			}
 		} else { // Ignore symmetry
-			bit_over = ctl_over->solve(*f);
-			ctl_over->resetSwap();
+			bit_over = ctl_over->solveFormula(*f);
+			ctl_over->reset();
 			if (!bit_over->operator [](initialNode)) { // we know value(ctl_lit)==l_True
 				learnClausePos(conflict, *f, initialNode);
 				minimizeClause(conflict);
@@ -1230,28 +1230,36 @@ public:
 
 	// At least one of the two parts of AND must be false, and we use the one which is false to build a clause
 	void learnAND(vec<Lit> & conflict, CTLFormula &subf1, CTLFormula &subf2, int startNode) {
-
-		long bitsets = Bitset::remainingBitsets();
-		Bitset* phi1_under = ctl_under->solve(subf1);
-		Bitset* phi1_over = ctl_over->solve(subf1);
+/*
+		long bitsets = Bitset::remainingBitsets();*/
+		Bitset* phi1_under = ctl_under->solveFormula(subf1);
+		Bitset* phi1_over = ctl_over->solveFormula(subf1);
+		/*
 		long leaked = Bitset::remainingBitsets()-bitsets;
 		if(leaked!=2){
 			throw std::runtime_error("Leaked bitsets during solve call in learnAND.1!");
 		}
+		*/
 
-		ctl_under->resetSwap();
-		ctl_over->resetSwap();
+		ctl_under->reset();
+		ctl_over->reset();
 
+		/*
 		bitsets = Bitset::remainingBitsets();
-		Bitset* phi2_under = ctl_under->solve(subf2);
-		Bitset* phi2_over = ctl_over->solve(subf2);
+				*/
+
+		Bitset* phi2_under = ctl_under->solveFormula(subf2);
+		Bitset* phi2_over = ctl_over->solveFormula(subf2);
+		/*
+
 		leaked = Bitset::remainingBitsets()-bitsets;
 		//should leak exactly 2 bitsets ('bit_under' and 'bit_over') in the above calls
 		if(leaked!=2){
 			throw std::runtime_error("Leaked bitsets during solve call in learnAND.2!");
 		}
-		ctl_under->resetSwap();
-		ctl_over->resetSwap();
+		*/
+		ctl_under->reset();
+		ctl_over->reset();
 
 		if(opt_verb>1) {
 			printf("learnAND: phi1_over: "); ctl_standalone_over->printStateSet(*phi1_over);
@@ -1296,27 +1304,27 @@ public:
 	// Both parts of the OR must be false, and we OR together their recursively learned sub-clauses
 	void learnOR(vec<Lit> & conflict, CTLFormula &subf1, CTLFormula &subf2, int startNode) {
 
-		long bitsets = Bitset::remainingBitsets();
-		Bitset* phi1_under = ctl_under->solve(subf1);
-		Bitset* phi1_over = ctl_over->solve(subf1);
-		long leaked = Bitset::remainingBitsets()-bitsets;
+		//long bitsets = Bitset::remainingBitsets();
+		Bitset* phi1_under = ctl_under->solveFormula(subf1);
+		Bitset* phi1_over = ctl_over->solveFormula(subf1);
+		/*long leaked = Bitset::remainingBitsets()-bitsets;
 		if(leaked!=2){
 			throw std::runtime_error("Leaked bitsets during solve call in learnOR.1!");
-		}
+		}		 */
 
-		ctl_under->resetSwap();
-		ctl_over->resetSwap();
+		ctl_under->reset();
+		ctl_over->reset();
 
-		bitsets = Bitset::remainingBitsets();
-		Bitset* phi2_under = ctl_under->solve(subf2);
-		Bitset* phi2_over = ctl_over->solve(subf2);
-		leaked = Bitset::remainingBitsets()-bitsets;
+		//bitsets = Bitset::remainingBitsets();
+		Bitset* phi2_under = ctl_under->solveFormula(subf2);
+		Bitset* phi2_over = ctl_over->solveFormula(subf2);
+		/*leaked = Bitset::remainingBitsets()-bitsets;
 		//should leak exactly 2 bitsets ('bit_under' and 'bit_over') in the above calls
 		if(leaked!=2){
 			throw std::runtime_error("Leaked bitsets during solve call in learnOR.2!");
-		}
-		ctl_under->resetSwap();
-		ctl_over->resetSwap();
+		}		 */
+		ctl_under->reset();
+		ctl_over->reset();
 
 
 		if(opt_verb>1) {
@@ -1364,15 +1372,15 @@ public:
 	//
 	void learnAX(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
 		long bitsets = Bitset::remainingBitsets();
-		Bitset* phi_under = ctl_under->solve(subf);
-		Bitset* phi_over = ctl_over->solve(subf);
+		Bitset* phi_under = ctl_under->solveFormula(subf);
+		Bitset* phi_over = ctl_over->solveFormula(subf);
 		long leaked = Bitset::remainingBitsets()-bitsets;
 		if(leaked!=2){
 			throw std::runtime_error("Leaked bitsets during solve call in learnAX.1!");
 		}
 
-		ctl_under->resetSwap();
-		ctl_over->resetSwap();
+		ctl_under->reset();
+		ctl_over->reset();
 
 		DynamicGraph<int>::Edge e;
 		int from, to;
@@ -1403,7 +1411,7 @@ public:
 	// Successor to "phi-reachable" state satisfies phi or enable transition from any "phi-reachable" state
 	//
 	void learnEG(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
-		Bitset* phi = ctl_over->solve(subf); // Solve the inner subformula of the entire formula
+		Bitset* phi = ctl_over->solveFormula(subf); // Solve the inner subformula of the entire formula
 		//ctl_over->printStateSet(*phi);
 		//printFormula2(subf);
 
@@ -1460,18 +1468,18 @@ public:
 	void learnAG(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
 		// Solve the inner subformula of the entire formula
 		long bitsets = Bitset::remainingBitsets();
-		Bitset* phi_under = ctl_under->solve(subf);
-		Bitset* phi_over = ctl_over->solve(subf);
+		Bitset* phi_under = ctl_under->solveFormula(subf);
+		Bitset* phi_over = ctl_over->solveFormula(subf);
 		long leaked = Bitset::remainingBitsets()-bitsets;
 		if(leaked!=2){
 			throw std::runtime_error("Leaked bitsets during solve call in learnAG.1!");
 		}
 
-		ctl_under->resetSwap();
-		ctl_over->resetSwap();
+		ctl_under->reset();
+		ctl_over->reset();
 
-		Bitset* phi_under_so = ctl_standalone_under->solve(subf);
-		Bitset* phi_over_so = ctl_standalone_over->solve(subf);
+		Bitset* phi_under_so = ctl_standalone_under->solveFormula(subf);
+		Bitset* phi_over_so = ctl_standalone_over->solveFormula(subf);
 
 		if(opt_verb>1) {
 			printf("learnAG: phi_under "); ctl_standalone_over->printStateSet(*phi_under);
@@ -1564,7 +1572,7 @@ public:
 	// Find all reachable states, at least one of them should satisfy phi OR there should be a transition enabled
 	// from a reachable state to an unreachable state
 	void learnEF(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
-		Bitset* phi = ctl_over->solve(subf); // Solve the inner subformula of the entire formula
+		Bitset* phi = ctl_over->solveFormula(subf); // Solve the inner subformula of the entire formula
 
 		DynamicGraph<int>::Edge e;
 		int from, to;
@@ -1618,8 +1626,8 @@ public:
 
 	// Find lasso of states that satisfy not phi, at least one of them should satisfy phi OR one of the edges of the lasso should become disabled
 	void learnAF(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
-		Bitset* phi_under = ctl_under->solve(subf); // Solve the inner subformula of the entire formula
-		Bitset* phi_over = ctl_over->solve(subf); // Solve the inner subformula of the entire formula
+		Bitset* phi_under = ctl_under->solveFormula(subf); // Solve the inner subformula of the entire formula
+		Bitset* phi_over = ctl_over->solveFormula(subf); // Solve the inner subformula of the entire formula
 
 		DynamicGraph<int>::Edge e;
 		int from, to, eid, pred, predpred, to1, from1;
@@ -1731,8 +1739,8 @@ public:
 	// For EU this should be pretty much the same, except that we only add transitions from phi-reachable to non-phi-reachable
 	// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME Not done yet
 	void learnEW(vec<Lit> & conflict, CTLFormula &subf1, CTLFormula &subf2, int startNode) { // phi EW psi
-		Bitset* phi = ctl_over->solve(subf1); // Solve the inner subformula of the entire formula
-		Bitset* psi = ctl_over->solve(subf2); // Solve the inner subformula of the entire formula
+		Bitset* phi = ctl_over->solveFormula(subf1); // Solve the inner subformula of the entire formula
+		Bitset* psi = ctl_over->solveFormula(subf2); // Solve the inner subformula of the entire formula
 
 
 		DynamicGraph<int>::Edge e;
@@ -1809,8 +1817,8 @@ public:
 	// For EU this should be pretty much the same, except that we only add transitions from phi-reachable to non-phi-reachable
 	// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME Not done yet
 	void learnEU(vec<Lit> & conflict, CTLFormula &subf1, CTLFormula &subf2, int startNode) { // phi EW psi
-		Bitset* phi = ctl_over->solve(subf1); // Solve the inner subformula of the entire formula
-		Bitset* psi = ctl_over->solve(subf2); // Solve the inner subformula of the entire formula
+		Bitset* phi = ctl_over->solveFormula(subf1); // Solve the inner subformula of the entire formula
+		Bitset* psi = ctl_over->solveFormula(subf2); // Solve the inner subformula of the entire formula
 
 
 		DynamicGraph<int>::Edge e;
@@ -1889,7 +1897,7 @@ public:
 		// We will only proceed to do efficient clause learning if AG EX True holds. Otherwise learn default clause.
 		// The strategy in learnAND will compare both this clause to the clause learned from AG EX True and will prefer the smaller one.
 		// So it's not a problem that we learn a full clause here, it will not end up being learned (rather something on AG EX True will be)
-		Bitset* infinitePaths = ctl_under->solve(*fAGEXTrue);
+		Bitset* infinitePaths = ctl_under->solveFormula(*fAGEXTrue);
 		if(!infinitePaths->operator [](startNode)) {
 			if(opt_verb>1)
 				printf("learnAW: learning full clause, since AG EX True does not hold\n");
@@ -1898,12 +1906,12 @@ public:
 			return;
 		}
 
-		Bitset* phi1_under = ctl_under->solve(subf1); // Solve the inner subformula of the entire formula
-		Bitset* phi1_over = ctl_over->solve(subf1); // Solve the inner subformula of the entire formula
-		Bitset* phi2_under = ctl_under->solve(subf2); // Solve the inner subformula of the entire formula
-		Bitset* phi2_over = ctl_over->solve(subf2); // Solve the inner subformula of the entire formula
-		Bitset* fAll_under = ctl_under->solve(fAll); // Solve the inner subformula of the entire formula
-		Bitset* fAll_over = ctl_over->solve(fAll); // Solve the inner subformula of the entire formula
+		Bitset* phi1_under = ctl_under->solveFormula(subf1); // Solve the inner subformula of the entire formula
+		Bitset* phi1_over = ctl_over->solveFormula(subf1); // Solve the inner subformula of the entire formula
+		Bitset* phi2_under = ctl_under->solveFormula(subf2); // Solve the inner subformula of the entire formula
+		Bitset* phi2_over = ctl_over->solveFormula(subf2); // Solve the inner subformula of the entire formula
+		Bitset* fAll_under = ctl_under->solveFormula(fAll); // Solve the inner subformula of the entire formula
+		Bitset* fAll_over = ctl_over->solveFormula(fAll); // Solve the inner subformula of the entire formula
 
 		DynamicGraph::Edge e;
 		int from, to, eid, pred, predpred, to1, from1;
@@ -2035,12 +2043,12 @@ public:
 	//
 	// We take an additional fAll parameter, which contains the entire formula. I.e. fAll = subf1 AW subf2. This is not checked.
 	void learnAW(vec<Lit> & conflict, CTLFormula &subf1, CTLFormula &subf2, int startNode, CTLFormula &fAll) {
-		Bitset* phi1_under = ctl_under->solve(subf1); // Solve the inner subformula of the entire formula
-		Bitset* phi1_over = ctl_over->solve(subf1); // Solve the inner subformula of the entire formula
-		Bitset* phi2_under = ctl_under->solve(subf2); // Solve the inner subformula of the entire formula
-		Bitset* phi2_over = ctl_over->solve(subf2); // Solve the inner subformula of the entire formula
-		Bitset* fAll_under = ctl_under->solve(fAll); // Solve the inner subformula of the entire formula
-		Bitset* fAll_over = ctl_over->solve(fAll); // Solve the inner subformula of the entire formula
+		Bitset* phi1_under = ctl_under->solveFormula(subf1); // Solve the inner subformula of the entire formula
+		Bitset* phi1_over = ctl_over->solveFormula(subf1); // Solve the inner subformula of the entire formula
+		Bitset* phi2_under = ctl_under->solveFormula(subf2); // Solve the inner subformula of the entire formula
+		Bitset* phi2_over = ctl_over->solveFormula(subf2); // Solve the inner subformula of the entire formula
+		Bitset* fAll_under = ctl_under->solveFormula(fAll); // Solve the inner subformula of the entire formula
+		Bitset* fAll_over = ctl_over->solveFormula(fAll); // Solve the inner subformula of the entire formula
 
 		DynamicGraph<int>::Edge e;
 		int from, to, eid, pred, predpred, to1, from1;
@@ -2136,12 +2144,12 @@ public:
 	//
 	// We take an additional fAll parameter, which contains the entire formula. I.e. fAll = subf1 AW subf2. This is not checked.
 	void learnAU(vec<Lit> & conflict, CTLFormula &subf1, CTLFormula &subf2, int startNode, CTLFormula &fAll) {
-		Bitset* phi1_under = ctl_under->solve(subf1); // Solve the inner subformula of the entire formula
-		Bitset* phi1_over = ctl_over->solve(subf1); // Solve the inner subformula of the entire formula
-		Bitset* phi2_under = ctl_under->solve(subf2); // Solve the inner subformula of the entire formula
-		Bitset* phi2_over = ctl_over->solve(subf2); // Solve the inner subformula of the entire formula
-		Bitset* fAll_under = ctl_under->solve(fAll); // Solve the inner subformula of the entire formula
-		Bitset* fAll_over = ctl_over->solve(fAll); // Solve the inner subformula of the entire formula
+		Bitset* phi1_under = ctl_under->solveFormula(subf1); // Solve the inner subformula of the entire formula
+		Bitset* phi1_over = ctl_over->solveFormula(subf1); // Solve the inner subformula of the entire formula
+		Bitset* phi2_under = ctl_under->solveFormula(subf2); // Solve the inner subformula of the entire formula
+		Bitset* phi2_over = ctl_over->solveFormula(subf2); // Solve the inner subformula of the entire formula
+		Bitset* fAll_under = ctl_under->solveFormula(fAll); // Solve the inner subformula of the entire formula
+		Bitset* fAll_over = ctl_over->solveFormula(fAll); // Solve the inner subformula of the entire formula
 
 		DynamicGraph<int>::Edge e;
 		int from, to, eid, pred, predpred, to1, from1;
@@ -2188,8 +2196,8 @@ public:
 			CTLFormula* fAFphi2 = newCTLFormula();
 			fAFphi2->op = AF;
 			fAFphi2->operand1 = &subf2;
-			Bitset* AFphi2_under = ctl_under->solve(*fAFphi2); // Solve the inner subformula of the entire formula
-			Bitset* AFphi2_over = ctl_over->solve(*fAFphi2); // Solve the inner subformula of the entire formula
+			Bitset* AFphi2_under = ctl_under->solveFormula(*fAFphi2); // Solve the inner subformula of the entire formula
+			Bitset* AFphi2_over = ctl_over->solveFormula(*fAFphi2); // Solve the inner subformula of the entire formula
 
 			if(opt_verb>1) {
 				printf("learnAU: These are the under and overapproximations for AF q: ");
@@ -2370,8 +2378,8 @@ public:
 		}
 
 		// Check solution against our own standalone CTL solver.
-		Bitset* bit_standalone_over = ctl_standalone_over->solve(*f);
-		Bitset* bit_standalone_under = ctl_standalone_under->solve(*f);
+		Bitset* bit_standalone_over = ctl_standalone_over->solveFormula(*f);
+		Bitset* bit_standalone_under = ctl_standalone_under->solveFormula(*f);
 		if(opt_verb>1)
 			printf("check_solved making sure that solution agrees with standalone CTL solver...\n");
 
@@ -2432,7 +2440,7 @@ SPEC
 		 * */
 
 		// Compute set of states satisfying AG EX True
-		Bitset* infinitePaths = ctl_standalone_over->solve(*fAGEXTrue);
+		Bitset* infinitePaths = ctl_standalone_over->solveFormula(*fAGEXTrue);
 
 		std::string nuSMVInput = "MODULE main\nVAR\n  state: {"; // prints Output sentence on screen
 

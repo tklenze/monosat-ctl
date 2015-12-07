@@ -30,10 +30,8 @@ public:
 	DynamicKripke* originalk;
 	DynamicKripke* originalotherk;
 	DynamicKripke* tmpk;
-	Bitset *tmp1bitset;
-	Bitset *tmp2bitset;
-	bool tmp1bitsetAvailable;
-	bool tmp2bitsetAvailable;
+	vec<Bitset*> bitsets;
+	vec<bool> bitsetsAvail;
 
 	int id;
 	CTLSolver(int myid, DynamicKripke& myk, DynamicKripke& myotherk) {
@@ -43,12 +41,81 @@ public:
 		originalk = &myk;
 		originalotherk = &myotherk;
 		tmpk = NULL;
-		tmp1bitset = new Bitset(k->states());
-		tmp2bitset = new Bitset(k->states());
-		tmp1bitsetAvailable = true;
-		tmp2bitsetAvailable = true;
 	};
 	~CTLSolver() {};
+
+	int getFreshBitset() {
+		int i = getDirtyBitset();
+		bitsets[i]->memset(false);
+		return i;
+	}
+
+	int getDirtyBitset() {
+		for (int j = 0; j < bitsetsAvail.size(); j++) {
+			printf("%d: %d | ", j, bitsetsAvail[j]);
+		}
+		int i;
+
+		// Look for an available bitset in vector
+		for (i = 0; i < bitsetsAvail.size(); i++) {
+			if (bitsetsAvail[i]) {
+				bitsetsAvail[i] = false; // set to false
+
+				printf("getFreshBitset() returns existing bitset %d  ", i);
+				for (int j = 0; j < bitsetsAvail.size(); j++) {
+					printf("%d: %d | ", j, bitsetsAvail[j]);
+				}
+				printf("\n");
+				return i;
+			}
+		}
+		// Nothing free, create new one
+		i = bitsetsAvail.size();
+		bitsets.growTo(i + 1);
+		bitsetsAvail.growTo(i + 1);
+		bitsetsAvail[i] = false; // set to false
+		bitsets[i] = new Bitset(k->states());
+
+		printf("getFreshBitset() creates new bitset %d  ", i);
+		for (int j = 0; j < bitsetsAvail.size(); j++) {
+			printf("%d: %d | ", j, bitsetsAvail[j]);
+		}
+		printf("\n");
+
+		return i;
+	}
+	void freeBitset(int i) {
+		for (int j = 0; j < bitsetsAvail.size(); j++) {
+			printf("%d: %d | ", j, bitsetsAvail[j]);
+		}
+
+		assert(i < bitsetsAvail.size());
+		if (!bitsetsAvail[i])
+			bitsetsAvail[i] = true; // set to false
+		else
+			throw std::runtime_error("Trying to free a bitset that is available!");
+
+		printf("freeBitset cleaned bitset %d  ", i);
+		for (int j = 0; j < bitsetsAvail.size(); j++) {
+			printf("%d: %d | ", j, bitsetsAvail[j]);
+		}
+		printf("\n");
+
+	}
+
+	void reset() {
+		resetBitsets();
+		resetSwap();
+	}
+
+	void resetBitsets() {
+		printf("Resetting Bitsets\n");
+		for (int i = 0; i < bitsetsAvail.size(); i++) {
+			if (!bitsetsAvail[i]) {
+				bitsetsAvail.operator [](i) = true; // set to false
+			}
+		}
+	}
 
 	void swapKripkes() {
 		tmpk = k;
@@ -64,28 +131,28 @@ public:
 
 	// Predecessors with respect to the Kripke structure's transition system.
 	// Note that this creates a new Bitset, you might want to reuse an existing bitset and use the next function below
-	Bitset* pre(Bitset& st) {
-		Bitset *prest = new Bitset(k->states());
-		for (int i=0; i<k->nEdgeIDs();i++) {
-			if (st[k->getEdge(i).to] && k->transitionEnabled(i)) {
-				prest->set(k->getEdge(i).from);
-			}
-		}
+
+	int pre(int st) {
+		int prest = getDirtyBitset(); // we clean later
+		pre(st, prest);
 		return prest;
 	}
-
-	// Use st as input and store pre(st) in out. Out does not need to be clean
-	void pre(Bitset& st, Bitset& out) {
-		out.memset(false);
+	void pre(int st, int prest) {
+		bitsets[prest]->memset(false); // clean it, just in case
 		for (int i=0; i<k->nEdgeIDs();i++) {
-			if (st[k->getEdge(i).to] && k->transitionEnabled(i)) {
-				out.set(k->getEdge(i).from);
+			if (bitsets[st]->operator [](k->getEdge(i).to) && k->transitionEnabled(i)) {
+				bitsets[prest]->set(k->getEdge(i).from);
 			}
 		}
+	}
+
+	Bitset* solveFormula(CTLFormula& f) {
+		int i = solve(f);
+		return bitsets[i];
 	}
 
 	// Main solve function.
-	Bitset* solve(CTLFormula& f) {
+	int solve(CTLFormula& f) {
 		switch (f.op) {
 		case ID : return solveID(f);
 		case True : return solveTrue(f);
@@ -102,28 +169,28 @@ public:
 		case AF : return solveAF(f);
 		case AW : return solveAW(f);
 		case AU : return solveAU(f);
-		default : return NULL;
+		default: throw std::runtime_error("CTLSolver.solve has encountered unsupported CTL operator!");
 		}
 	}
 
-	Bitset* solveID(CTLFormula& f) {
+	int solveID(CTLFormula& f) {
 		assert(f.op == ID);
-		Bitset *st = new Bitset(k->states());
+		int st = getFreshBitset();
 		for (int i=0; i<k->states();i++) {
 			if (k->statelabel[i]->operator [](f.value))
-				st->set(i);
+				bitsets[st]->set(i);
 		}
 		return st;
 	}
 
-	Bitset* solveTrue(CTLFormula& f) {
+	int solveTrue(CTLFormula& f) {
 		assert(f.op == True);
-		Bitset *st = new Bitset(k->states());
-		st->memset(true);
+		int st = getDirtyBitset(); // dirty is OK, we clean it
+		bitsets[st]->memset(true);
 		return st;
 	}
 
-	Bitset* solveNEG(CTLFormula& f) {
+	int solveNEG(CTLFormula& f) {
 		assert(f.op == NEG);
 
 		// Be smart about double negations and cancel them out
@@ -133,48 +200,40 @@ public:
 
 		swapKripkes();
 
-		Bitset *st = solve(*f.operand1);
-		st->NotSelf();
+		int st = solve(*f.operand1);
+		bitsets[st]->NotSelf();
 
 		swapKripkes();
 
 		return st;
 	}
 
-	Bitset* solveOR(CTLFormula& f) {
+	int solveOR(CTLFormula& f) {
 		assert(f.op == OR);
-		Bitset *st1 = solve(*f.operand1);
-		Bitset *st2 = solve(*f.operand2);
-		st1->Or(*st2);
-		delete st2;
+		int st1 = solve(*f.operand1);
+		int st2 = solve(*f.operand2);
+		bitsets[st1]->Or(*bitsets[st2]);
+		freeBitset(st2);
 		return st1;
 	}
 
 	// OK, this is not strictly needed, since we have "negation" and "or", but for performance
 	// reasons we implement it directly anyway.
-	Bitset* solveAND(CTLFormula& f) {
+	int solveAND(CTLFormula& f) {
 		assert(f.op == AND);
-		Bitset *st1 = solve(*f.operand1);
-		Bitset *st2 = solve(*f.operand2);
-		st1->And(*st2);
-		delete st2;
+		int st1 = solve(*f.operand1);
+		int st2 = solve(*f.operand2);
+		bitsets[st1]->And(*bitsets[st2]);
+		freeBitset(st2);
 		return st1;
 	}
 
-	Bitset* solveEX(CTLFormula& f) {
+	int solveEX(CTLFormula& f) {
 		assert(f.op == EX);
-		Bitset *st = solve(*f.operand1);
+		int st = solve(*f.operand1);
 
-		Bitset *prest = new Bitset(k->states());
-		pre(*st,*prest);
-		delete st;
-
-		/* FIXME Debug output
-		printf("Called solveEX("); printFormula(&f);
-		printf(", with state set: "); printStateSet(*st);
-		printf(", solution: "); printStateSet(*pre(*st));
-		printf("\n");
-		 */
+		int prest = pre(st);
+		freeBitset(st);
 
 		return prest;
 
@@ -190,57 +249,57 @@ public:
 	 * This is where it gets interesting. We look for the largest solution of X = μ(p) ∩ pre(X).
 	 * Luckily for us, we can simply compute the fixpoint
 	 */
-	Bitset* solveEG(CTLFormula& f) {
+	int solveEG(CTLFormula& f) {
 		assert(f.op == EG);
 		// μ(p)
-		Bitset *st = solve(*f.operand1);
+		int st = solve(*f.operand1);
 		// Auxiliary bitsets
-		Bitset *andst = new Bitset(k->states());
-		Bitset *prest = new Bitset(k->states());
+		int andst = getFreshBitset();
+		int prest = getFreshBitset();
 
 		while (true) { // fixpoint guaranteed to exist, therefore this will terminate
 			// pre(X)
-			pre(*st, *prest); // prest := pre(st)
+			pre(st, prest); // prest := pre(st)
 
 			// μ(p) ∩ pre(X).
-			st->And(*prest, *andst); // andst := st ∩ prest
+			bitsets[st]->And(*bitsets[prest], *bitsets[andst]); // andst := st ∩ prest
 
-			if (st->Equiv(*andst)) {
-				delete st;
-				delete prest;
+			if (bitsets[st]->Equiv(*bitsets[andst])) {
+				freeBitset(st);
+				freeBitset(prest);
 				return andst; // fixpoint reached
 			}
-			st->copyFrom(*andst);
+			bitsets[st]->copyFrom(*bitsets[andst]);
 		}
 	}
 
 	// X = μ(p) ∪ pre(X)
-	Bitset* solveEF(CTLFormula& f) {
+	int solveEF(CTLFormula& f) {
 		assert(f.op == EF);
 		// μ(p)
-		Bitset *st = solve(*f.operand1);
+		int st = solve(*f.operand1);
 		// Auxiliary bitsets
-		Bitset *orst = new Bitset(k->states());
-		Bitset *prest = new Bitset(k->states());
+		int orst = getFreshBitset();
+		int prest = getFreshBitset();
 
 		while (true) { // fixpoint guaranteed to exist, therefore this will terminate
 			// pre(X)
-			pre(*st, *prest); // prest := pre(st)
+			pre(st, prest); // prest := pre(st)
 
 			// μ(p) ∩ pre(X).
-			st->Or(*prest, *orst); // andst := st ∩ prest
+			bitsets[st]->Or(*bitsets[prest], *bitsets[orst]); // andst := st ∩ prest
 
-			if (st->Equiv(*orst)) {
-				delete st;
-				delete prest;
+			if (bitsets[st]->Equiv(*bitsets[orst])) {
+				freeBitset(st);
+				freeBitset(prest);
 				return orst; // fixpoint reached
 			}
-			st->copyFrom(*orst);
+			bitsets[st]->copyFrom(*bitsets[orst]);
 		}
 	}
 
 	// φ 1 EW φ 2 ≡ EG φ 1 ∨ (φ 1 EU φ 2 )
-	Bitset* solveEW(CTLFormula& f) {
+	int solveEW(CTLFormula& f) {
 		CTLFormula phi1 = {EG, f.operand1, NULL, 0};
 		CTLFormula phi2 = {EU, f.operand1, f.operand2, 0};
 		CTLFormula phi3 = {OR, &phi1, &phi2, 0};
@@ -248,43 +307,43 @@ public:
 	}
 
 	// X = μ(q) ∪ (μ(p) ∩ pre(X)).
-	Bitset* solveEU(CTLFormula& f) {
+	int solveEU(CTLFormula& f) {
 		assert(f.op == EU);
 		// μ(p)
-		Bitset *st1 = solve(*f.operand1);
-		Bitset *st2 = solve(*f.operand2);
+		int st1 = solve(*f.operand1);
+		int st2 = solve(*f.operand2);
 		// Auxiliary bitsets
-		Bitset *andst = new Bitset(k->states());
-		Bitset *orst = new Bitset(k->states());
-		Bitset *prest = new Bitset(k->states());
-		Bitset *x = new Bitset(k->states());
-		x->copyFrom(*st2); // start out with X as μ(q)
+		int andst = getFreshBitset();
+		int orst = getFreshBitset();
+		int prest = getFreshBitset();
+		int x = getFreshBitset();
+		bitsets[x]->copyFrom(*bitsets[st2]); // start out with X as μ(q)
 
 		while (true) { // fixpoint guaranteed to exist, therefore this will terminate
 			// pre(X)
-			pre(*x, *prest);
+			pre(x, prest);
 
 			// μ(p) ∩ pre(X).
-			st1->And(*prest, *andst); // andst := st1 ∩ prest
+			bitsets[st1]->And(*bitsets[prest], *bitsets[andst]); // andst := st1 ∩ prest
 
 			// μ(q) ∪ (μ(p) ∩ pre(X)).
-			andst->Or(*st2, *orst); // orst := andset ∪ st2
+			bitsets[andst]->Or(*bitsets[st2], *bitsets[orst]); // orst := andset ∪ st2
 
-			if (x->Equiv(*orst)) {
-				delete st1;
-				delete st2;
-				delete andst;
-				delete x;
-				delete prest;
+			if (bitsets[x]->Equiv(*bitsets[orst])) {
+				freeBitset(st1);
+				freeBitset(st2);
+				freeBitset(andst);
+				freeBitset(x);
+				freeBitset(prest);
 				return orst; // fixpoint reached
 			}
 
-			x->copyFrom(*orst);
+			bitsets[x]->copyFrom(*bitsets[orst]);
 		}
 	}
 
 	// AX φ ≡ ¬ EX ¬φ
-	Bitset* solveAX(CTLFormula& f) {
+	int solveAX(CTLFormula& f) {
 		CTLFormula phi1 = {NEG, f.operand1, NULL, 0};
 		CTLFormula phi2 = {EX, &phi1, NULL, 0};
 		CTLFormula phi3 = {NEG, &phi2, NULL, 0};
@@ -292,7 +351,7 @@ public:
 	}
 
 	// AF φ ≡ ¬ EG ¬φ
-	Bitset* solveAF(CTLFormula& f) {
+	int solveAF(CTLFormula& f) {
 		CTLFormula phi1 = {NEG, f.operand1, NULL, 0};
 		CTLFormula phi2 = {EG, &phi1, NULL, 0};
 		CTLFormula phi3 = {NEG, &phi2, NULL, 0};
@@ -300,7 +359,7 @@ public:
 	}
 
 	// AG φ ≡ ¬ EF ¬φ
-	Bitset* solveAG(CTLFormula& f) {
+	int solveAG(CTLFormula& f) {
 		CTLFormula phi1 = {NEG, f.operand1, NULL, 0};
 		CTLFormula phi2 = {EF, &phi1, NULL, 0};
 		CTLFormula phi3 = {NEG, &phi2, NULL, 0};
@@ -308,7 +367,7 @@ public:
 	}
 
 	// φ 1 AW φ 2 ≡ ¬(¬φ 2 EU ¬(φ 1 ∨ φ 2 ))
-	Bitset* solveAW(CTLFormula& f) {
+	int solveAW(CTLFormula& f) {
 		CTLFormula phi1 = {OR, f.operand1, f.operand2, 0};
 		CTLFormula phi2 = {NEG, &phi1, NULL, 0};
 		CTLFormula phi3 = {NEG, f.operand2, NULL, 0};
@@ -317,7 +376,7 @@ public:
 		return solve(phi5);
 	}
 	// φ 1 AU φ 2 ≡ AF φ 2 ∧ (φ 1 AW φ 2 ))
-	Bitset* solveAU(CTLFormula& f) {
+	int solveAU(CTLFormula& f) {
 		CTLFormula phi1 = {AF, f.operand2, NULL, 0};
 		CTLFormula phi2 = {AW, f.operand1, f.operand2, 0};
 		CTLFormula phi3 = {AND, &phi1, &phi2, 0};
