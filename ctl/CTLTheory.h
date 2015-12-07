@@ -786,9 +786,9 @@ public:
 					printLearntClause(symmetryConflict);
 				}
 				if (symmetryConflict.size()<conflict.size() && (symmetryConflict.size() != 0)) {
-					symmetryConflict.copyTo(conflict); // Overwrite conflict
 					if(opt_verb>1)
 						printf("propagateTheory returns false. Choosing to learn symmetry conflict rather than CTL conflict, since it is smaller (%d literals vs %d literals)\n", symmetryConflict.size(), conflict.size());
+					symmetryConflict.copyTo(conflict); // Overwrite conflict
 				} else
 					if(opt_verb>1)
 						printf("propagateTheory returns false, since formula is asserted true, but fails to hold in the overapproximation (and hence also fails to hold in the underapproximation) \n");
