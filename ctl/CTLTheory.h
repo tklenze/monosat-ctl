@@ -2295,10 +2295,18 @@ public:
 	void drawFull(int from, int to) {
 	}
 
-	bool check_solved() {
-		// hacked in something to print out the solution
+	void printStats(int detailLevel) {
 		printf("\nUsed %d / %d bitset allocations for %d / %d bitsets\n", ctl_over->bitsetsmax, ctl_under->bitsetsmax, ctl_over->bitsetcounter, ctl_under->bitsetcounter);
 
+		printf("Propagations: %ld (%f s, avg: %f s, %ld skipped)\n", stats_propagations, propagationtime,
+				(propagationtime) / ((double) stats_propagations + 1), stats_propagations_skipped);
+		printf("Decisions: %ld (%f s, avg: %f s)\n", stats_decisions, stats_decision_time,
+				(stats_decision_time) / ((double) stats_decisions + 1));
+		printf("Conflicts: %ld \n", stats_num_conflicts);
+	}
+
+	bool check_solved() {
+		// hacked in something to print out the solution
 		printf("\n--------------------\nSolution\n");
 		g_under->draw(0, -1, true);
 
