@@ -32,15 +32,17 @@ public:
 	DynamicKripke* tmpk;
 	vec<Bitset*> bitsets;
 	vec<bool> bitsetsAvail;
+	bool isover; // indicates that this is the solver for the Overapprox., not the Underapprox.
 
 	int id;
-	CTLSolver(int myid, DynamicKripke& myk, DynamicKripke& myotherk) {
+	CTLSolver(int myid, DynamicKripke& myk, DynamicKripke& myotherk, bool myisover) {
 		id = myid;
 		k = &myk;
 		otherk = &myotherk;
 		originalk = &myk;
 		originalotherk = &myotherk;
 		tmpk = NULL;
+		isover = myisover;
 	};
 	~CTLSolver() {};
 
@@ -51,9 +53,12 @@ public:
 	}
 
 	int getDirtyBitset() {
+		/*
+		printf("%d getBitset", isover);
 		for (int j = 0; j < bitsetsAvail.size(); j++) {
 			printf("%d: %d | ", j, bitsetsAvail[j]);
 		}
+		*/
 		int i;
 
 		// Look for an available bitset in vector
@@ -61,11 +66,13 @@ public:
 			if (bitsetsAvail[i]) {
 				bitsetsAvail[i] = false; // set to false
 
+				/*
 				printf("getFreshBitset() returns existing bitset %d  ", i);
 				for (int j = 0; j < bitsetsAvail.size(); j++) {
 					printf("%d: %d | ", j, bitsetsAvail[j]);
 				}
 				printf("\n");
+				*/
 				return i;
 			}
 		}
@@ -76,18 +83,21 @@ public:
 		bitsetsAvail[i] = false; // set to false
 		bitsets[i] = new Bitset(k->states());
 
+		/*
 		printf("getFreshBitset() creates new bitset %d  ", i);
 		for (int j = 0; j < bitsetsAvail.size(); j++) {
 			printf("%d: %d | ", j, bitsetsAvail[j]);
 		}
 		printf("\n");
+		*/
 
 		return i;
 	}
 	void freeBitset(int i) {
-		for (int j = 0; j < bitsetsAvail.size(); j++) {
-			printf("%d: %d | ", j, bitsetsAvail[j]);
-		}
+		//printf("%d freeBitset %d: ", isover, i);
+		//for (int j = 0; j < bitsetsAvail.size(); j++) {
+		//	printf("%d: %d | ", j, bitsetsAvail[j]);
+		//}
 
 		assert(i < bitsetsAvail.size());
 		if (!bitsetsAvail[i])
@@ -95,11 +105,11 @@ public:
 		else
 			throw std::runtime_error("Trying to free a bitset that is available!");
 
-		printf("freeBitset cleaned bitset %d  ", i);
-		for (int j = 0; j < bitsetsAvail.size(); j++) {
-			printf("%d: %d | ", j, bitsetsAvail[j]);
-		}
-		printf("\n");
+		//printf("freeBitset cleaned bitset %d  ", i);
+		//for (int j = 0; j < bitsetsAvail.size(); j++) {
+		//	printf("%d: %d | ", j, bitsetsAvail[j]);
+		//}
+		//printf("\n");
 
 	}
 
@@ -109,12 +119,19 @@ public:
 	}
 
 	void resetBitsets() {
-		printf("Resetting Bitsets\n");
+		//printf("%d getBitset", isover);
+		//printf("Resetting Bitsets\n");
 		for (int i = 0; i < bitsetsAvail.size(); i++) {
 			if (!bitsetsAvail[i]) {
 				bitsetsAvail.operator [](i) = true; // set to false
 			}
 		}
+		//printf("freeBitset cleaned all bitsets  ");
+		//for (int j = 0; j < bitsetsAvail.size(); j++) {
+		//	printf("%d: %d | ", j, bitsetsAvail[j]);
+		//}
+		//printf("\n");
+
 	}
 
 	void swapKripkes() {
@@ -146,9 +163,15 @@ public:
 		}
 	}
 
-	Bitset* solveFormula(CTLFormula& f) {
+	// Similar to solve(), but returns a bitset pointer// and resets the system beforhand.
+	int solveFormula(CTLFormula& f) {
+		//printf("%d: Solving ", isover);
+		//printFormula(&f);
+		//printf("\n");
+		//reset();
 		int i = solve(f);
-		return bitsets[i];
+		//printf("%d: Done solving\n", isover);
+		return i;
 	}
 
 	// Main solve function.
