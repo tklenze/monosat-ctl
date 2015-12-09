@@ -1976,6 +1976,8 @@ lbool Solver::solve_() {
 	} else if (status == l_False) {
 		assert(ok);
 	}
+	theories[0]->check_solved(); // FIXME TMP remove this
+
 	
 	assumptions.clear();
 	return status;

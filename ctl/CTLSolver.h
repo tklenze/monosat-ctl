@@ -34,6 +34,8 @@ public:
 	vec<bool> bitsetsAvail;
 	bool isover; // indicates that this is the solver for the Overapprox., not the Underapprox.
 
+	int bitsetcounter;
+	int bitsetsmax;
 	int id;
 	CTLSolver(int myid, DynamicKripke& myk, DynamicKripke& myotherk, bool myisover) {
 		id = myid;
@@ -43,6 +45,8 @@ public:
 		originalotherk = &myotherk;
 		tmpk = NULL;
 		isover = myisover;
+		bitsetcounter = 0;
+		bitsetsmax = 0;
 	};
 	~CTLSolver() {};
 
@@ -53,6 +57,7 @@ public:
 	}
 
 	int getDirtyBitset() {
+		bitsetcounter++;
 		/*
 		printf("%d getBitset", isover);
 		for (int j = 0; j < bitsetsAvail.size(); j++) {
@@ -82,6 +87,7 @@ public:
 		bitsetsAvail.growTo(i + 1);
 		bitsetsAvail[i] = false; // set to false
 		bitsets[i] = new Bitset(k->states());
+		bitsetsmax = i;
 
 		/*
 		printf("getFreshBitset() creates new bitset %d  ", i);

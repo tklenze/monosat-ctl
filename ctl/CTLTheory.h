@@ -1590,6 +1590,7 @@ public:
 				}
 			}
 		}
+		ctl_over->freeBitset(visited);
 	}
 
 	// Find lasso of states that satisfy not phi, at least one of them should satisfy phi OR one of the edges of the lasso should become disabled
@@ -1731,12 +1732,12 @@ public:
 
 		std::queue <int> list; // this queue denotes the current path of visited states, whose neighbours have to be inspected
 		list.push(startNode);
-		Bitset *visited = new Bitset(g_over->states()); // This bitset denotes all the visited nodes
+		int visited = ctl_over->getFreshBitset();
 		// We first employ BFS to find all phi-reachable nodes. We add them to the clause
 		while (list.size() > 0) { // FIFO queue of visited elements
 			from = list.front();
 			list.pop();
-			visited->set(from);
+			ctl_over->bitsets[visited]->set(from);
 			if(opt_verb>1)
 				printf("learnEW: Considering state %d\n", from);
 
@@ -1747,9 +1748,9 @@ public:
 					printf("learnEW: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
 
 
-				if (g_over->edgeEnabled(e.id) && !visited->operator [](to) && ctl_over->bitsets[phi]->operator [](to)) {
+				if (g_over->edgeEnabled(e.id) && !ctl_over->bitsets[visited]->operator [](to) && ctl_over->bitsets[phi]->operator [](to)) {
 					list.push(to);
-				} else if (g_over->edgeEnabled(e.id) && !visited->operator [](to) && !ctl_over->bitsets[phi]->operator [](to)) {
+				} else if (g_over->edgeEnabled(e.id) && !ctl_over->bitsets[visited]->operator [](to) && !ctl_over->bitsets[phi]->operator [](to)) {
 					learnClausePos(conflict, subf1, to); // learn that this successor to a phi-reachable state satisfy phi
 					learnClausePos(conflict, subf2, to); // learn that this successor to a phi-reachable state satisfy psi
 				}
@@ -1759,8 +1760,8 @@ public:
 		}
 		// Now for part two of the clause:
 		// iterate over edges from visited states; add literal to enable these edges
-		for (int i = 0; i < visited->size(); i++) {
-			if (visited->operator [](i)) {
+		for (int i = 0; i < ctl_over->bitsets[visited]->size(); i++) {
+			if (ctl_over->bitsets[visited]->operator [](i)) {
 				for (int j = 0; j < g_over->nIncident(i); j++) {
 					e = g_over->incident(i, j);
 					to = g_over->getEdge(e.id).to;
@@ -1777,6 +1778,7 @@ public:
 		}
 		ctl_over->freeBitset(phi);
 		ctl_over->freeBitset(psi);
+		ctl_over->freeBitset(visited);
 	}
 
 
@@ -1808,12 +1810,12 @@ public:
 
 		std::queue <int> list; // this queue denotes the current path of visited states, whose neighbours have to be inspected
 		list.push(startNode);
-		Bitset *visited = new Bitset(g_over->states()); // This bitset denotes all the visited nodes
+		int visited = ctl_over->getFreshBitset();
 		// We first employ BFS to find all phi-reachable nodes. We add them to the clause
 		while (list.size() > 0) { // FIFO queue of visited elements
 			from = list.front();
 			list.pop();
-			visited->set(from);
+			ctl_over->bitsets[visited]->set(from);
 			if(opt_verb>1)
 				printf("learnEU: Considering state %d\n", from);
 
@@ -1824,9 +1826,9 @@ public:
 					printf("learnEU: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
 
 
-				if (g_over->edgeEnabled(e.id) && !visited->operator [](to) && ctl_over->bitsets[phi]->operator [](to)) {
+				if (g_over->edgeEnabled(e.id) && !ctl_over->bitsets[visited]->operator [](to) && ctl_over->bitsets[phi]->operator [](to)) {
 					list.push(to);
-				} else if (g_over->edgeEnabled(e.id) && !visited->operator [](to) && !ctl_over->bitsets[phi]->operator [](to)) {
+				} else if (g_over->edgeEnabled(e.id) && !ctl_over->bitsets[visited]->operator [](to) && !ctl_over->bitsets[phi]->operator [](to)) {
 					learnClausePos(conflict, subf1, to); // learn that this successor to a phi-reachable state satisfy phi
 					learnClausePos(conflict, subf2, to); // learn that this successor to a phi-reachable state satisfy psi
 				}
@@ -1836,13 +1838,13 @@ public:
 		}
 		// Now for part two of the clause:
 		// iterate over edges from visited states; add literal to enable these edges
-		for (int i = 0; i < visited->size(); i++) {
-			if (visited->operator [](i)) {
+		for (int i = 0; i < ctl_over->bitsets[visited]->size(); i++) {
+			if (ctl_over->bitsets[visited]->operator [](i)) {
 				for (int j = 0; j < g_over->nIncident(i); j++) {
 					e = g_over->incident(i, j);
 					to = g_over->getEdge(e.id).to;
 
-					if (!g_over->edgeEnabled(e.id) && !visited->operator [](to)) { // This is where the difference to EW is... we don't learn the edge if it merely leads to a phi-reachable state
+					if (!g_over->edgeEnabled(e.id) && !ctl_over->bitsets[visited]->operator [](to)) { // This is where the difference to EW is... we don't learn the edge if it merely leads to a phi-reachable state
 						if(opt_verb>1)
 							printf("learnEU: Learning that the edge between %d and %d (edgeid: %d) could be enabled.\n", i, to, e.id);
 						Lit l = ~mkLit(e.id, true);
@@ -1854,6 +1856,7 @@ public:
 		}
 		ctl_over->freeBitset(phi);
 		ctl_over->freeBitset(psi);
+		ctl_over->freeBitset(visited);
 	}
 /*
  * NOTE: This was a previous attempt, where we actually tried finding a lasso, instead of just a finite path. It *does* work, but it
@@ -2072,6 +2075,7 @@ public:
 			ctl_under->freeBitset(phi1_under);
 			ctl_under->freeBitset(phi2_under);
 			ctl_under->freeBitset(fAll_under);
+			ctl_over->freeBitset(visited);
 			return;
 		}
 		learnClausePos(conflict, subf1, from); // learn that this reachable node satisfy phi
@@ -2095,6 +2099,7 @@ public:
 		ctl_under->freeBitset(phi1_under);
 		ctl_under->freeBitset(phi2_under);
 		ctl_under->freeBitset(fAll_under);
+		ctl_over->freeBitset(visited);
 	}
 
 
@@ -2292,6 +2297,8 @@ public:
 
 	bool check_solved() {
 		// hacked in something to print out the solution
+		printf("\nUsed %d / %d bitset allocations for %d / %d bitsets\n", ctl_over->bitsetsmax, ctl_under->bitsetsmax, ctl_over->bitsetcounter, ctl_under->bitsetcounter);
+
 		printf("\n--------------------\nSolution\n");
 		g_under->draw(0, -1, true);
 
