@@ -1,0 +1,8 @@
+c Example due to 2002 paper:
+c Branching vs. Linear Time: Final Showdown
+c by Moshe Y. Vardi
+c     <#Vars> <#Clauses>
+p cnf 100     1
+100 0
+c kctlsimp <KripkeID> <#Nodes> <#APs> <selfloops> <ctlvar> <CTL formula>"
+kctlsimp   0          6        1      1           100        (AF AX 0 AND NOT AX AF 0)
