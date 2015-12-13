@@ -241,45 +241,6 @@ class CTLParser: public Parser<B, Solver> {
 		// printf("\n"); printFormula(f); printf("\n");
 	}
 
-	// currently not called FIXME
-	void printPctlOutput() {
-		// This should probably not be here, but I can't figure out a better place:
-		// Generate input file for PCTL-SMT
-		std::string pctlInput = getFormulaPctlFormat(*f);
-
-		// dirty hack to remove double negations, since PCTL-SMT doesn't like it in its input
-		std::string notnot = "not not";
-	    size_t start_pos = 0;
-	    while((start_pos = pctlInput.find(notnot, start_pos)) != std::string::npos) {
-	    	pctlInput.replace(start_pos, notnot.length(), "");
-	    }
-		//printf("pctlInput:\n\n");
-		//std::cout << pctlInput;
-		//printf("\n\n");
-
-		std::ofstream inputConvertedToPctl;
-
-		inputConvertedToPctl.open("regression-testing/inputConvertedToPctl.txt", std::ios_base::out);
-		inputConvertedToPctl << pctlInput;
-		inputConvertedToPctl.close();
-
-/*		   char cwd[1024];
-		   if (getcwd(cwd, sizeof(cwd)) != NULL)
-		       fprintf(stdout, "Current working dir: %s\n", cwd);*/
-		if (opt_verb > 0) {
-			std::string pctlsyscall = "java -jar regression-testing/pctl.jar regression-testing/inputConvertedToPctl.txt "+std::to_string(nodeCount)+" | regression-testing/yices-1.0.40/bin/yices | grep sat";
-			printf("Run this command to verify result with PCTL, in case phi is in the intersection of PCTL and CTL:\n");
-			std::cout << pctlsyscall;
-			char pctlsyscallchar[1024];
-			strncpy(pctlsyscallchar, pctlsyscall.c_str(), sizeof(pctlsyscallchar));
-			pctlsyscallchar[sizeof(pctlsyscallchar) - 1] = 0;
-			printf("\n\n");
-			//std::system(pctlsyscallchar);
-		}
-
-		return;
-	}
-
 	/*CTLFormula* parseCTL(B& in) {
 			skipWhitespace(in);
 			CTLFormula* f = newCTLFormula();

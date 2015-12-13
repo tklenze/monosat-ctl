@@ -30,6 +30,41 @@ namespace Monosat {
 		skipWhitespace(in);
 
 		CTLFormula* f = newCTLFormula();
+
+
+		// These are hardcoded synonyms for the Clarke/Emerson Mutex example
+		if (match(in, "NCS1")) {
+			f->op = ID;
+			f->value = 0;
+			return f;
+		}
+		if (match(in, "NCS2")) {
+			f->op = ID;
+			f->value = 3;
+			return f;
+		}
+		if (match(in, "TRY1")) {
+			f->op = ID;
+			f->value = 1;
+			return f;
+		}
+		if (match(in, "TRY2")) {
+			f->op = ID;
+			f->value = 4;
+			return f;
+		}
+		if (match(in, "CS1")) {
+			f->op = ID;
+			f->value = 2;
+			return f;
+		}
+		if (match(in, "CS2")) {
+			f->op = ID;
+			f->value = 5;
+			return f;
+		}
+
+		// Normal parsing
 		if (match(in, "NEG") || match(in, "NOT") || match(in, "~") || match(in, "!")) {
 			CTLFormula* inside = parseCTL(in);
 			f->op = NEG;
