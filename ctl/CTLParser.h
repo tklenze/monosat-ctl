@@ -55,6 +55,10 @@ class CTLParser: public Parser<B, Solver> {
 	int edgeCount = 0;
 	int nodeCount = 0;
 	vec<char> tmp;
+	int currentKripkeID; // when reading multiple lines, we have to keep track of which Kripke structure we are talking about.
+	int currentInitialNode;
+	CTLFormula* f; // when reading multiple lines, keep track of the already passed subformula
+
 
 	// kripke <#Nodes> <#Edges> <#APs> <KripkeID>
 	void readKripke(B& in, Solver& S) {
@@ -111,7 +115,8 @@ class CTLParser: public Parser<B, Solver> {
 		nodeCount = n;
 		kripke->initNodeAPVarLookup(n, a);
 		kripkes[kripkeID] = kripke;
-
+		currentKripkeID = kripkeID;
+		currentInitialNode = 0;
 
 		while (n * (n - 1 + loops) + n * a + 2 >= S.nVars())
 			S.newVar();
@@ -134,7 +139,7 @@ class CTLParser: public Parser<B, Solver> {
 			}
 		}
 		// if we wanted, we could replace the explicit ctlVar by: (n * (n - 1 + loops) + n * a)
-		addCTL(in, S, kripkeID, 0, ctlVar); // set initial node to 0
+		addCTL(in, S, ctlVar); // set initial node to 0
 
 		S.addTheory(kripke);
 	}
@@ -203,11 +208,13 @@ class CTLParser: public Parser<B, Solver> {
 		int kripkeID = parseInt(in);
 		int initialNode = parseInt(in);
 		int ctlVar = parseInt(in) - 1;
-		addCTL(in, S, kripkeID, initialNode, ctlVar);
+		currentKripkeID = kripkeID;
+		currentInitialNode = initialNode;
+		addCTL(in, S, ctlVar);
 	}
 
 	// Helper function that assumes everything besides the formula has already been read.
-	void addCTL(B& in, Solver& S, int kripkeID, int initialNode, int ctlVar) {
+	void addCTL(B& in, Solver& S, int ctlVar) {
 
 		// OK, this is probably a bit controversial, but I will attach AND the formula together with AG (EX True).
 		// TODO properly document this, and make it able to switch it off
@@ -216,13 +223,26 @@ class CTLParser: public Parser<B, Solver> {
 		std::string tmp = std::string("(AG EX True AND ")+in+std::string(")");
 		//std::cout << tmp;
 		char *fSafe = &tmp[0];
-		CTLFormula* f = parseCTL(fSafe);
+		f = parseCTL(fSafe);
 
-		kripkes[kripkeID]->setCTL(*f, initialNode);
-		kripkes[kripkeID]->newCTLVar(ctlVar);
+		kripkes[currentKripkeID]->setCTL(*f, currentInitialNode);
+		kripkes[currentKripkeID]->newCTLVar(ctlVar);
+	}
+	void readCTLLine(B& in, Solver& S) {
+		++in;
+		CTLFormula* fLine = parseCTL(in);
+		CTLFormula* fBoth = newCTLFormula();
+		fBoth->op = AND;
+		fBoth->operand1 = f;
+		fBoth->operand2 = fLine;
+		f = fBoth;
 
+		kripkes[currentKripkeID]->setCTL(*f, currentInitialNode);
+		// printf("\n"); printFormula(f); printf("\n");
+	}
 
-
+	// currently not called FIXME
+	void printPctlOutput() {
 		// This should probably not be here, but I can't figure out a better place:
 		// Generate input file for PCTL-SMT
 		std::string pctlInput = getFormulaPctlFormat(*f);
@@ -246,14 +266,16 @@ class CTLParser: public Parser<B, Solver> {
 /*		   char cwd[1024];
 		   if (getcwd(cwd, sizeof(cwd)) != NULL)
 		       fprintf(stdout, "Current working dir: %s\n", cwd);*/
-		std::string pctlsyscall = "java -jar regression-testing/pctl.jar regression-testing/inputConvertedToPctl.txt "+std::to_string(nodeCount)+" | regression-testing/yices-1.0.40/bin/yices | grep sat";
-		printf("Run this command to verify result with PCTL, in case phi is in the intersection of PCTL and CTL:\n");
-		std::cout << pctlsyscall;
-		char pctlsyscallchar[1024];
-		strncpy(pctlsyscallchar, pctlsyscall.c_str(), sizeof(pctlsyscallchar));
-		pctlsyscallchar[sizeof(pctlsyscallchar) - 1] = 0;
-		printf("\n\n");
-		//std::system(pctlsyscallchar);
+		if (opt_verb > 0) {
+			std::string pctlsyscall = "java -jar regression-testing/pctl.jar regression-testing/inputConvertedToPctl.txt "+std::to_string(nodeCount)+" | regression-testing/yices-1.0.40/bin/yices | grep sat";
+			printf("Run this command to verify result with PCTL, in case phi is in the intersection of PCTL and CTL:\n");
+			std::cout << pctlsyscall;
+			char pctlsyscallchar[1024];
+			strncpy(pctlsyscallchar, pctlsyscall.c_str(), sizeof(pctlsyscallchar));
+			pctlsyscallchar[sizeof(pctlsyscallchar) - 1] = 0;
+			printf("\n\n");
+			//std::system(pctlsyscallchar);
+		}
 
 		return;
 	}
@@ -469,6 +491,9 @@ public:
 			return true;
 		} else if (match(in, "kctl")) {
 			readCTL(in, S);
+			return true;
+		} else if (match(in, "and") || match(in, "AND") || match(in, "&") || match(in, "^")) {
+			readCTLLine(in, S);
 			return true;
 		} else if (match(in, "kdraw")) {
 			readDraw(in, S);
