@@ -829,6 +829,24 @@ public:
 			}
 			ctl_over->freeBitset(bit_over);
 		}
+
+		// We can use the following code to simply print out all models to the CTL formula.
+		// We do this by checking if the formula holds in the underapproximation. If so, then it must hold in every extension.
+		// We learn the naive clause so that we don't get the exact same case again
+		if (opt_all_solutions > 0) {
+			bit_under = ctl_under->solveFormula(*f);
+			if (ctl_under->bitsets[bit_under]->operator [](initialNode)) { // It is true in the underapproximation, therefore it is a solution
+				learnNaiveClause(conflict, *f, initialNode);
+				toSolver(conflict);
+				printf("--------------------\nFound new Solution set (conflict size: %d):\n", conflict.size());
+				drawCurrentAssignment();
+				ctl_under->freeBitset(bit_under);
+				theoryPropagationAppendix(startproptime);
+				return false;
+			} else {
+				ctl_under->freeBitset(bit_under);
+			}
+		}
 		theoryPropagationAppendix(startproptime);
 		return true;
 	}
@@ -1021,9 +1039,11 @@ public:
 
 	// Learn the trivial clause. Used for debugging purposes or to check if our clause learning algorithms are correct
 	void learnNaiveClause(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
+		int w;
 		for (int v = 0; v < vars.size(); v++) {
-			if(value(v)!=l_Undef){
-				Lit l = ~mkLit(v,value(v)==l_False);
+			w = vars[v].solverVar;
+			if(value(w)!=l_Undef){
+				Lit l = ~mkLit(w,value(w)==l_False);
 				assert(value(l)==l_False);
 				conflict.push(l);
 			}
@@ -2243,7 +2263,6 @@ public:
 
 
 	void printLearntClause(vec<Lit> & c) {
-		if(opt_verb>1){
       	for (int v = 0; v < c.size(); v++) {
       		if (sign(c[v])) {
       			printf("-%d ", var(c[v])+1);
@@ -2268,24 +2287,21 @@ public:
 			}
 		}
 		printf("\n");
-		}
 	}
 
 	void printFullClause() {
-		if(opt_verb>1){
-			printf("Full Clause:\n");
+		printf("Full Clause:\n");
 
-			vec<Lit> c;
-			for (int v = 0; v < vars.size(); v++) {
-				if(value(v)!=l_Undef){
-					Lit l = ~mkLit(v,value(v)==l_False);
-					assert(value(l)==l_False);
-					c.push(l);
-				}
+		vec<Lit> c;
+		for (int v = 0; v < vars.size(); v++) {
+			if(value(v)!=l_Undef){
+				Lit l = ~mkLit(v,value(v)==l_False);
+				assert(value(l)==l_False);
+				c.push(l);
 			}
-
-			printLearntClause(c);
 		}
+
+		printLearntClause(c);
 	}
 
 	bool solveTheory(vec<Lit> & conflict) {
@@ -2313,7 +2329,7 @@ public:
 	bool check_solved() {
 		// hacked in something to print out the solution
 		printf("\n--------------------\nSolution\n");
-		g_under->draw(0, -1, true);
+		g_under->draw(initialNode, -1, true);
 
 		// Sanity check: Make sure that the solution is fully determined (no Undef) and the Kripke structure corresponds to the variables
 		for (int edgeID = 0; edgeID < edge_labels.size(); edgeID++) {
@@ -2538,6 +2554,41 @@ SPEC
 			//std::system(pctlsyscallchar);
 		}
 	}
+
+	void drawCurrentAssignment() {
+		printf("digraph{\n");
+
+		for (int i = 0; i < g_over->nodes(); i++) {
+			std::string s = "node [label=\"" + std::to_string(i) + std::string(": {");
+			for (int j = 0; j < g_over->apcount; j++) {
+				if (g_over->statelabel[i]->operator [](j) == g_under->statelabel[i]->operator [](j))
+					s += std::to_string(g_over->statelabel[i]->operator [](j));
+				else
+					s += "x";
+			}
+			s += "}\"] ";
+			std::cout << s << "[shape=circle] " << i << ";\n";
+		}
+
+		if(initialNode>=0){
+			printf("node [label=\"start\",shape=plaintext] start;\n");
+			printf("start->%d\n",initialNode);
+		}
+		// determined enabled transitions
+		for(int i = 0;i<g_over->transitions.size();i++){
+			if (g_over->transitions[i] && g_under->transitions[i]){
+				printf("%d->%d\n", g_over->getEdge(i).from,g_over->getEdge(i).to);
+			}
+		}
+		// undetermined transitions
+		for(int i = 0;i<g_over->transitions.size();i++){
+			if (g_over->transitions[i] && !g_under->transitions[i]){
+				printf("%d->%d [style=dashed]\n", g_over->getEdge(i).from,g_over->getEdge(i).to);
+			}
+		}
+		printf("}\n");
+	}
+
 
 	bool dbg_solved() {
 
