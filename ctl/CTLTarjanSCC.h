@@ -124,7 +124,7 @@ public:
 		for (int i = 0; i < g.nIncident(node); i++) {
 			auto & edge = g.incident(node, i);
 			int edgeID = edge.id;
-			if (g.edgeEnabled(edgeID)) {
+			if (k.edgeEnabled(edgeID)) {
 				int to = edge.node;
 
 				if (indices[to] < 0) {
@@ -176,7 +176,7 @@ public:
 
 						for(int i = 0;i<g.nIncoming(n);i++){
 							int edgeID = g.incoming(n,i).id;
-							if(g.edgeEnabled(edgeID) && g.incoming(n,i).node ==first){
+							if(k.edgeEnabled(edgeID) && g.incoming(n,i).node ==first){
 								scc_out->push_back(edgeID);
 								break;
 							}
