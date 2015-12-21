@@ -867,6 +867,7 @@ public:
 	;
 
 	// Sort and remove duplicates in the clause
+	// (This is important to call here, rather than in the SAT solver, so that multiple candidate clauses can be compared and the smallest returned)
 	void minimizeClause(vec<Lit> & ps) {
     	sort(ps);
     	int i, j;
