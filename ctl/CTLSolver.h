@@ -21,6 +21,7 @@
 #include "DynamicKripke.h"
 #include "CTLFormula.h"
 #include "CTLTarjanSCC.h"
+
 using namespace dgl;
 namespace Monosat {
 
@@ -33,6 +34,10 @@ public:
 	DynamicKripke* tmpk;
 	vec<Bitset*> bitsets;
 	vec<bool> bitsetsAvail;
+
+	std::vector<int> q;
+	std::vector<char> seen;
+
 	bool isover; // indicates that this is the solver for the Overapprox., not the Underapprox.
 
 	int bitsetcounter;
@@ -41,7 +46,7 @@ public:
 
 	CTLTarjansSCC<int>* tarjan;
 
-	CTLSolver(int myid, DynamicKripke& myk, DynamicKripke& myotherk, bool myisover) {
+	CTLSolver(int myid, DynamicKripke& myk, DynamicKripke& myotherk, bool myisover){
 		id = myid;
 		k = &myk;
 		otherk = &myotherk;
@@ -52,6 +57,7 @@ public:
 		bitsetcounter = 0;
 		bitsetsmax = 0;
 		tarjan = new CTLTarjansSCC<int>(myk.g, myk);
+
 	};
 	~CTLSolver() {};
 
@@ -312,9 +318,34 @@ public:
 
 	int solveEGwithFairness(CTLFormula& f) {
 		printf("Components: \n");
-		for (int i = 0; i < tarjan->numComponents(); ) {
-			printf("i: %i, isover: %d, tarjan: %d\n", i, isover, tarjan->getElement(i));
-			i++;
+		DynamicGraph<int> & g = k->g;
+		for (int i = 0; i < tarjan->numComponents();i++ ) {
+			//printf("i: %i, isover: %d, tarjan: %d\n", i, isover, tarjan->getElement(i));
+			int node = tarjan->getElement(i);
+			printf("Component %d:",i);
+			assert(q.size()==0);
+
+			seen.clear();
+			seen.resize(g.nodes(),false);
+
+			q.push_back(node);
+			seen[node]=true;
+
+			//do a DFS to recover the connected nodes
+			while(q.size()){
+				int u = q.back();
+				printf(" %d",u);
+
+
+				for(int j = 0;j<g.nIncident(u);j++){
+					int edgeID = g.incident(u,j).id;
+					int to = g.incident(u,j).node;
+					if(g.edgeEnabled(edgeID) && !seen[to]){//only traverse
+						seen[to]=true;
+						q.push_back(to);
+					}
+				}
+			}
 		}
 		printf("\n");
 
