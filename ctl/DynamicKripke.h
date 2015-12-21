@@ -31,6 +31,7 @@ namespace Monosat {
 
 class DynamicKripke{
 
+public:
 	DynamicGraph<int> g;
 	//std::vector<Bitset> edge_status;
 	int id;

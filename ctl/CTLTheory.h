@@ -830,6 +830,7 @@ public:
 			ctl_over->freeBitset(bit_over);
 		}
 
+
 		// We can use the following code to simply print out all models to the CTL formula.
 		// We do this by checking if the formula holds in the underapproximation. If so, then it must hold in every extension.
 		// We learn the naive clause so that we don't get the exact same case again

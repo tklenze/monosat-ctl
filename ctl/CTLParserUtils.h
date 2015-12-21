@@ -88,6 +88,18 @@ namespace Monosat {
 			return f;
 		}
 		if (match(in, "EG")) {
+			skipWhitespace(in);
+			if (match(in, "{")) {
+				do {
+					CTLFormula* c = parseCTL(in);
+					f->fairnessConstraints.push_back(c);
+					skipWhitespace(in);
+				} while (match(in, ","));
+				if (match(in, "}")) {
+				} else {
+					throw std::runtime_error("Syntax Error: Curly bracket not closed!");
+				}
+			}
 			CTLFormula* inside = parseCTL(in);
 			f->op = EG;
 			f->operand1 = inside;

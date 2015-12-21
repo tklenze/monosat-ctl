@@ -20,6 +20,7 @@
 #include "dgl/DynamicGraph.h"
 #include "DynamicKripke.h"
 #include "CTLFormula.h"
+#include "CTLTarjanSCC.h"
 using namespace dgl;
 namespace Monosat {
 
@@ -37,6 +38,9 @@ public:
 	int bitsetcounter;
 	int bitsetsmax;
 	int id;
+
+	CTLTarjansSCC<int>* tarjan;
+
 	CTLSolver(int myid, DynamicKripke& myk, DynamicKripke& myotherk, bool myisover) {
 		id = myid;
 		k = &myk;
@@ -47,6 +51,7 @@ public:
 		isover = myisover;
 		bitsetcounter = 0;
 		bitsetsmax = 0;
+		tarjan = new CTLTarjansSCC<int>(myk.g, myk);
 	};
 	~CTLSolver() {};
 
@@ -280,6 +285,9 @@ public:
 	 */
 	int solveEG(CTLFormula& f) {
 		assert(f.op == EG);
+
+		if (f.fairnessConstraints.size() > 0)
+			return solveEGwithFairness(f);
 		// μ(p)
 		int st = solve(*f.operand1);
 		// Auxiliary bitsets
@@ -300,6 +308,39 @@ public:
 			}
 			bitsets[st]->copyFrom(*bitsets[andst]);
 		}
+	}
+
+	int solveEGwithFairness(CTLFormula& f) {
+		printf("Components: \n");
+		for (int i = 0; i < tarjan->numComponents(); ) {
+			printf("i: %i, isover: %d, tarjan: %d\n", i, isover, tarjan->getElement(i));
+			i++;
+		}
+		printf("\n");
+
+// OLD code as a tmp fix. Ignoring fairness constraints
+		// μ(p)
+		int st = solve(*f.operand1);
+		// Auxiliary bitsets
+		int andst = getFreshBitset();
+		int prest = getFreshBitset();
+
+		while (true) { // fixpoint guaranteed to exist, therefore this will terminate
+			// pre(X)
+			pre(st, prest); // prest := pre(st)
+
+			// μ(p) ∩ pre(X).
+			bitsets[st]->And(*bitsets[prest], *bitsets[andst]); // andst := st ∩ prest
+
+			if (bitsets[st]->Equiv(*bitsets[andst])) {
+				freeBitset(st);
+				freeBitset(prest);
+				return andst; // fixpoint reached
+			}
+			bitsets[st]->copyFrom(*bitsets[andst]);
+		}
+
+
 	}
 
 	// X = μ(p) ∪ pre(X)

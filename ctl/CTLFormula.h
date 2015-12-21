@@ -11,9 +11,10 @@
 #include <stdio.h>
 #include "ctl/CTLParser.h"
 
+using namespace dgl;
+namespace Monosat {
 
-
-	// CTL Formula representation
+// CTL Formula representation
 
 	// CTL Operators, plus ID (identity operator, for formulas that are atomic) and NEG, OR, AND.
 	enum CTLOp { ID, True, NEG, OR, AND, EX, EF, EG, EW, EU, AX, AF, AG, AW, AU};
@@ -30,11 +31,27 @@
 		CTLFormula *operand1;
 		CTLFormula *operand2;
 		int value;
+		std::vector<CTLFormula *> fairnessConstraints;
 	};
 
 	CTLFormula* newCTLFormula() {
-		CTLFormula * f = new CTLFormula{ID, NULL, NULL, 0};
+		std::vector<CTLFormula *> fairnessC;
+		CTLFormula * f = new CTLFormula{ID, NULL, NULL, 0, fairnessC};
 		return f;
+	}
+
+	void printFormula(CTLFormula* foo);
+
+	void printFairnessConstraints(CTLFormula* f) {
+		if (f->fairnessConstraints.size() > 0) {
+			printf("{");
+			printFormula(f->fairnessConstraints.operator [](0));
+			for (int i = 1; i < f->fairnessConstraints.size(); i++) {
+				printf(", ");
+				printFormula(f->fairnessConstraints.operator [](i));
+			}
+			printf("} ");
+		}
 	}
 
 	void printFormula(CTLFormula* foo) {
@@ -48,7 +65,7 @@
 
 		case EX : printf("EX "); printFormula(f.operand1); break;
 		case EF : printf("EF "); printFormula(f.operand1); break;
-		case EG : printf("EG "); printFormula(f.operand1); break;
+		case EG : printf("EG "); printFairnessConstraints(foo); printFormula(f.operand1); break;
 		case EW : printf("("); printFormula(f.operand1); printf(" EW "); printFormula(f.operand2); printf(")"); break;
 		case EU : printf("("); printFormula(f.operand1); printf(" EU "); printFormula(f.operand2); printf(")"); break;
 
@@ -180,5 +197,5 @@
 		}
 		return s;
 	}
-
+}
 #endif /* CTL_FORMULA_H_ */
