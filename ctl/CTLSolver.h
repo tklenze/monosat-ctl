@@ -319,24 +319,21 @@ public:
 	int solveEGwithFairness(CTLFormula& f) {
 		printf("Components: \n");
 		DynamicGraph<int> & g = k->g;
+		seen.clear();
+		seen.resize(g.nodes(),false);
 		for (int i = 0; i < tarjan->numComponents();i++ ) {
 			//printf("i: %i, isover: %d, tarjan: %d\n", i, isover, tarjan->getElement(i));
 			int node = tarjan->getElement(i);
 			printf("Component %d:",i);
 			assert(q.size()==0);
-
-			seen.clear();
-			seen.resize(g.nodes(),false);
-
 			q.push_back(node);
 			seen[node]=true;
 
 			//do a DFS to recover the connected nodes
 			while(q.size()){
 				int u = q.back();
+				q.pop_back();
 				printf(" %d",u);
-
-
 				for(int j = 0;j<g.nIncident(u);j++){
 					int edgeID = g.incident(u,j).id;
 					int to = g.incident(u,j).node;
@@ -346,6 +343,7 @@ public:
 					}
 				}
 			}
+			printf("\n");
 		}
 		printf("\n");
 
