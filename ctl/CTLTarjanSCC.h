@@ -264,6 +264,11 @@ public:
 		assert(sccID < scc_set.size());
 		return scc_set[sccID].element;
 	}
+	int getComponentSize(int sccID) {
+		update();
+		assert(sccID < scc_set.size());
+		return scc_set[sccID].sz;
+	}
 
 	bool dbg_uptodate() {
 		return true;

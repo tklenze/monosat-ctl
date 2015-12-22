@@ -35,16 +35,16 @@ public:
 	vec<Bitset*> bitsets;
 	vec<bool> bitsetsAvail;
 
-	std::vector<int> q;
-	std::vector<char> seen;
-
 	bool isover; // indicates that this is the solver for the Overapprox., not the Underapprox.
 
 	int bitsetcounter;
 	int bitsetsmax;
 	int id;
 
+	// Used for Tarjan's SCC algorithm
 	CTLTarjansSCC<int>* tarjan;
+	std::vector<int> q;
+	std::vector<char> seen;
 
 	CTLSolver(int myid, DynamicKripke& myk, DynamicKripke& myotherk, bool myisover){
 		id = myid;
@@ -322,30 +322,47 @@ public:
 		seen.clear();
 		seen.resize(g.nodes(),false);
 		for (int i = 0; i < tarjan->numComponents();i++ ) {
-			//printf("i: %i, isover: %d, tarjan: %d\n", i, isover, tarjan->getElement(i));
 			int node = tarjan->getElement(i);
-			printf("Component %d:",i);
-			assert(q.size()==0);
-			q.push_back(node);
-			seen[node]=true;
+			// Makes sure that we skip over lone vertices that have no self loop.
+			if (tarjan->getComponentSize(i) > 1 || k->edgeEnabled(k->getEdge(node, node))) {
+				printf("Component %d:",i);
+				assert(q.size()==0);
+				q.push_back(node);
+				seen[node]=true;
 
-			//do a DFS to recover the connected nodes
-			while(q.size()){
-				int u = q.back();
-				q.pop_back();
-				printf(" %d",u);
-				for(int j = 0;j<g.nIncident(u);j++){
-					int edgeID = g.incident(u,j).id;
-					int to = g.incident(u,j).node;
-					if(g.edgeEnabled(edgeID) && !seen[to]){//only traverse
-						seen[to]=true;
-						q.push_back(to);
+				//do a DFS to recover the connected nodes
+				while(q.size()){
+					int u = q.back();
+					q.pop_back();
+					printf(" %d",u);
+					for(int j = 0;j<g.nIncident(u);j++){
+						int edgeID = g.incident(u,j).id;
+						int to = g.incident(u,j).node;
+						if(k->edgeEnabled(edgeID) && !seen[to]){//only traverse
+							seen[to]=true;
+							q.push_back(to);
+						}
 					}
 				}
+				printf("\n");
 			}
-			printf("\n");
 		}
 		printf("\n");
+
+
+		printf("strict_scc: ");
+		std::vector<int> foo = tarjan->getStrictSCCs();
+		for (int i = 0; i < foo.size(); i++) {
+			printf("%d, ", foo[i]);
+		}
+		printf("\n");
+
+		printf("scc: ");
+		for (int i = 0; i < tarjan->scc_set.size(); i++) {
+			printf("size: %d, element: %d ||| ", tarjan->scc_set[i].sz, tarjan->scc_set[i].element);
+		}
+		printf("\n");
+
 
 // OLD code as a tmp fix. Ignoring fairness constraints
 		// μ(p)
