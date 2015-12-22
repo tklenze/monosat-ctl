@@ -350,19 +350,6 @@ public:
 		printf("\n");
 
 
-		printf("strict_scc: ");
-		std::vector<int> foo = tarjan->getStrictSCCs();
-		for (int i = 0; i < foo.size(); i++) {
-			printf("%d, ", foo[i]);
-		}
-		printf("\n");
-
-		printf("scc: ");
-		for (int i = 0; i < tarjan->scc_set.size(); i++) {
-			printf("size: %d, element: %d ||| ", tarjan->scc_set[i].sz, tarjan->scc_set[i].element);
-		}
-		printf("\n");
-
 
 // OLD code as a tmp fix. Ignoring fairness constraints
 		// μ(p)
