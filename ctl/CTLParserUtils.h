@@ -43,6 +43,11 @@ namespace Monosat {
 			f->value = 3;
 			return f;
 		}
+		if (match(in, "NCS3")) {
+			f->op = ID;
+			f->value = 6;
+			return f;
+		}
 		if (match(in, "TRY1")) {
 			f->op = ID;
 			f->value = 1;
@@ -53,6 +58,11 @@ namespace Monosat {
 			f->value = 4;
 			return f;
 		}
+		if (match(in, "TRY3")) {
+			f->op = ID;
+			f->value = 7;
+			return f;
+		}
 		if (match(in, "CS1")) {
 			f->op = ID;
 			f->value = 2;
@@ -61,6 +71,11 @@ namespace Monosat {
 		if (match(in, "CS2")) {
 			f->op = ID;
 			f->value = 5;
+			return f;
+		}
+		if (match(in, "CS3")) {
+			f->op = ID;
+			f->value = 8;
 			return f;
 		}
 
