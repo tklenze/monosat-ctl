@@ -353,7 +353,7 @@ public:
 	}
 	inline Var toSolver(Var v) {
 		//return v;
-		// assert(v < vars.size()); // we don't require that vars are assigned without gaps inbetween
+		assert(v < vars.size()); // FIXME we don't require that vars are assigned without gaps inbetween
 		//assert(S->hasTheory(vars[v].solverVar));
 		//assert(S->getTheoryVar(vars[v].solverVar)==v);
 		return vars[v].solverVar;
@@ -1045,7 +1045,6 @@ public:
 		int w;
 		for (int v = 0; v < vars.size(); v++) {
 			w = vars[v].solverVar;
-			printf("v: %d (solverVar: %d) of %d", v, w, vars.size());
 			if(value(w)!=l_Undef){
 				Lit l = ~mkLit(w,value(w)==l_False);
 				assert(value(l)==l_False);
@@ -1060,10 +1059,12 @@ public:
 	void learnClausePos(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
 		 // only for debugging, you may uncomment this:
 
+		/*
 		if(opt_verb>1)
 			printf("Learning naive clause...\n");
 		learnNaiveClause(conflict, initialNode);
 		return;
+		*/
 
 		if(opt_verb>1) {
 			printf("Clause learning subformula... ");
