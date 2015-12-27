@@ -1480,8 +1480,19 @@ public:
 		ctl_over->freeBitset(phi_over);
 	}
 
+	// Start out by learning EG. Then, for each fairness constraints, learn that it can switch to being true in every state
+	// This is not ideal, ideally we'd restrict it to reachable states.
 	void learnEGFair(vec<Lit> & conflict, CTLFormula &f, int startNode) {
-		learnNaiveClause(conflict, startNode);
+		learnEG(conflict, *f.operand1, startNode);
+		int cSet;
+		for (int c = 0; c < f.fairnessConstraints.size(); c ++) {
+			cSet = ctl_over->solve(*f.fairnessConstraints[c]);
+			for (int i = 0; i < g_over->states(); i++) {
+				if (!ctl_over->bitsets[cSet]->operator [](i)) {
+					learnClausePos(conflict, *f.fairnessConstraints[c], i);
+				}
+			}
+		}
 	}
 
 	// Find a path to a not-phi state, either that state must satisfy phi, or one of the edges must be disabled
