@@ -49,6 +49,8 @@ public:
 	int last_history_clear;
 	int INF;
 
+	Bitset* inner;
+
 	struct Component {
 		int id = -1; //the unique id of the component
 		int next = -1; //pointer to the next node in the component
@@ -124,7 +126,7 @@ public:
 		for (int i = 0; i < g.nIncident(node); i++) {
 			auto & edge = g.incident(node, i);
 			int edgeID = edge.id;
-			if (k.edgeEnabled(edgeID)) {
+			if (suitable(edgeID)) {
 				int to = edge.node;
 
 				if (indices[to] < 0) {
@@ -176,7 +178,7 @@ public:
 
 						for(int i = 0;i<g.nIncoming(n);i++){
 							int edgeID = g.incoming(n,i).id;
-							if(k.edgeEnabled(edgeID) && g.incoming(n,i).node ==first){
+							if(suitable(edgeID) && g.incoming(n,i).node ==first){
 								scc_out->push_back(edgeID);
 								break;
 							}
@@ -192,6 +194,15 @@ public:
 				strict_scc_set.push_back(sccID);
 			}
 		}
+	}
+
+	// An edge is suitable if its origin and destination satisfies the formula and it is enabled
+	bool suitable(int edgeID) {
+		return (k.edgeEnabled(edgeID)) && inner->operator [](k.getEdge(edgeID).from) && inner->operator [](k.getEdge(edgeID).to);
+	}
+
+	void setInnerFormula (Bitset& in) {
+		inner = &in;
 	}
 
 	void update() {

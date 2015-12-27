@@ -44,6 +44,8 @@ public:
 	// Used for Tarjan's SCC algorithm
 	CTLTarjansSCC<int>* tarjan;
 	std::vector<int> q;
+	std::vector<int> comp;
+	std::vector<int> innerFair;
 	std::vector<char> seen;
 
 	CTLSolver(int myid, DynamicKripke& myk, DynamicKripke& myotherk, bool myisover){
@@ -319,41 +321,89 @@ public:
 	int solveEGwithFairness(CTLFormula& f) {
 		printf("Components: \n");
 		DynamicGraph<int> & g = k->g;
+
+		int innerBitset = solve(*f.operand1);
+		tarjan->setInnerFormula(*bitsets[innerBitset]);
+		printStateSet(*bitsets[innerBitset]);
+		printf("\n");
+
+		// This will end up being μ(f.operand1), restricted to states that are on an SCC which satisfies all fairness constraints
+		int st = getFreshBitset();
+
+		// A bitset over the set of fairness constraints, representing which fairness constraint is satisfied by a certain SCC.
+		Bitset* fairnessConstraintsSat = new Bitset(f.fairnessConstraints.size());
+
+		// Solve formulas of the fairness constraints yielding a set of bitsets, which tell in which states each fairness constraint is satisfied
+		innerFair.clear();
+		innerFair.resize(f.fairnessConstraints.size());
+		for (int i = 0; i < innerFair.size(); i ++) {
+			innerFair[i] = solve(*f.fairnessConstraints.operator [](i));
+			printf("Fairness constraint and set of states in which it is true: ");
+			printFormula(f.fairnessConstraints.operator [](i));
+			printStateSet(*bitsets[innerFair[i]]);
+		}
+
+
 		seen.clear();
 		seen.resize(g.nodes(),false);
 		for (int i = 0; i < tarjan->numComponents();i++ ) {
+			// Start out with one arbitrary element of the SCC
 			int node = tarjan->getElement(i);
+			// Find all other elements of the SCC
 			// Makes sure that we skip over lone vertices that have no self loop.
-			if (tarjan->getComponentSize(i) > 1 || k->edgeEnabled(k->getEdge(node, node))) {
+			if (tarjan->getComponentSize(i) > 1 || suitable(k->getEdge(node, node),*bitsets[innerBitset])) {
 				printf("Component %d:",i);
 				assert(q.size()==0);
+				comp.clear();
 				q.push_back(node);
+				fairnessConstraintsSat->memset(false);
 				seen[node]=true;
 
 				//do a DFS to recover the connected nodes
 				while(q.size()){
 					int u = q.back();
 					q.pop_back();
+					comp.push_back(u);
+					// Go through all fairness constraints. If a fairness constraint is satisfied in this state, then mark it satisfied for the entire SCC in fairnessConstraintsSat
+					for (int j = 0; j < innerFair.size(); j ++) {
+						if (bitsets[innerFair[j]]->operator [](u)) {
+							fairnessConstraintsSat->set(j);
+							printf("\nSCC satisfies fairness constraint %d, because state %d satisfies it\n", j, u);
+						}
+					}
 					printf(" %d",u);
 					for(int j = 0;j<g.nIncident(u);j++){
 						int edgeID = g.incident(u,j).id;
 						int to = g.incident(u,j).node;
-						if(k->edgeEnabled(edgeID) && !seen[to]){//only traverse
+						if(suitable(edgeID,*bitsets[innerBitset]) && !seen[to]){//only traverse
 							seen[to]=true;
 							q.push_back(to);
 						}
 					}
 				}
+				bool fairSCC = true; // innocent until proven guilty
+				for (int j=0; j<fairnessConstraintsSat->size(); j++) {
+					if (!fairnessConstraintsSat->operator [](j)) {
+						fairSCC = false;
+						printf("\nUnfair SCC due to fairness constraint #%d\n", j);
+					}
+				}
+				if (fairSCC) {
+					for (int j=0; j<comp.size(); j++) {
+						bitsets[st]->set(j);
+					}
+				}
+
 				printf("\n");
 			}
 		}
+
 		printf("\n");
 
+		printf("Nodes belonging to an SCCs that we are backtracking from in EGFair: ");
+		printStateSet(*bitsets[st]);
+		printf("\n\n");
 
-
-// OLD code as a tmp fix. Ignoring fairness constraints
-		// μ(p)
-		int st = solve(*f.operand1);
 		// Auxiliary bitsets
 		int andst = getFreshBitset();
 		int prest = getFreshBitset();
@@ -368,12 +418,24 @@ public:
 			if (bitsets[st]->Equiv(*bitsets[andst])) {
 				freeBitset(st);
 				freeBitset(prest);
+				for (int i = 0; i < innerFair.size(); i ++)
+					freeBitset(innerFair[i]);
+				delete fairnessConstraintsSat;
+
+				printf("Solution to EGFair: ");
+				printStateSet(*bitsets[andst]);
+				printf("\n\n");
 				return andst; // fixpoint reached
 			}
 			bitsets[st]->copyFrom(*bitsets[andst]);
 		}
 
 
+	}
+	// An edge is suitable if its origin and destination satisfies the formula and it is enabled
+	// This represents a graph restricted to vertices that satisfy the formula
+	bool suitable(int edgeID, Bitset& inner) {
+		return (k->edgeEnabled(edgeID)) && inner.operator [](k->getEdge(edgeID).from) && inner.operator [](k->getEdge(edgeID).to);
 	}
 
 	// X = μ(p) ∪ pre(X)

@@ -353,7 +353,7 @@ public:
 	}
 	inline Var toSolver(Var v) {
 		//return v;
-		assert(v < vars.size());
+		// assert(v < vars.size()); // we don't require that vars are assigned without gaps inbetween
 		//assert(S->hasTheory(vars[v].solverVar));
 		//assert(S->getTheoryVar(vars[v].solverVar)==v);
 		return vars[v].solverVar;
@@ -830,14 +830,15 @@ public:
 			ctl_over->freeBitset(bit_over);
 		}
 
-
+		// ALLSAT
 		// We can use the following code to simply print out all models to the CTL formula.
 		// We do this by checking if the formula holds in the underapproximation. If so, then it must hold in every extension.
 		// We learn the naive clause so that we don't get the exact same case again
+		// FIXME this is broken
 		if (opt_all_solutions > 0) {
 			bit_under = ctl_under->solveFormula(*f);
 			if (ctl_under->bitsets[bit_under]->operator [](initialNode)) { // It is true in the underapproximation, therefore it is a solution
-				learnNaiveClause(conflict, *f, initialNode);
+				learnNaiveClause(conflict, initialNode);
 				toSolver(conflict);
 				printf("--------------------\nFound new Solution set (conflict size: %d):\n", conflict.size());
 				drawCurrentAssignment();
@@ -1040,10 +1041,11 @@ public:
 	}
 
 	// Learn the trivial clause. Used for debugging purposes or to check if our clause learning algorithms are correct
-	void learnNaiveClause(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
+	void learnNaiveClause(vec<Lit> & conflict, int startNode) {
 		int w;
 		for (int v = 0; v < vars.size(); v++) {
 			w = vars[v].solverVar;
+			printf("v: %d (solverVar: %d) of %d", v, w, vars.size());
 			if(value(w)!=l_Undef){
 				Lit l = ~mkLit(w,value(w)==l_False);
 				assert(value(l)==l_False);
@@ -1058,8 +1060,10 @@ public:
 	void learnClausePos(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
 		 // only for debugging, you may uncomment this:
 
-		// learnNaiveClause(conflict, *f, initialNode);
-		// return
+		if(opt_verb>1)
+			printf("Learning naive clause...\n");
+		learnNaiveClause(conflict, initialNode);
+		return;
 
 		if(opt_verb>1) {
 			printf("Clause learning subformula... ");
@@ -1184,7 +1188,10 @@ public:
 			if(opt_verb>1)
 				printf("Clause learning case EG...\n");
 
-			learnEG(conflict, *subf.operand1, startNode);
+			if (subf.fairnessConstraints.size() > 0)
+				learnEGFair(conflict, subf, startNode); // Note that we are calling it with subf, not subf.operand1
+			else
+				learnEG(conflict, *subf.operand1, startNode);
 		}
 		else if (subf.op == AG) {
 			if(opt_verb>1)
@@ -1472,6 +1479,9 @@ public:
 		ctl_over->freeBitset(phi_over);
 	}
 
+	void learnEGFair(vec<Lit> & conflict, CTLFormula &f, int startNode) {
+		learnNaiveClause(conflict, startNode);
+	}
 
 	// Find a path to a not-phi state, either that state must satisfy phi, or one of the edges must be disabled
 	void learnAG(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
