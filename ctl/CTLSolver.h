@@ -440,6 +440,8 @@ public:
 
 	// X = μ(p) ∪ pre(X)
 	int solveEF(CTLFormula& f) {
+		if (f.fairnessConstraints.size() > 0)
+			return solveEFwithFairness(f);
 		assert(f.op == EF);
 		// μ(p)
 		int st = solve(*f.operand1);
@@ -456,6 +458,47 @@ public:
 
 			if (bitsets[st]->Equiv(*bitsets[orst])) {
 				freeBitset(st);
+				freeBitset(prest);
+				return orst; // fixpoint reached
+			}
+			bitsets[st]->copyFrom(*bitsets[orst]);
+		}
+	}
+
+
+	// X = μ(p) ∪ pre(X)
+	int solveEFwithFairness(CTLFormula& f) {
+		assert(f.op == EF);
+		// μ(p)
+		int st = solve(*f.operand1);
+
+		// Auxiliary bitsets
+		int orst = getFreshBitset();
+		int prest = getFreshBitset();
+
+		// Find states in which there is a fair path.
+		CTLFormula* fairFormula = newCTLFormula();
+		CTLFormula* fairFormulaTrue = newCTLFormula();
+		fairFormulaTrue->op = True;
+		fairFormula->op = EG;
+		fairFormula->operand1 = fairFormulaTrue;
+		fairFormula->fairnessConstraints = f.fairnessConstraints;
+		int fair = solveFormula(*fairFormula);
+
+		// Exclude those states of μ(p) in which there is no fair path. Save this temporarily into orst
+		bitsets[st]->And(*bitsets[fair], *bitsets[orst]);
+		bitsets[st]->copyFrom(*bitsets[orst]);
+
+		while (true) { // fixpoint guaranteed to exist, therefore this will terminate
+			// pre(X)
+			pre(st, prest); // prest := pre(st)
+
+			// μ(p) ∩ pre(X).
+			bitsets[st]->Or(*bitsets[prest], *bitsets[orst]); // andst := st ∩ prest
+
+			if (bitsets[st]->Equiv(*bitsets[orst])) {
+				freeBitset(st);
+				freeBitset(fair);
 				freeBitset(prest);
 				return orst; // fixpoint reached
 			}

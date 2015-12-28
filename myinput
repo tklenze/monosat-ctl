@@ -1,7 +1,9 @@
+c this is unsat...
 c     <#Vars> <#Clauses>
-p cnf 16     1
-16 0
+p cnf 100     1
+100 0
 c kctlsimp <KripkeID> <#Nodes> <#APs> <selfloops> <ctlvar> <CTL formula>"
-kctlsimp   0          3        2      1           16      (AX NOT 0 AND (EX EG {0} 1 AND EX AG NOT 1))
-AND (1 AND EX 1)
+kctlsimp   0          3        2      1           100      AG {0} 1
+AND AG {NOT 0} 1
+AND AG NOT 1
 

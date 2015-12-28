@@ -71,7 +71,7 @@ namespace Monosat {
 
 		case AX : printf("AX "); printFormula(f.operand1); break;
 		case AF : printf("AF "); printFormula(f.operand1); break;
-		case AG : printf("AG "); printFormula(f.operand1); break;
+		case AG : printf("AG "); printFairnessConstraints(foo); printFormula(f.operand1); break;
 		case AW : printf("("); printFormula(f.operand1); printf(" AW "); printFormula(f.operand2); printf(")"); break;
 		case AU : printf("("); printFormula(f.operand1); printf(" AU "); printFormula(f.operand2); printf(")"); break;
 

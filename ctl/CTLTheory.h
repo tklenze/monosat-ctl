@@ -1066,6 +1066,7 @@ public:
 		return;
 		*/
 
+
 		if(opt_verb>1) {
 			printf("Clause learning subformula... ");
 			printFormula2(subf);
@@ -1492,6 +1493,26 @@ public:
 					learnClausePos(conflict, *thisf.fairnessConstraints[c], i);
 				}
 			}
+			ctl_over->freeBitset(cSet);
+		}
+	}
+
+	// We know there currently exists a fair path from startNode.
+	// We learn that this path could become unfair, in which case startNode possibly is not a witness anymore for some outer formula (probably AG).
+	// Currently we learn that any state satisfying a fairness constraint may stop to satisfy it. Ideally we'd limit this to reachable states
+	void learnMakePathUnfair(vec<Lit> & conflict, CTLFormula &thisf, int startNode){
+		int cSet;
+		for (int c = 0; c < thisf.fairnessConstraints.size(); c ++) {
+			CTLFormula* notc = newCTLFormula();
+			notc->op = NEG;
+			notc->operand1 = thisf.fairnessConstraints[c];
+			cSet = ctl_under->solve(*thisf.fairnessConstraints[c]);
+			for (int i = 0; i < g_over->states(); i++) {
+				if (ctl_under->bitsets[cSet]->operator [](i)) {
+					learnClausePos(conflict, *notc, i);
+				}
+			}
+			ctl_under->freeBitset(cSet);
 		}
 	}
 
@@ -1499,15 +1520,25 @@ public:
 	void learnAG(vec<Lit> & conflict, CTLFormula &thisf, int startNode) {
 		CTLFormula* subf = thisf.operand1;
 		// Solve the inner subformula of the entire formula
-		//long bitsets = Bitset::remainingBitsets();
 		int phi_over = ctl_over->solveFormula(*subf);
-		//long leaked = Bitset::remainingBitsets()-bitsets;
-		//if(leaked!=2){
-		//	throw std::runtime_error("Leaked bitsets during solve call in learnAG.1!");
-		//}
-
 		if(opt_verb>1) {
 			printf("learnAG: phi_over "); ctl_standalone_over->printStateSet(*ctl_over->bitsets[phi_over]);
+		}
+
+		// This set represents the set of states satisfying EG_C True, where C are the fairness constraint from thisf (AG_C phi).
+		// If we don't have any fairness constraints ("else"), we simply use a bitset which is true for every state
+		int fair_over;
+		if (thisf.fairnessConstraints.size() > 0) {
+			CTLFormula* fairFormula = newCTLFormula();
+			CTLFormula* fairFormulaTrue = newCTLFormula();
+			fairFormulaTrue->op = True;
+			fairFormula->op = EG;
+			fairFormula->operand1 = fairFormulaTrue;
+			fairFormula->fairnessConstraints = thisf.fairnessConstraints;
+			fair_over = ctl_over->solveFormula(*fairFormula);
+		} else {
+			fair_over = ctl_over->getDirtyBitset();
+			ctl_over->bitsets[fair_over]->memset(true);
 		}
 
 		DynamicGraph<int>::Edge e;
@@ -1519,8 +1550,14 @@ public:
 		if (!ctl_over->bitsets[phi_over]->operator [](startNode)) {
 			if(opt_verb>1)
 				printf("learnAG: initial state does not satisfy phi\n");
+			assert(ctl_over->bitsets[fair_over]->operator [](startNode)); // We assert there exists a fair path. If there is not, AG would trivially hold
+			// We learn that either the inner formula has to hold in the initial state, or we make sure no fair path exists
 			learnClausePos(conflict, *subf, startNode);
+			if (thisf.fairnessConstraints.size() > 0) {
+				learnMakePathUnfair(conflict, thisf, startNode);
+			}
 			ctl_over->freeBitset(phi_over);
+			ctl_over->freeBitset(fair_over);
 			return;
 		}
 
@@ -1547,11 +1584,16 @@ public:
 				if (g_under->edgeEnabled(eid)) {
 					if(opt_verb>1)
 						printf("learnAG: Adding map parent(%d) = %d. phi_over(to): %d, visited: %d\n", to, from, ctl_over->bitsets[phi_over]->operator [](to), ctl_over->bitsets[visited]->operator [](to));
-					if (!ctl_over->bitsets[phi_over]->operator [](to)) {
+					// The state does not satisfy phi and has a path satisfying the fairness constraints.
+					if (!ctl_over->bitsets[phi_over]->operator [](to) && ctl_over->bitsets[fair_over]->operator [](to)) {
 						parent[to] = from;
 						if(opt_verb>1)
 							printf("learnAG: Found state no %d, which does not satisfy phi. edgeid: %d, from: %d, to: %d\n", to, e.id, from, to);
+						// We learn that either the inner formula has to hold in this state, or we make sure no fair path exists from this state
 						learnClausePos(conflict, *subf, to);
+						if (thisf.fairnessConstraints.size() > 0) {
+							learnMakePathUnfair(conflict, thisf, to);
+						}
 						done = true; // we have found a state that does not satisfy phi, exit loop and retreive path
 					} else if (!ctl_over->bitsets[visited]->operator [](to)) {
 						parent[to] = from;
@@ -1582,6 +1624,7 @@ public:
 		}
 		ctl_over->freeBitset(phi_over);
 		ctl_over->freeBitset(visited);
+		ctl_over->freeBitset(fair_over);
 	}
 
 	// Find all reachable states, at least one of them should satisfy phi OR there should be a transition enabled
