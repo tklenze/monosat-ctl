@@ -526,7 +526,7 @@ public:
 	// AG φ ≡ ¬ EF ¬φ
 	int solveAG(CTLFormula& f) {
 		CTLFormula phi1 = {NEG, f.operand1, NULL, 0};
-		CTLFormula phi2 = {EF, &phi1, NULL, 0};
+		CTLFormula phi2 = {EF, &phi1, NULL, 0, f.fairnessConstraints};
 		CTLFormula phi3 = {NEG, &phi2, NULL, 0};
 		return solve(phi3);
 	}

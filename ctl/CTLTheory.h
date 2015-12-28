@@ -1198,7 +1198,7 @@ public:
 			if(opt_verb>1)
 				printf("Clause learning case AG...\n");
 
-			learnAG(conflict, *subf.operand1, startNode);
+			learnAG(conflict, subf, startNode);
 		}
 		else if (subf.op == EF) {
 			if(opt_verb>1)
@@ -1482,32 +1482,31 @@ public:
 
 	// Start out by learning EG. Then, for each fairness constraints, learn that it can switch to being true in every state
 	// This is not ideal, ideally we'd restrict it to reachable states.
-	void learnEGFair(vec<Lit> & conflict, CTLFormula &f, int startNode) {
-		learnEG(conflict, *f.operand1, startNode);
+	void learnEGFair(vec<Lit> & conflict, CTLFormula &thisf, int startNode) {
+		learnEG(conflict, *thisf.operand1, startNode);
 		int cSet;
-		for (int c = 0; c < f.fairnessConstraints.size(); c ++) {
-			cSet = ctl_over->solve(*f.fairnessConstraints[c]);
+		for (int c = 0; c < thisf.fairnessConstraints.size(); c ++) {
+			cSet = ctl_over->solve(*thisf.fairnessConstraints[c]);
 			for (int i = 0; i < g_over->states(); i++) {
 				if (!ctl_over->bitsets[cSet]->operator [](i)) {
-					learnClausePos(conflict, *f.fairnessConstraints[c], i);
+					learnClausePos(conflict, *thisf.fairnessConstraints[c], i);
 				}
 			}
 		}
 	}
 
 	// Find a path to a not-phi state, either that state must satisfy phi, or one of the edges must be disabled
-	void learnAG(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
+	void learnAG(vec<Lit> & conflict, CTLFormula &thisf, int startNode) {
+		CTLFormula* subf = thisf.operand1;
 		// Solve the inner subformula of the entire formula
 		//long bitsets = Bitset::remainingBitsets();
-		int phi_under = ctl_under->solveFormula(subf);
-		int phi_over = ctl_over->solveFormula(subf);
+		int phi_over = ctl_over->solveFormula(*subf);
 		//long leaked = Bitset::remainingBitsets()-bitsets;
 		//if(leaked!=2){
 		//	throw std::runtime_error("Leaked bitsets during solve call in learnAG.1!");
 		//}
 
 		if(opt_verb>1) {
-			printf("learnAG: phi_under "); ctl_standalone_over->printStateSet(*ctl_under->bitsets[phi_under]);
 			printf("learnAG: phi_over "); ctl_standalone_over->printStateSet(*ctl_over->bitsets[phi_over]);
 		}
 
@@ -1517,12 +1516,11 @@ public:
 
 		// if the start node does not satisfy phi, then we just ask phi to be satisfied here. This is treated separately, so
 		// that in the queue later we can assume every item in the queue to satisfy phi.
-		if (!ctl_under->bitsets[phi_under]->operator [](startNode) && !ctl_over->bitsets[phi_over]->operator [](startNode)) {
+		if (!ctl_over->bitsets[phi_over]->operator [](startNode)) {
 			if(opt_verb>1)
 				printf("learnAG: initial state does not satisfy phi\n");
-			learnClausePos(conflict, subf, startNode);
+			learnClausePos(conflict, *subf, startNode);
 			ctl_over->freeBitset(phi_over);
-			ctl_under->freeBitset(phi_under);
 			return;
 		}
 
@@ -1548,12 +1546,12 @@ public:
 
 				if (g_under->edgeEnabled(eid)) {
 					if(opt_verb>1)
-						printf("learnAG: Adding map parent(%d) = %d. phi_under(to): %d, phi_over(to): %d, visited: %d\n", to, from, ctl_under->bitsets[phi_under]->operator [](to), ctl_over->bitsets[phi_over]->operator [](to), ctl_over->bitsets[visited]->operator [](to));
-					if (!ctl_under->bitsets[phi_under]->operator [](to) && !ctl_over->bitsets[phi_over]->operator [](to)) {
+						printf("learnAG: Adding map parent(%d) = %d. phi_over(to): %d, visited: %d\n", to, from, ctl_over->bitsets[phi_over]->operator [](to), ctl_over->bitsets[visited]->operator [](to));
+					if (!ctl_over->bitsets[phi_over]->operator [](to)) {
 						parent[to] = from;
 						if(opt_verb>1)
 							printf("learnAG: Found state no %d, which does not satisfy phi. edgeid: %d, from: %d, to: %d\n", to, e.id, from, to);
-						learnClausePos(conflict, subf, to);
+						learnClausePos(conflict, *subf, to);
 						done = true; // we have found a state that does not satisfy phi, exit loop and retreive path
 					} else if (!ctl_over->bitsets[visited]->operator [](to)) {
 						parent[to] = from;
@@ -1564,7 +1562,6 @@ public:
 				}
 			}
 		}
-
 		assert(done);
 
 		if(opt_verb>1)
@@ -1584,7 +1581,6 @@ public:
 			eid = g_under->getEdge(from, to);
 		}
 		ctl_over->freeBitset(phi_over);
-		ctl_under->freeBitset(phi_under);
 		ctl_over->freeBitset(visited);
 	}
 

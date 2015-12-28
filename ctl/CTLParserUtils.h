@@ -25,7 +25,30 @@ ATTENTION: This file is not in use, currently. It was planned to put some things
 #include <string>
 #include <sstream>
 namespace Monosat {
+
+template<typename B>
+
+static CTLFormula* parseCTL(B& in);
+
+template<typename B>
+
+static void matchFairness(B& in, CTLFormula* f) {
+	skipWhitespace(in);
+	if (match(in, "{")) {
+		do {
+			CTLFormula* c = parseCTL(in);
+			f->fairnessConstraints.push_back(c);
+			skipWhitespace(in);
+		} while (match(in, ","));
+		if (match(in, "}")) {
+		} else {
+			throw std::runtime_error("Syntax Error: Curly bracket not closed!");
+		}
+	}
+}
 	template<typename B>
+
+
 	static CTLFormula* parseCTL(B& in) {
 		skipWhitespace(in);
 
@@ -103,18 +126,7 @@ namespace Monosat {
 			return f;
 		}
 		if (match(in, "EG")) {
-			skipWhitespace(in);
-			if (match(in, "{")) {
-				do {
-					CTLFormula* c = parseCTL(in);
-					f->fairnessConstraints.push_back(c);
-					skipWhitespace(in);
-				} while (match(in, ","));
-				if (match(in, "}")) {
-				} else {
-					throw std::runtime_error("Syntax Error: Curly bracket not closed!");
-				}
-			}
+			matchFairness(in, f);
 			CTLFormula* inside = parseCTL(in);
 			f->op = EG;
 			f->operand1 = inside;
@@ -133,6 +145,7 @@ namespace Monosat {
 			return f;
 		}
 		if (match(in, "AG")) {
+			matchFairness(in, f);
 			CTLFormula* inside = parseCTL(in);
 			f->op = AG;
 			f->operand1 = inside;
