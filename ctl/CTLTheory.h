@@ -1044,9 +1044,8 @@ public:
 	void learnNaiveClause(vec<Lit> & conflict, int startNode) {
 		int w;
 		for (int v = 0; v < vars.size(); v++) {
-			w = vars[v].solverVar;
-			if(value(w)!=l_Undef){
-				Lit l = ~mkLit(w,value(w)==l_False);
+			if(value(v)!=l_Undef){
+				Lit l = ~mkLit(v,value(v)==l_False);
 				assert(value(l)==l_False);
 				conflict.push(l);
 			}
