@@ -319,7 +319,9 @@ public:
 	}
 
 	int solveEGwithFairness(CTLFormula& f) {
-		printf("Components: \n");
+		printf("solveEGwithFairness, formula: ");
+		printFormula(&f);
+		printf("\nComponents: \n");
 		DynamicGraph<int> & g = k->g;
 
 		int innerBitset = solve(*f.operand1);
@@ -394,7 +396,6 @@ public:
 					}
 				}
 
-				printf("\n");
 			}
 		}
 
@@ -402,22 +403,32 @@ public:
 
 		printf("Nodes belonging to an SCCs that we are backtracking from in EGFair: ");
 		printStateSet(*bitsets[st]);
-		printf("\n\n");
+		printf("\n");
+
+		// We solve for X, and initialize X with st:
+		// X = μ(p) ∩ (X ∪ pre(X))
+		// Where μ(p) is innerBitset
+		// st stands for the nodes we found above, that we have to backtrack from
 
 		// Auxiliary bitsets
 		int andst = getFreshBitset();
-		int prest = getFreshBitset();
+		int orst = getFreshBitset();
+		int prex = getFreshBitset();
+		int x = st;
 
-		while (true) { // fixpoint guaranteed to exist, therefore this will terminate
+		while (true) {
 			// pre(X)
-			pre(st, prest); // prest := pre(st)
+			pre(x, prex); // prex := pre(x)
 
-			// μ(p) ∩ pre(X).
-			bitsets[st]->And(*bitsets[prest], *bitsets[andst]); // andst := st ∩ prest
+			// X ∩ pre(X).
+			bitsets[x]->Or(*bitsets[prex], *bitsets[orst]); // orst := x ∪ prex
+			bitsets[orst]->And(*bitsets[innerBitset], *bitsets[andst]); // andst := x ∩ prex
 
-			if (bitsets[st]->Equiv(*bitsets[andst])) {
-				freeBitset(st);
-				freeBitset(prest);
+			if (bitsets[x]->Equiv(*bitsets[orst])) {
+				freeBitset(x);
+				freeBitset(innerBitset);
+				freeBitset(prex);
+				freeBitset(orst);
 				for (int i = 0; i < innerFair.size(); i ++)
 					freeBitset(innerFair[i]);
 				delete fairnessConstraintsSat;
@@ -487,6 +498,7 @@ public:
 
 		// Exclude those states of μ(p) in which there is no fair path. Save this temporarily into orst
 		bitsets[st]->And(*bitsets[fair], *bitsets[orst]);
+		printf("solveEFwithFairness: st: "); printStateSet(*bitsets[st]); printf(", fair: "); printFormula(fairFormula); printf(" : "); printStateSet(*bitsets[fair]); printf(", result: "); printStateSet(*bitsets[orst]);
 		bitsets[st]->copyFrom(*bitsets[orst]);
 
 		while (true) { // fixpoint guaranteed to exist, therefore this will terminate
