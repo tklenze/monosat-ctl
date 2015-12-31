@@ -150,6 +150,7 @@ public:
 	double pathtime = 0;
 	double propagationtime = 0;
 	long stats_propagations = 0;
+	long stats_real_propagations=0;
 	long stats_num_conflicts = 0;
 	long stats_decisions = 0;
 	long stats_num_reasons = 0;
@@ -167,6 +168,16 @@ public:
 	long stats_pure_skipped = 0;
 	long stats_mc_calls = 0;
 	long stats_propagations_skipped = 0;
+
+	long stats_symmetry_conflicts =0 ;
+	long stats_symmetry_conflict_literals = 0;
+	long stats_ctl_conflicts=0;
+	long stats_ctl_conflict_literals=0;
+
+	double stats_solve_time =0;
+	double stats_theory_prop_symmetry_time=0;
+	double stats_theory_prop_ctl_time=0;
+	double stats_theory_prop_clause_learning_time=0;
 
 	int bit_over;
 	int bit_under;
@@ -689,17 +700,25 @@ public:
 		
 	}
 	;
-	bool propagateTheory(vec<Lit> & conflict) {
-		static int itp = 0;
-		if (++itp == 62279) {
-			int a = 1;
-		}
+	bool propagateTheory(vec<Lit> & conflict) override{
+		return propagateTheory(conflict,false);
+	}
+
+	bool propagateTheory(vec<Lit> & conflict, bool forcePropagation) {
+
 		stats_propagations++;
 
 		if (!requiresPropagation) {
 			stats_propagations_skipped++;
 			assert(dbg_graphsUpToDate());
 			return true;
+		}
+		stats_real_propagations++;
+		long t = stats_real_propagations %((long)opt_ctl_skip_prop);
+		bool skip_this_propagation = decisionLevel()>0 && ! forcePropagation  &&  (stats_real_propagations %((long)opt_ctl_skip_prop));
+		if(skip_this_propagation && (opt_ctl_skip_symmetry || opt_ctl_symmetry==0)){
+			stats_propagations_skipped++;
+			return true;//skip this theory propagation round
 		}
 		
 		bool any_change = false;
@@ -753,20 +772,24 @@ public:
 		 */
 
 		if (opt_ctl_symmetry > 0) { // >0 means we have symmetry reduction
+			double start_time = rtime(2);
 			symmetryConflict.clear();
 			if (opt_ctl_symmetry <= 3) // reduce on nodeAPs
 				checkStateLabelSymmetryConstraints(symmetryConflict, initialNode); // check if there is a conflict with the symmetry constraints under the current assignment, and if there is, build a clause to learn
 			else // reduce on number of outgoing edges
 				checkEdgeSymmetryConstraints(symmetryConflict, initialNode);
 			minimizeClause(symmetryConflict);
-
+			stats_theory_prop_symmetry_time+= rtime(2)-start_time;
 			// Prefer the symmetry conflict without even of looking for a CTL conflict if:
 			//  - Symmetry reduction is enabled
 			//  - and, there is a symmetry conflict
 			//  - and, we are are in modes 1, 2, 4, or 5
-			if ((symmetryConflict.size() != 0) && (opt_ctl_symmetry < 3 || opt_ctl_symmetry == 4 || opt_ctl_symmetry == 5)) {
+
+			if ((symmetryConflict.size() != 0) && (skip_this_propagation || opt_ctl_symmetry < 3 || opt_ctl_symmetry == 4 || opt_ctl_symmetry == 5)) {
 				symmetryConflict.copyTo(conflict); // Overwrite conflict
 				toSolver(conflict);
+				stats_symmetry_conflicts++;
+				stats_symmetry_conflict_literals+=conflict.size();
 				if(opt_verb>1){
 					printFullClause();
 			  		printf("Symmetry Clause:\n");
@@ -775,13 +798,21 @@ public:
 				}
 				theoryPropagationAppendix(startproptime);
 				return false;
+			}else if (skip_this_propagation){
+				stats_propagations_skipped++;
+				return true;
 			}
 
+
 			// Otherwise, we have to look for a CTL conflict, too.
+			double start_ctl_prop_time = rtime(2);
 			bit_over = ctl_over->solveFormula(*f);
+			stats_solve_time+=rtime(2)-start_ctl_prop_time;
 			if (!ctl_over->bitsets[bit_over]->operator [](initialNode)) { // we know value(ctl_lit)==l_True
+				double start_ctl_clause_learning_time = rtime(2);
 				learnClausePos(conflict, *f, initialNode);
 				minimizeClause(conflict);
+				stats_theory_prop_clause_learning_time+=rtime(2)-start_ctl_clause_learning_time;
 				if(opt_verb>1){
 					printFullClause();
 					printf("CTL Clause:\n");
@@ -798,6 +829,8 @@ public:
 						printf("propagateTheory returns false, since formula is asserted true, but fails to hold in the overapproximation (and hence also fails to hold in the underapproximation) \n");
 				toSolver(conflict);
 				ctl_over->freeBitset(bit_over);
+				stats_ctl_conflicts++;
+				stats_ctl_conflict_literals+=conflict.size();
 				theoryPropagationAppendix(startproptime);
 				return false;
 			}
@@ -806,15 +839,24 @@ public:
 			if (symmetryConflict.size() != 0) {
 				symmetryConflict.copyTo(conflict); // Overwrite conflict
 				toSolver(conflict);
+				stats_symmetry_conflicts++;
+				stats_symmetry_conflict_literals+=conflict.size();
 				theoryPropagationAppendix(startproptime);
 				return false;
 			}
 		} else { // Ignore symmetry
+			double start_time = rtime(2);
 			bit_over = ctl_over->solveFormula(*f);
+			stats_solve_time+=rtime(2)-start_time;
+
 			if (!ctl_over->bitsets[bit_over]->operator [](initialNode)) { // we know value(ctl_lit)==l_True
+				double start_ctl_clause_learning_time = rtime(2);
 				learnClausePos(conflict, *f, initialNode);
+				stats_theory_prop_clause_learning_time+=rtime(2)-start_ctl_clause_learning_time;
 				minimizeClause(conflict);
 				toSolver(conflict);
+				stats_ctl_conflicts++;
+				stats_ctl_conflict_literals+=conflict.size();
 				if(opt_verb>1){
 					printFullClause();
 			  		printf("CTL Clause:\n");
@@ -2368,7 +2410,7 @@ public:
 
 	bool solveTheory(vec<Lit> & conflict) {
 		requiresPropagation = true;		//Just to be on the safe side... but this shouldn't really be required.
-		bool ret = propagateTheory(conflict);
+		bool ret = propagateTheory(conflict,true);
 		//Under normal conditions, this should _always_ hold (as propagateTheory should have been called and checked by the parent solver before getting to this point).
 		assert(ret);
 		return ret;
@@ -2379,6 +2421,7 @@ public:
 	}
 
 	void printStats(int detailLevel) {
+		printf("CTL Theory:\n");
 		printf("\nUsed %d / %d bitset allocations for %d / %d bitsets\n", ctl_over->bitsetsmax, ctl_under->bitsetsmax, ctl_over->bitsetcounter, ctl_under->bitsetcounter);
 
 		printf("Propagations: %ld (%f s, avg: %f s, %ld skipped)\n", stats_propagations, propagationtime,
@@ -2386,6 +2429,13 @@ public:
 		printf("Decisions: %ld (%f s, avg: %f s)\n", stats_decisions, stats_decision_time,
 				(stats_decision_time) / ((double) stats_decisions + 1));
 		printf("Conflicts: %ld \n", stats_num_conflicts);
+
+		printf("CTL propagation solve time: %f s\n", stats_solve_time);
+		printf("CTL Conflicts: %d (%f lits/clause), time: %f s\n", stats_ctl_conflicts,stats_ctl_conflict_literals/((double) stats_symmetry_conflicts+1),stats_theory_prop_clause_learning_time);
+		if(opt_ctl_symmetry>0){
+			printf("Symmetry conflicts: %d (%f lits/clause), time: %f s\n", stats_symmetry_conflicts,stats_symmetry_conflict_literals/((double) stats_symmetry_conflicts+1), stats_theory_prop_symmetry_time);
+		}
+
 	}
 
 	bool check_solved() {

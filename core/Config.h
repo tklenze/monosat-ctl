@@ -177,6 +177,8 @@ extern BoolOption opt_fsm_as_graph;
 
 extern BoolOption opt_learn_acyclic_flows;
 
+extern IntOption opt_ctl_skip_prop;
+extern BoolOption opt_ctl_skip_symmetry;
 extern IntOption opt_ctl_symmetry;
 extern IntOption opt_ctl_symmetry_statelabelandedges;
 extern IntOption opt_all_solutions;

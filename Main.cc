@@ -1055,7 +1055,7 @@ int main(int argc, char** argv) {
 		} else {
 			printf("UNKNOWN\n");
 		}
-		if (opt_verb > 1) {
+		if (opt_verb >= 1) {
 			printStats(S);
 
 		}
