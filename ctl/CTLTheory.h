@@ -714,9 +714,9 @@ public:
 			return true;
 		}
 		stats_real_propagations++;
-		long t = stats_real_propagations %((long)opt_ctl_skip_prop);
+
 		bool skip_this_propagation = decisionLevel()>0 && ! forcePropagation  &&  (stats_real_propagations %((long)opt_ctl_skip_prop));
-		if(skip_this_propagation && (opt_ctl_skip_symmetry || opt_ctl_symmetry==0)){
+		if(skip_this_propagation){
 			stats_propagations_skipped++;
 			return true;//skip this theory propagation round
 		}
@@ -785,7 +785,7 @@ public:
 			//  - and, there is a symmetry conflict
 			//  - and, we are are in modes 1, 2, 4, or 5
 
-			if ((symmetryConflict.size() != 0) && (skip_this_propagation || opt_ctl_symmetry < 3 || opt_ctl_symmetry == 4 || opt_ctl_symmetry == 5)) {
+			if ((symmetryConflict.size() != 0) && (opt_ctl_symmetry < 3 || opt_ctl_symmetry == 4 || opt_ctl_symmetry == 5)) {
 				symmetryConflict.copyTo(conflict); // Overwrite conflict
 				toSolver(conflict);
 				stats_symmetry_conflicts++;
@@ -798,11 +798,7 @@ public:
 				}
 				theoryPropagationAppendix(startproptime);
 				return false;
-			}else if (skip_this_propagation){
-				stats_propagations_skipped++;
-				return true;
 			}
-
 
 			// Otherwise, we have to look for a CTL conflict, too.
 			double start_ctl_prop_time = rtime(2);
