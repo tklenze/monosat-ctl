@@ -1305,28 +1305,8 @@ public:
 
 	// At least one of the two parts of AND must be false, and we use the one which is false to build a clause
 	void learnAND(vec<Lit> & conflict, CTLFormula &subf1, CTLFormula &subf2, int startNode) {
-/*
-		long bitsets = Bitset::remainingBitsets();*/
 		int phi1_over = ctl_over->solveFormula(subf1);
-		/*
-		long leaked = Bitset::remainingBitsets()-bitsets;
-		if(leaked!=2){
-			throw std::runtime_error("Leaked bitsets during solve call in learnAND.1!");
-		}
-		*/
-		/*
-		bitsets = Bitset::remainingBitsets();
-				*/
-
 		int phi2_over = ctl_over->solveFormula(subf2);
-		/*
-
-		leaked = Bitset::remainingBitsets()-bitsets;
-		//should leak exactly 2 bitsets ('bit_under' and 'bit_over') in the above calls
-		if(leaked!=2){
-			throw std::runtime_error("Leaked bitsets during solve call in learnAND.2!");
-		}
-		*/
 		if(opt_verb>1) {
 			printf("learnAND: phi1_over: "); ctl_standalone_over->printStateSet(*ctl_over->bitsets[phi1_over]);
 			printf("learnAND: phi2_over: "); ctl_standalone_over->printStateSet(*ctl_over->bitsets[phi2_over]);
@@ -1686,7 +1666,6 @@ public:
 
 	// Find lasso of states that satisfy not phi, at least one of them should satisfy phi OR one of the edges of the lasso should become disabled
 	void learnAF(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
-		int phi_under = ctl_under->solveFormula(subf); // Solve the inner subformula of the entire formula
 		int phi_over = ctl_over->solveFormula(subf); // Solve the inner subformula of the entire formula
 
 		DynamicGraph<int>::Edge e;
@@ -1713,10 +1692,10 @@ public:
 					printf("learnAF: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
 
 
-				if (g_under->edgeEnabled(eid) && !ctl_under->bitsets[phi_under]->operator [](to) && !ctl_over->bitsets[phi_over]->operator [](to)) {
+				if (g_under->edgeEnabled(eid) && !ctl_over->bitsets[phi_over]->operator [](to)) {
 					if (!ctl_over->bitsets[visited]->operator [](to)) { // explore new state in graph
 					if(opt_verb>1)
-						printf("learnAF: Adding map parent(%d) = %d. phi_under(to): %d, phi_over(to): %d, visited: %d. putting %d in queue\n", to, from, ctl_under->bitsets[phi_under]->operator [](to), ctl_over->bitsets[phi_over]->operator [](to),  ctl_over->bitsets[visited]->operator [](to), to);
+						printf("learnAF: Adding map parent(%d) = %d. phi_over(to): %d, visited: %d. putting %d in queue\n", to, from, ctl_over->bitsets[phi_over]->operator [](to),  ctl_over->bitsets[visited]->operator [](to), to);
 
 						s.push(to);
 						parent[to] = from;
@@ -1788,7 +1767,6 @@ public:
 			eid = g_under->getEdge(from, to);
 		}
 		ctl_over->freeBitset(visited);
-		ctl_under->freeBitset(phi_under);
 		ctl_over->freeBitset(phi_over);
 	}
 
