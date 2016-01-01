@@ -83,7 +83,6 @@ public:
 
 	vec<lbool> assigns;
 
-
 	vec<Transition> edge_labels;
 	DynamicKripke* g_under;
 	DynamicKripke* g_over;
