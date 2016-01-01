@@ -1269,7 +1269,6 @@ public:
 	void learnAND(vec<Lit> & conflict, CTLFormula &subf1, CTLFormula &subf2, int startNode) {
 /*
 		long bitsets = Bitset::remainingBitsets();*/
-		int phi1_under = ctl_under->solveFormula(subf1);
 		int phi1_over = ctl_over->solveFormula(subf1);
 		/*
 		long leaked = Bitset::remainingBitsets()-bitsets;
@@ -1281,7 +1280,6 @@ public:
 		bitsets = Bitset::remainingBitsets();
 				*/
 
-		int phi2_under = ctl_under->solveFormula(subf2);
 		int phi2_over = ctl_over->solveFormula(subf2);
 		/*
 
@@ -1293,9 +1291,7 @@ public:
 		*/
 		if(opt_verb>1) {
 			printf("learnAND: phi1_over: "); ctl_standalone_over->printStateSet(*ctl_over->bitsets[phi1_over]);
-			printf("learnAND: phi1_under: "); ctl_standalone_under->printStateSet(*ctl_under->bitsets[phi1_under]);
 			printf("learnAND: phi2_over: "); ctl_standalone_over->printStateSet(*ctl_over->bitsets[phi2_over]);
-			printf("learnAND: phi2_under: "); ctl_standalone_under->printStateSet(*ctl_under->bitsets[phi2_under]);
 		}
 
 
@@ -1309,7 +1305,7 @@ public:
 		*/
 
 		/* STRATEGY 2: Pick both subformulas if they both work, and compare which has the smallest clause */
-		if (!ctl_over->bitsets[phi1_over]->operator [](startNode) && !ctl_under->bitsets[phi1_under]->operator [](startNode) && !ctl_over->bitsets[phi2_over]->operator [](startNode) && !ctl_under->bitsets[phi2_under]->operator [](startNode)) {
+		if (!ctl_over->bitsets[phi1_over]->operator [](startNode) && !ctl_over->bitsets[phi2_over]->operator [](startNode)) {
 			// Both subformulas conflict and are suitable to learn a clause from. Build both clauses and learn the smaller one.
 			vec<Lit> conflict2;
 			conflict.copyTo(conflict2);
@@ -1318,50 +1314,20 @@ public:
 			if (conflict.size() > conflict2.size()) {
 				conflict2.copyTo(conflict);
 			}
-		} else if (!ctl_over->bitsets[phi1_over]->operator [](startNode) && !ctl_under->bitsets[phi1_under]->operator [](startNode)) {
+		} else if (!ctl_over->bitsets[phi1_over]->operator [](startNode)) {
 			learnClausePos(conflict, subf1, startNode);
 		} else {
-			assert(!ctl_over->bitsets[phi2_over]->operator [](startNode) && !ctl_under->bitsets[phi2_under]->operator [](startNode)); // If this is violated, that means that both parts of the AND formula are satisfied -- then there should not be a conflict
+			assert(!ctl_over->bitsets[phi2_over]->operator [](startNode)); // If this is violated, that means that both parts of the AND formula are satisfied -- then there should not be a conflict
 			learnClausePos(conflict, subf2, startNode);
 		}
-		ctl_under->freeBitset(phi1_under);
 		ctl_over->freeBitset(phi1_over);
-		ctl_under->freeBitset(phi2_under);
 		ctl_over->freeBitset(phi2_over);
 	}
 
 	// Both parts of the OR must be false, and we OR together their recursively learned sub-clauses
 	void learnOR(vec<Lit> & conflict, CTLFormula &subf1, CTLFormula &subf2, int startNode) {
-
-		//long bitsets = Bitset::remainingBitsets();
-		int phi1_under = ctl_under->solveFormula(subf1);
-		int phi1_over = ctl_over->solveFormula(subf1);
-		/*long leaked = Bitset::remainingBitsets()-bitsets;
-		if(leaked!=2){
-			throw std::runtime_error("Leaked bitsets during solve call in learnOR.1!");
-		}		 */
-
-		//bitsets = Bitset::remainingBitsets();
-		int phi2_under = ctl_under->solveFormula(subf2);
-		int phi2_over = ctl_over->solveFormula(subf2);
-		/*leaked = Bitset::remainingBitsets()-bitsets;
-		//should leak exactly 2 bitsets ('bit_under' and 'bit_over') in the above calls
-		if(leaked!=2){
-			throw std::runtime_error("Leaked bitsets during solve call in learnOR.2!");
-		}		 */
-		if(opt_verb>1) {
-			printf("learnOR: phi1_over: "); ctl_standalone_over->printStateSet(*ctl_over->bitsets[phi1_over]);
-			printf("learnOR: phi1_under: "); ctl_standalone_under->printStateSet(*ctl_under->bitsets[phi1_under]);
-			printf("learnOR: phi2_over: "); ctl_standalone_over->printStateSet(*ctl_over->bitsets[phi2_over]);
-			printf("learnOR: phi2_under: "); ctl_standalone_under->printStateSet(*ctl_under->bitsets[phi2_under]);
-		}
-
 		learnClausePos(conflict, subf1, startNode);
 		learnClausePos(conflict, subf2, startNode);
-		ctl_under->freeBitset(phi1_under);
-		ctl_over->freeBitset(phi1_over);
-		ctl_under->freeBitset(phi2_under);
-		ctl_over->freeBitset(phi2_over);
 	}
 
 	// At least one neighbour gets phi, or at least one disabled edge to a neighbour is enabled
