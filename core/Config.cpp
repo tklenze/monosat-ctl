@@ -313,6 +313,8 @@ IntOption Monosat::opt_all_solutions(_cat_ctl, "all-solutions",
 		"0: standard mode, just one solution. 1: all solutions, print all satisfying assignment spaces", 0, IntRange(0,INT32_MAX));
  IntOption Monosat::opt_ctl_skip_prop(_cat_ctl,"ctl-skip", "Only check CTL theory propagation every NTH round (1 to check all rounds)",1, IntRange(1,INT32_MAX));
 
+ BoolOption Monosat::opt_ctl_learn_cache(_cat_ctl,"ctl-cache","Cache CTL computations during clause learning\n",true);
+
 IntOption Monosat::opt_width("GRAPH", "width", "Width of graph.\n", 0, IntRange(0, INT32_MAX));
 IntOption Monosat::opt_height("GRAPH", "height", "Height of graph.\n", 0, IntRange(0, INT32_MAX));
 IntOption Monosat::opt_bits("GRAPH", "bits", "Bits per position in graph.\n", 1, IntRange(0, INT32_MAX));

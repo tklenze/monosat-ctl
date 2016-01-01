@@ -41,6 +41,8 @@ public:
 	int bitsetsmax;
 	int id;
 
+	vec<int> cache;
+	bool use_cache=false;
 	// Used for Tarjan's SCC algorithm
 	CTLTarjansSCC<int>* tarjan;
 	std::vector<int> q;
@@ -152,7 +154,12 @@ public:
 		//printf("\n");
 
 	}
-
+	int copyBitset(int from){
+		assert(from>-1);
+		int i =getDirtyBitset();
+		bitsets[i]->copyFrom(*bitsets[from]);
+		return i;
+	}
 	void swapKripkes() {
 		tmpk = k;
 		k = otherk;
@@ -181,13 +188,23 @@ public:
 			}
 		}
 	}
+	void clearCache(){
+		for(int i = 0;i<cache.size();i++){
+			int bitset = cache[i];
+			if (bitset>-1){
+				freeBitset(bitset);
+			}
+		}
+		cache.clear();
 
+	}
 	// Similar to solve(), but returns a bitset pointer// and resets the system beforhand.
-	int solveFormula(CTLFormula& f) {
+	int solveFormula(CTLFormula& f, bool use_cache=false) {
 		//printf("%d: Solving ", isover);
 		//printFormula(&f);
 		//printf("\n");
 		//reset();
+		this->use_cache = use_cache;
 		int i = solve(f);
 		//printf("%d: Done solving\n", isover);
 		return i;
@@ -195,6 +212,21 @@ public:
 
 	// Main solve function.
 	int solve(CTLFormula& f) {
+		if(use_cache && f.getID()>-1){
+			cache.growTo(f.getID()+1,-1);
+			if (cache[f.getID()]>-1){
+				return copyBitset( cache[f.getID()]);
+			}
+		}
+		int bitset = _solve(f);
+		if(use_cache && f.getID()>-1){
+			cache.growTo(f.getID()+1,-1);
+			cache[f.getID()]=bitset;
+			bitset= copyBitset(bitset);
+		}
+		return bitset;
+	}
+	int _solve(CTLFormula& f) {
 		switch (f.op) {
 		case ID : return solveID(f);
 		case True : return solveTrue(f);
@@ -552,65 +584,65 @@ public:
 
 	// AX φ ≡ ¬ EX ¬φ
 	int solveAX(CTLFormula& f) {
-		CTLFormula phi1 = {NEG, f.operand1, NULL, 0};
-		CTLFormula phi2 = {EX, &phi1, NULL, 0};
-		CTLFormula phi3 = {NEG, &phi2, NULL, 0};
+		CTLFormula phi1 = CTLFormula(NEG, f.operand1);
+		CTLFormula phi2 = CTLFormula(EX, &phi1);
+		CTLFormula phi3 = CTLFormula(NEG, &phi2);
 		return solve(phi3);
 	}
 
 	// AF φ ≡ ¬ EG ¬φ
 	int solveAF(CTLFormula& f) {
-		CTLFormula phi1 = {NEG, f.operand1, NULL, 0};
-		CTLFormula phi2 = {EG, &phi1, NULL, 0};
-		CTLFormula phi3 = {NEG, &phi2, NULL, 0};
+		CTLFormula phi1 = CTLFormula(NEG, f.operand1);
+		CTLFormula phi2 = CTLFormula(EG, &phi1);
+		CTLFormula phi3 = CTLFormula(NEG, &phi2);
 		return solve(phi3);
 	}
 
 	// AG φ ≡ ¬ EF ¬φ
 	int solveAG(CTLFormula& f) {
-		CTLFormula phi1 = {NEG, f.operand1, NULL, 0};
-		CTLFormula phi2 = {EF, &phi1, NULL, 0, f.fairnessConstraints};
-		CTLFormula phi3 = {NEG, &phi2, NULL, 0};
+		CTLFormula phi1 = CTLFormula(NEG, f.operand1);
+		CTLFormula phi2 = CTLFormula(EF, &phi1, NULL, 0, f.fairnessConstraints);
+		CTLFormula phi3 = CTLFormula(NEG, &phi2);
 		return solve(phi3);
 	}
 
 	// φ 1 AW φ 2 ≡ ¬(¬φ 2 EU ¬(φ 1 ∨ φ 2 ))
 	int solveAW(CTLFormula& f) {
-		CTLFormula phi1 = {OR, f.operand1, f.operand2, 0};
-		CTLFormula phi2 = {NEG, &phi1, NULL, 0};
-		CTLFormula phi3 = {NEG, f.operand2, NULL, 0};
-		CTLFormula phi4 = {EU, &phi3, &phi2, 0};
-		CTLFormula phi5 = {NEG, &phi4, NULL, 0};
+		CTLFormula phi1 = CTLFormula(OR, f.operand1, f.operand2);
+		CTLFormula phi2 = CTLFormula(NEG, &phi1);
+		CTLFormula phi3 = CTLFormula(NEG, f.operand2);
+		CTLFormula phi4 = CTLFormula(EU, &phi3, &phi2);
+		CTLFormula phi5 = CTLFormula(NEG, &phi4);
 		return solve(phi5);
 	}
 	// φ 1 AU φ 2 ≡ AF φ 2 ∧ (φ 1 AW φ 2 ))
 	int solveAU(CTLFormula& f) {
-		CTLFormula phi1 = {AF, f.operand2, NULL, 0};
-		CTLFormula phi2 = {AW, f.operand1, f.operand2, 0};
-		CTLFormula phi3 = {AND, &phi1, &phi2, 0};
+		CTLFormula phi1 = CTLFormula(AF, f.operand2);
+		CTLFormula phi2 = CTLFormula(AW, f.operand1, f.operand2);
+		CTLFormula phi3 = CTLFormula(AND, &phi1, &phi2);
 		return solve(phi3);
 	}
 
 	void funwithctl() {
-		CTLFormula a {ID, NULL, NULL, 0};
-		CTLFormula b {ID, NULL, NULL, 1};
-		CTLFormula c {ID, NULL, NULL, 2};
-		CTLFormula EXa {EX, &a, NULL, 0};
-		CTLFormula NEGEXa {NEG, &EXa, NULL, 0};
-		CTLFormula EUEXab {EU, &EXa, &b, 0};
-		CTLFormula complicated {AF, &EUEXab, NULL, 0};
-		CTLFormula NEGEXaORb {OR, &NEGEXa, &b, 0};
-		CTLFormula NEGEXaORc {OR, &NEGEXa, &c, 0};
-		CTLFormula EGb {EG, &b, NULL, 0};
-		CTLFormula EUbc {EU, &b, &c, 0};
-		CTLFormula AXb {AX, &b, NULL, 0};
-		CTLFormula AFc {AF, &c, NULL, 0};
-		CTLFormula AUbc {AU, &b, &c, 0};
-		CTLFormula AUac {AU, &a, &c, 0};
-		CTLFormula AWbc {AW, &b, &c, 0};
-		CTLFormula AUbcOREGb {OR, &AUbc, &EGb, 0};
-		CTLFormula AXc {AX, &c, NULL, 0};
-		CTLFormula bAUAXc {AU, &b, &AXc, 0};
+		CTLFormula a (ID, NULL, NULL, 0);
+		CTLFormula b (ID, NULL, NULL, 1);
+		CTLFormula c (ID, NULL, NULL, 2);
+		CTLFormula EXa (EX, &a, NULL, 0);
+		CTLFormula NEGEXa (NEG, &EXa, NULL, 0);
+		CTLFormula EUEXab (EU, &EXa, &b, 0);
+		CTLFormula complicated (AF, &EUEXab, NULL, 0);
+		CTLFormula NEGEXaORb (OR, &NEGEXa, &b, 0);
+		CTLFormula NEGEXaORc (OR, &NEGEXa, &c, 0);
+		CTLFormula EGb (EG, &b, NULL, 0);
+		CTLFormula EUbc (EU, &b, &c, 0);
+		CTLFormula AXb (AX, &b, NULL, 0);
+		CTLFormula AFc (AF, &c, NULL, 0);
+		CTLFormula AUbc (AU, &b, &c, 0);
+		CTLFormula AUac (AU, &a, &c, 0);
+		CTLFormula AWbc (AW, &b, &c, 0);
+		CTLFormula AUbcOREGb (OR, &AUbc, &EGb, 0);
+		CTLFormula AXc (AX, &c, NULL, 0);
+		CTLFormula bAUAXc (AU, &b, &AXc, 0);
 
 		//printFormula(complicated); printf("\n");
 
@@ -681,8 +713,8 @@ public:
 			printf("}\n");
 		}
 	}
-
 };
+
 };
 
 #endif /* CTL_CTLSOLVER_H_ */

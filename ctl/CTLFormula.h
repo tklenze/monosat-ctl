@@ -10,6 +10,7 @@
 #define CTL_FORMULA_H_
 #include <stdio.h>
 #include "ctl/CTLParser.h"
+#include <initializer_list>
 
 using namespace dgl;
 namespace Monosat {
@@ -23,20 +24,48 @@ namespace Monosat {
 	 * For instance, operand1 and operand2 are needed for AU, but value is only meaningful in case op=ID
 	 *
 	 * Sample formulas:
-	 *   {ID, NULL, NULL, 3} -- corresponds to the atomic proposition number 3. Note how operands are ignored.
-	 *   {EF, phi, NULL, 0} -- corresponds to "EF phi". Note that "value" and operand2 are ignored.
+	 *   {ID, nullptr, nullptr, 3} -- corresponds to the atomic proposition number 3. Note how operands are ignored.
+	 *   {EF, phi, nullptr, 0} -- corresponds to "EF phi". Note that "value" and operand2 are ignored.
 	 */
 	struct CTLFormula {
 		CTLOp op;
 		CTLFormula *operand1;
 		CTLFormula *operand2;
-		int value;
+		int value=0;
+
+		//use for caching.
+		//Optional, must be a unique non-negative integer or -1
+		//(but if -1, caching will be disabled for this formula)
+		int id = -1;
 		std::vector<CTLFormula *> fairnessConstraints;
+
+		CTLFormula(CTLOp op, CTLFormula * op1, CTLFormula * op2=nullptr,int value =0):op(op),operand1(op1),operand2(op2),value(value){
+
+		}
+		CTLFormula(CTLOp op, CTLFormula * op1, CTLFormula * op2, int value, std::vector<CTLFormula *> fairnessConstraints):op(op),operand1(op1),operand2(op2),value(value),fairnessConstraints(fairnessConstraints){
+
+		}
+		void setValue(int value){
+			this->value=value;
+		}
+		void setID(int id){
+			this->id = id;
+		}
+		int getID(){
+			return id;
+		}
+		void addFairnessConstraint(CTLFormula*f){
+			fairnessConstraints.push_back(f);
+		}
+		std::vector<CTLFormula*> & getFairnessConstraints(){
+			return fairnessConstraints;
+		}
 	};
 
 	CTLFormula* newCTLFormula() {
-		std::vector<CTLFormula *> fairnessC;
-		CTLFormula * f = new CTLFormula{ID, NULL, NULL, 0, fairnessC};
+		//std::vector<CTLFormula *> fairnessC;
+		CTLFormula * f = new CTLFormula(ID, nullptr, nullptr);
+
 		return f;
 	}
 
@@ -108,15 +137,15 @@ namespace Monosat {
 	std::string getFormulaNuSMVFormat(CTLFormula& f) {
 
 		// NuSMV doesn't understand weak until, that's why we convert the formula to use other operators
-		CTLFormula * phiEW1 = new CTLFormula{EG, f.operand1, NULL, 0};
-		CTLFormula * phiEW2 = new CTLFormula{EU, f.operand1, f.operand2, 0};
-		CTLFormula * phiEW3 = new CTLFormula{OR, phiEW1, phiEW2, 0};
+		CTLFormula * phiEW1 = new CTLFormula(EG, f.operand1, nullptr);
+		CTLFormula * phiEW2 = new CTLFormula(EU, f.operand1, f.operand2);
+		CTLFormula * phiEW3 = new CTLFormula(OR, phiEW1, phiEW2);
 
-		CTLFormula * phiAW1 = new CTLFormula{OR, f.operand1, f.operand2, 0};
-		CTLFormula * phiAW2 = new CTLFormula{NEG, phiAW1, NULL, 0};
-		CTLFormula * phiAW3 = new CTLFormula{NEG, f.operand2, NULL, 0};
-		CTLFormula * phiAW4 = new CTLFormula{EU, phiAW3, phiAW2, 0};
-		CTLFormula * phiAW5 = new CTLFormula{NEG, phiAW4, NULL, 0};
+		CTLFormula * phiAW1 = new CTLFormula(OR, f.operand1, f.operand2);
+		CTLFormula * phiAW2 = new CTLFormula(NEG, phiAW1, nullptr);
+		CTLFormula * phiAW3 = new CTLFormula(NEG, f.operand2, nullptr);
+		CTLFormula * phiAW4 = new CTLFormula(EU, phiAW3, phiAW2);
+		CTLFormula * phiAW5 = new CTLFormula(NEG, phiAW4, nullptr);
 
 		std::string s;
 		switch (f.op) {
@@ -146,28 +175,28 @@ namespace Monosat {
 	std::string getFormulaPctlFormat(CTLFormula& f) {
 
 		// Pctl doesn't understand most of the operators we are using, that's why we convert the formula to use other operators
-		CTLFormula * phiEW1 = new CTLFormula{EG, f.operand1, NULL, 0};
-		CTLFormula * phiEW2 = new CTLFormula{EU, f.operand1, f.operand2, 0};
-		CTLFormula * phiEW3 = new CTLFormula{OR, phiEW1, phiEW2, 0};
+		CTLFormula * phiEW1 = new CTLFormula(EG, f.operand1, nullptr);
+		CTLFormula * phiEW2 = new CTLFormula(EU, f.operand1, f.operand2);
+		CTLFormula * phiEW3 = new CTLFormula(OR, phiEW1, phiEW2);
 
-		CTLFormula * phiAW1 = new CTLFormula{OR, f.operand1, f.operand2, 0};
-		CTLFormula * phiAW2 = new CTLFormula{NEG, phiAW1, NULL, 0};
-		CTLFormula * phiAW3 = new CTLFormula{NEG, f.operand2, NULL, 0};
-		CTLFormula * phiAW4 = new CTLFormula{EU, phiAW3, phiAW2, 0};
-		CTLFormula * phiAW5 = new CTLFormula{NEG, phiAW4, NULL, 0};
+		CTLFormula * phiAW1 = new CTLFormula(OR, f.operand1, f.operand2);
+		CTLFormula * phiAW2 = new CTLFormula(NEG, phiAW1, nullptr);
+		CTLFormula * phiAW3 = new CTLFormula(NEG, f.operand2, nullptr);
+		CTLFormula * phiAW4 = new CTLFormula(EU, phiAW3, phiAW2);
+		CTLFormula * phiAW5 = new CTLFormula(NEG, phiAW4, nullptr);
 
-		CTLFormula * phiEG1 = new CTLFormula{True, NULL, NULL, 0};
-		CTLFormula * phiEG11 = new CTLFormula{NEG, f.operand1, NULL, 0};
-		CTLFormula * phiEG2 = new CTLFormula{AU, phiEG1, phiEG11, 0};
-		CTLFormula * phiEG3 = new CTLFormula{NEG, phiEG2, NULL, 0};
+		CTLFormula * phiEG1 = new CTLFormula(True, nullptr, nullptr);
+		CTLFormula * phiEG11 = new CTLFormula(NEG, f.operand1, nullptr);
+		CTLFormula * phiEG2 = new CTLFormula(AU, phiEG1, phiEG11);
+		CTLFormula * phiEG3 = new CTLFormula(NEG, phiEG2, nullptr);
 
-		CTLFormula * phiAF1 = new CTLFormula{NEG, f.operand1, NULL, 0};
-		CTLFormula * phiAF2 = new CTLFormula{EG, phiAF1, NULL, 0};
-		CTLFormula * phiAF3 = new CTLFormula{NEG, phiAF2, NULL, 0};
+		CTLFormula * phiAF1 = new CTLFormula(NEG, f.operand1, nullptr);
+		CTLFormula * phiAF2 = new CTLFormula(EG, phiAF1, nullptr);
+		CTLFormula * phiAF3 = new CTLFormula(NEG, phiAF2, nullptr);
 
-		CTLFormula * phiAG1 = new CTLFormula{NEG, f.operand1, NULL, 0};
-		CTLFormula * phiAG2 = new CTLFormula{EF, phiAG1, NULL, 0};
-		CTLFormula * phiAG3 = new CTLFormula{NEG, phiAG2, NULL, 0};
+		CTLFormula * phiAG1 = new CTLFormula(NEG, f.operand1, nullptr);
+		CTLFormula * phiAG2 = new CTLFormula(EF, phiAG1, nullptr);
+		CTLFormula * phiAG3 = new CTLFormula(NEG, phiAG2, nullptr);
 
 		// undo double negation
 		if (f.op == NEG && f.operand1->op == NEG)
