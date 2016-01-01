@@ -194,17 +194,17 @@ public:
 		ctl_over = new CTLSolver(id, *g_over, *g_under, 1);
 		ctl_standalone_over = new CTLSolverStandalone(id, *g_over);
 		ctl_standalone_under = new CTLSolverStandalone(id, *g_under);
-		f = newCTLFormula();
+		f = newCTLFormula(states());
 
 		rnd_seed = opt_random_seed;
 
 		// Compute AG EX True
-		CTLFormula* fInfinitePaths1 = newCTLFormula();
+		CTLFormula* fInfinitePaths1 = newCTLFormula(states());
 		fInfinitePaths1->op = True;
-		CTLFormula* fInfinitePaths2 = newCTLFormula();
+		CTLFormula* fInfinitePaths2 = newCTLFormula(states());
 		fInfinitePaths2->op = EX;
 		fInfinitePaths2->operand1 = fInfinitePaths1;
-		fAGEXTrue = newCTLFormula();
+		fAGEXTrue = newCTLFormula(states());
 		fAGEXTrue->op = AG;
 		fAGEXTrue->operand1 = fInfinitePaths2;
 	}
@@ -215,6 +215,10 @@ public:
 		delete(ctl_over);
 	}
 	
+	int states() {
+		return g_over->states();
+	}
+
 	void writeTheoryWitness(std::ostream& write_to) {
 
 		for (FSMDetector * d : detectors) {
@@ -824,13 +828,11 @@ public:
 					if(opt_verb>1)
 						printf("propagateTheory returns false, since formula is asserted true, but fails to hold in the overapproximation (and hence also fails to hold in the underapproximation) \n");
 				toSolver(conflict);
-				ctl_over->freeBitset(bit_over);
 				stats_ctl_conflicts++;
 				stats_ctl_conflict_literals+=conflict.size();
 				theoryPropagationAppendix(startproptime);
 				return false;
 			}
-			ctl_over->freeBitset(bit_over);
 			// There is no CTL conflict, so just learn the symmetry conflict, if there is one
 			if (symmetryConflict.size() != 0) {
 				symmetryConflict.copyTo(conflict); // Overwrite conflict
@@ -861,11 +863,9 @@ public:
 			  		printLearntClause(symmetryConflict);
 					printf("propagateTheory returns false, since formula is asserted true, but fails to hold in the overapproximation (and hence also fails to hold in the underapproximation) \n");
 				}
-				ctl_over->freeBitset(bit_over);
 				theoryPropagationAppendix(startproptime);
 				return false; // It does not hold in the overapproximation
 			}
-			ctl_over->freeBitset(bit_over);
 		}
 
 		// ALLSAT
@@ -880,11 +880,8 @@ public:
 				toSolver(conflict);
 				printf("--------------------\nFound new Solution set (conflict size: %d):\n", conflict.size());
 				drawCurrentAssignment();
-				ctl_under->freeBitset(bit_under);
 				theoryPropagationAppendix(startproptime);
 				return false;
-			} else {
-				ctl_under->freeBitset(bit_under);
 			}
 		}
 		theoryPropagationAppendix(startproptime);
@@ -1096,12 +1093,12 @@ public:
 	void learnClausePos(vec<Lit> & conflict, CTLFormula &subf, int startNode) {
 		 // only for debugging, you may uncomment this:
 
-		/*
+
 		if(opt_verb>1)
 			printf("Learning naive clause...\n");
 		learnNaiveClause(conflict, initialNode);
 		return;
-		*/
+
 
 
 		if(opt_verb>1) {
@@ -1338,8 +1335,6 @@ public:
 			assert(!ctl_over->bitsets[phi2_over]->operator [](startNode)); // If this is violated, that means that both parts of the AND formula are satisfied -- then there should not be a conflict
 			learnClausePos(conflict, subf2, startNode);
 		}
-		ctl_over->freeBitset(phi1_over);
-		ctl_over->freeBitset(phi2_over);
 	}
 
 	// Both parts of the OR must be false, and we OR together their recursively learned sub-clauses
@@ -1400,7 +1395,6 @@ public:
 				Lit l = ~mkLit(e.id, false);
 				conflict.push(l);
 				assert(value(l)==l_False);
-				ctl_over->freeBitset(phi_over);
 				return;
 			}
 		}
@@ -1425,7 +1419,6 @@ public:
 			if(opt_verb>1)
 				printf("learnEG: initial state does not satisfy phi\n");
 			learnClausePos(conflict, subf, startNode);
-			ctl_over->freeBitset(phi_over);
 			return;
 		}
 
@@ -1461,7 +1454,6 @@ public:
 			ctl_over->bitsets[visited]->set(from);
 		}
 		ctl_over->freeBitset(visited);
-		ctl_over->freeBitset(phi_over);
 	}
 
 	// Start out by learning EG. Then, for each fairness constraints, learn that it can switch to being true in every state
@@ -1476,7 +1468,6 @@ public:
 					learnClausePos(conflict, *thisf.fairnessConstraints[c], i);
 				}
 			}
-			ctl_over->freeBitset(cSet);
 		}
 	}
 
@@ -1486,7 +1477,7 @@ public:
 	void learnMakePathUnfair(vec<Lit> & conflict, CTLFormula &thisf, int startNode){
 		int cSet;
 		for (int c = 0; c < thisf.fairnessConstraints.size(); c ++) {
-			CTLFormula* notc = newCTLFormula();
+			CTLFormula* notc = newCTLFormula(states());
 			notc->op = NEG;
 			notc->operand1 = thisf.fairnessConstraints[c];
 			cSet = ctl_under->solve(*thisf.fairnessConstraints[c]);
@@ -1495,7 +1486,6 @@ public:
 					learnClausePos(conflict, *notc, i);
 				}
 			}
-			ctl_under->freeBitset(cSet);
 		}
 	}
 
@@ -1512,8 +1502,8 @@ public:
 		// If we don't have any fairness constraints ("else"), we simply use a bitset which is true for every state
 		int fair_over;
 		if (thisf.fairnessConstraints.size() > 0) {
-			CTLFormula* fairFormula = newCTLFormula();
-			CTLFormula* fairFormulaTrue = newCTLFormula();
+			CTLFormula* fairFormula = newCTLFormula(states());
+			CTLFormula* fairFormulaTrue = newCTLFormula(states());
 			fairFormulaTrue->op = True;
 			fairFormula->op = EG;
 			fairFormula->operand1 = fairFormulaTrue;
@@ -1539,8 +1529,6 @@ public:
 			if (thisf.fairnessConstraints.size() > 0) {
 				learnMakePathUnfair(conflict, thisf, startNode);
 			}
-			ctl_over->freeBitset(phi_over);
-			ctl_over->freeBitset(fair_over);
 			return;
 		}
 
@@ -1605,9 +1593,7 @@ public:
 			from = parent[to];
 			eid = g_under->getEdge(from, to);
 		}
-		ctl_over->freeBitset(phi_over);
 		ctl_over->freeBitset(visited);
-		ctl_over->freeBitset(fair_over);
 	}
 
 	// Find all reachable states, at least one of them should satisfy phi OR there should be a transition enabled
@@ -1767,7 +1753,6 @@ public:
 			eid = g_under->getEdge(from, to);
 		}
 		ctl_over->freeBitset(visited);
-		ctl_over->freeBitset(phi_over);
 	}
 
 
@@ -1793,8 +1778,6 @@ public:
 			assert(!ctl_over->bitsets[psi]->operator [](startNode)); // If psi was satisfied in initial state, then we would not have a conflict
 			learnClausePos(conflict, subf1, startNode); // Either phi must be true...
 			learnClausePos(conflict, subf2, startNode); // ... or psi must be true
-			ctl_over->freeBitset(phi);
-			ctl_over->freeBitset(psi);
 			return;
 		}
 
@@ -1845,8 +1828,6 @@ public:
 				}
 			}
 		}
-		ctl_over->freeBitset(phi);
-		ctl_over->freeBitset(psi);
 		ctl_over->freeBitset(visited);
 	}
 
@@ -1871,8 +1852,6 @@ public:
 			assert(!ctl_over->bitsets[psi]->operator [](startNode)); // If psi was satisfied in initial state, then we would not have a conflict
 			learnClausePos(conflict, subf1, startNode); // Either phi must be true...
 			learnClausePos(conflict, subf2, startNode); // ... or psi must be true
-			ctl_over->freeBitset(phi);
-			ctl_over->freeBitset(psi);
 			return;
 		}
 
@@ -1923,8 +1902,6 @@ public:
 				}
 			}
 		}
-		ctl_over->freeBitset(phi);
-		ctl_over->freeBitset(psi);
 		ctl_over->freeBitset(visited);
 	}
 /*
@@ -2138,12 +2115,6 @@ public:
 				printf("learnAW/AU: phi and psi fail to hold in startNode\n");
 			learnClausePos(conflict, subf1, from); // learn that this initial node satisfy phi
 			learnClausePos(conflict, subf2, from); // learn that this initial node satisfy psi
-			ctl_over->freeBitset(phi1_over);
-			ctl_over->freeBitset(phi2_over);
-			ctl_over->freeBitset(fAll_over);
-			ctl_under->freeBitset(phi1_under);
-			ctl_under->freeBitset(phi2_under);
-			ctl_under->freeBitset(fAll_under);
 			ctl_over->freeBitset(visited);
 			return;
 		}
@@ -2162,12 +2133,6 @@ public:
 			conflict.push(l);
 			assert(value(l)==l_False);
 		}
-		ctl_over->freeBitset(phi1_over);
-		ctl_over->freeBitset(phi2_over);
-		ctl_over->freeBitset(fAll_over);
-		ctl_under->freeBitset(phi1_under);
-		ctl_under->freeBitset(phi2_under);
-		ctl_under->freeBitset(fAll_under);
 		ctl_over->freeBitset(visited);
 	}
 
@@ -2235,7 +2200,7 @@ public:
 			if(opt_verb>1)
 				printf("learnAU: No path exists, where eventually ~p^~q holds. This implies p AW q holds. Learn AF q\n");
 
-			CTLFormula* fAFphi2 = newCTLFormula();
+			CTLFormula* fAFphi2 = newCTLFormula(states());
 			fAFphi2->op = AF;
 			fAFphi2->operand1 = &subf2;
 			int AFphi2_under = ctl_under->solveFormula(*fAFphi2); // Solve the inner subformula of the entire formula
@@ -2251,14 +2216,6 @@ public:
 			assert(!ctl_over->bitsets[AFphi2_over]->operator [](startNode));
 			assert(!ctl_under->bitsets[AFphi2_under]->operator [](startNode));
 			learnAF(conflict, subf2, startNode);
-			ctl_over->freeBitset(phi1_over);
-			ctl_over->freeBitset(phi2_over);
-			ctl_over->freeBitset(fAll_over);
-			ctl_under->freeBitset(phi1_under);
-			ctl_under->freeBitset(phi2_under);
-			ctl_under->freeBitset(fAll_under);
-			ctl_under->freeBitset(AFphi2_under);
-			ctl_over->freeBitset(AFphi2_over);
 			ctl_over->freeBitset(visited);
 			return;
 		}
@@ -2271,12 +2228,6 @@ public:
 				printf("learnAU: phi and psi fail to hold in startNode\n");
 			learnClausePos(conflict, subf1, from); // learn that this initial node satisfy phi
 			learnClausePos(conflict, subf2, from); // learn that this initial node satisfy psi
-			ctl_over->freeBitset(phi1_over);
-			ctl_over->freeBitset(phi2_over);
-			ctl_over->freeBitset(fAll_over);
-			ctl_under->freeBitset(phi1_under);
-			ctl_under->freeBitset(phi2_under);
-			ctl_under->freeBitset(fAll_under);
 			ctl_over->freeBitset(visited);
 			return;
 		}
@@ -2295,12 +2246,6 @@ public:
 			conflict.push(l);
 			assert(value(l)==l_False);
 		}
-		ctl_over->freeBitset(phi1_over);
-		ctl_over->freeBitset(phi2_over);
-		ctl_over->freeBitset(fAll_over);
-		ctl_under->freeBitset(phi1_under);
-		ctl_under->freeBitset(phi2_under);
-		ctl_under->freeBitset(fAll_under);
 		ctl_over->freeBitset(visited);
 	}
 

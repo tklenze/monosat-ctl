@@ -32,11 +32,16 @@ namespace Monosat {
 		CTLFormula *operand2;
 		int value;
 		std::vector<CTLFormula *> fairnessConstraints;
+		// Caching of solution bitsets
+		int solution_under; // array index of solution for underapprox
+		int solutionVersion_under;
+		int solution_over;
+		int solutionVersion_over;
 	};
 
-	CTLFormula* newCTLFormula() {
+	CTLFormula* newCTLFormula(int states) {
 		std::vector<CTLFormula *> fairnessC;
-		CTLFormula * f = new CTLFormula{ID, NULL, NULL, 0, fairnessC};
+		CTLFormula * f = new CTLFormula{ID, NULL, NULL, 0, fairnessC, 0, 0, 0, 0};
 		return f;
 	}
 
