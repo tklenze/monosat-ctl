@@ -39,7 +39,6 @@ public:
 	bool is_generator=true;
 	bool is_acceptor=true;
 	bool is_linear=true;
-	int version=0; // identifies a version of the Kripke structure, in order to enable the solver to inspect whether it has changed
 public:
 	std::vector<bool> transitions;
 
@@ -90,13 +89,12 @@ public:
 	}
 
 	bool transitionEnabled(int edgeID)const{
-		return transitions[edgeID];
+			return transitions[edgeID];
 	}
 
 
 	void setStateLabel(int state, Bitset& label) {
 		statelabel[state] = &label;
-		version++;
 	}
 
 	Bitset* getStateLabel(int state) {
@@ -125,7 +123,6 @@ public:
 			modifications++;
 			additions = modifications;
 			history.push_back( { true, true, state, ap, modifications });
-			version++;
 		}
 	}
 
@@ -145,7 +142,6 @@ public:
 			modifications++;
 			deletions = modifications;
 			history.push_back( { true, true, state, ap, modifications });
-			version++;
 		}
 	}
 
@@ -153,7 +149,6 @@ public:
 	// lengths if initialization messes up
 	void setAPCount(int apc) {
 		apcount = apc;
-		version++;
 	}
 
 	// Is ap in the label of state?
@@ -181,7 +176,6 @@ public:
 		}
 		transitions.resize(edgeID+1);
 		transitions[edgeID] = defaultEnabled;
-		version++;
 
 		return edgeID;
 	}
@@ -195,7 +189,6 @@ public:
 			modifications++;
 			additions = modifications;
 			history.push_back( { true, false, edgeID, 0, modifications });
-			version++;
 		}
 	}
 	void disableTransition(int edgeID) {
@@ -207,7 +200,6 @@ public:
 			modifications++;
 			history.push_back( { false, false, edgeID, 0, modifications });
 			deletions = modifications;
-			version++;
 		}
 	}
 	int addEmptyState(){
@@ -220,7 +212,6 @@ public:
 	}
 	int addNode(Bitset& v) {
 		g.addNode();
-		version++;
 		modifications++;
 		additions = modifications;
 		deletions = modifications;
@@ -247,7 +238,6 @@ public:
 		modifications++;
 		additions = modifications;
 		markChanged();
-		version++;
 
 		if(transitions.size()<=id){
 			transitions.resize(id+1);

@@ -223,15 +223,15 @@ class CTLParser: public Parser<B, Solver> {
 		std::string tmp = std::string("(AG EX True AND ")+in+std::string(")");
 		//std::cout << tmp;
 		char *fSafe = &tmp[0];
-		f = parseCTL(fSafe, nodeCount);
+		f = parseCTL(fSafe);
 
 		kripkes[currentKripkeID]->setCTL(*f, currentInitialNode);
 		kripkes[currentKripkeID]->newCTLVar(ctlVar);
 	}
 	void readCTLLine(B& in, Solver& S) {
 		++in;
-		CTLFormula* fLine = parseCTL(in, nodeCount);
-		CTLFormula* fBoth = newCTLFormula(nodeCount);
+		CTLFormula* fLine = parseCTL(in);
+		CTLFormula* fBoth = newCTLFormula();
 		fBoth->op = AND;
 		fBoth->operand1 = f;
 		fBoth->operand2 = fLine;

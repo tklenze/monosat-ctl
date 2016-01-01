@@ -84,13 +84,13 @@ public:
 			if (bitsetsAvail[i]) {
 				bitsetsAvail[i] = false; // set to false
 
-
-				printf("getDirtyBitset() returns existing bitset %d  ", i);
+				/*
+				printf("getFreshBitset() returns existing bitset %d  ", i);
 				for (int j = 0; j < bitsetsAvail.size(); j++) {
 					printf("%d: %d | ", j, bitsetsAvail[j]);
 				}
 				printf("\n");
-
+				*/
 				return i;
 			}
 		}
@@ -102,22 +102,21 @@ public:
 		bitsets[i] = new Bitset(k->states());
 		bitsetsmax = i;
 
-
-		printf("getDirtyBitset() creates new bitset %d  ", i);
+		/*
+		printf("getFreshBitset() creates new bitset %d  ", i);
 		for (int j = 0; j < bitsetsAvail.size(); j++) {
 			printf("%d: %d | ", j, bitsetsAvail[j]);
 		}
 		printf("\n");
-
+		*/
 
 		return i;
 	}
 	void freeBitset(int i) {
-		printf("%d freeBitset %d: ", isover, i);
-		for (int j = 0; j < bitsetsAvail.size(); j++) {
-			printf("%d: %d | ", j, bitsetsAvail[j]);
-		}
-		printf("\n");
+		//printf("%d freeBitset %d: ", isover, i);
+		//for (int j = 0; j < bitsetsAvail.size(); j++) {
+		//	printf("%d: %d | ", j, bitsetsAvail[j]);
+		//}
 
 		assert(i < bitsetsAvail.size());
 		if (!bitsetsAvail[i])
@@ -185,70 +184,35 @@ public:
 
 	// Similar to solve(), but returns a bitset pointer// and resets the system beforhand.
 	int solveFormula(CTLFormula& f) {
-		printf("%d: Solving ", isover);
-		printFormula(&f);
-		printf("\n");
+		//printf("%d: Solving ", isover);
+		//printFormula(&f);
+		//printf("\n");
 		//reset();
 		int i = solve(f);
-		printf("%d: Done solving\n", isover);
+		//printf("%d: Done solving\n", isover);
 		return i;
 	}
 
-	// Main solve function. Utilizes caching when multiple solve() calls happen on the same formula, for the same (unmodified) structure
+	// Main solve function.
 	int solve(CTLFormula& f) {
-		// We first distinguish over- and underapproximation
-		// WLOG assume we work on overapproximation:
-		// check if the currently stored version matches the version of the overapproximation. If so, return cached bitset
-		// if not, free it (unless it's the first time we solve and there is no populated cache) and solve the formula anew (which creates a new bitset).
-		if (isover) {
-			printFormula(&f);
-			printf(" solve. over: f.solutionVersion_over = %d. f.solution_over = %d. k->version = %d, otherk->version = %d\n", f.solutionVersion_over, f.solution_over, k->version, otherk->version);
-			if (f.solutionVersion_over == k->version + otherk->version) {
-				assert(!bitsetsAvail[f.solution_over]);
-				return f.solution_over;
-			} else if (f.solutionVersion_over != 0) {
-				freeBitset(f.solution_over);
-			}
-		} else {
-			printFormula(&f);
-			printf(" solve. under. f.solutionVersion_under = %d. f.solution_under = %d. k->version = %d, otherk->version = %d\n", f.solutionVersion_under, f.solution_under, k->version, otherk->version);
-			if (f.solutionVersion_under == k->version + otherk->version) {
-				assert(!bitsetsAvail[f.solution_under]);
-				return f.solution_under;
-			} else if (f.solutionVersion_under != 0) {
-				freeBitset(f.solution_under);
-			}
-		}
-
-		int result;
 		switch (f.op) {
-		case ID : result = solveID(f); break;
-		case True : result =  solveTrue(f); break;
-		case NEG : result =  solveNEG(f); break;
-		case OR : result =  solveOR(f); break;
-		case AND : result =  solveAND(f); break;
-		case EX : result =  solveEX(f); break;
-		case EG : result =  solveEG(f); break;
-		case EF : result =  solveEF(f); break;
-		case EW : result =  solveEW(f); break;
-		case EU : result =  solveEU(f); break;
-		case AX : result =  solveAX(f); break;
-		case AG : result =  solveAG(f); break;
-		case AF : result =  solveAF(f); break;
-		case AW : result =  solveAW(f); break;
-		case AU : result =  solveAU(f); break;
+		case ID : return solveID(f);
+		case True : return solveTrue(f);
+		case NEG : return solveNEG(f);
+		case OR : return solveOR(f);
+		case AND : return solveAND(f);
+		case EX : return solveEX(f);
+		case EG : return solveEG(f);
+		case EF : return solveEF(f);
+		case EW : return solveEW(f);
+		case EU : return solveEU(f);
+		case AX : return solveAX(f);
+		case AG : return solveAG(f);
+		case AF : return solveAF(f);
+		case AW : return solveAW(f);
+		case AU : return solveAU(f);
 		default: throw std::runtime_error("CTLSolver.solve has encountered unsupported CTL operator!");
 		}
-		if (isover) {
-			f.solutionVersion_over = k->version + otherk->version;
-			f.solution_over = result;
-			printf("Solved over. f.solutionVersion_over = %d, f.solution_over = %d\n", f.solutionVersion_over, f.solution_over);
-		} else {
-			f.solutionVersion_under = k->version + otherk->version;
-			f.solution_under = result;
-			printf("Solved under. f.solutionVersion_under = %d, f.solution_under = %d\n", f.solutionVersion_under, f.solution_under);
-		}
-		return result;
 	}
 
 	int solveID(CTLFormula& f) {
@@ -524,8 +488,8 @@ public:
 		int prest = getFreshBitset();
 
 		// Find states in which there is a fair path.
-		CTLFormula* fairFormula = newCTLFormula(k->states());
-		CTLFormula* fairFormulaTrue = newCTLFormula(k->states());
+		CTLFormula* fairFormula = newCTLFormula();
+		CTLFormula* fairFormulaTrue = newCTLFormula();
 		fairFormulaTrue->op = True;
 		fairFormula->op = EG;
 		fairFormula->operand1 = fairFormulaTrue;

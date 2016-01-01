@@ -28,15 +28,15 @@ namespace Monosat {
 
 template<typename B>
 
-static CTLFormula* parseCTL(B& in, int states);
+static CTLFormula* parseCTL(B& in);
 
 template<typename B>
 
-static void matchFairness(B& in, CTLFormula* f, int states) {
+static void matchFairness(B& in, CTLFormula* f) {
 	skipWhitespace(in);
 	if (match(in, "{")) {
 		do {
-			CTLFormula* c = parseCTL(in, states);
+			CTLFormula* c = parseCTL(in);
 			f->fairnessConstraints.push_back(c);
 			skipWhitespace(in);
 		} while (match(in, ","));
@@ -49,10 +49,11 @@ static void matchFairness(B& in, CTLFormula* f, int states) {
 	template<typename B>
 
 
-	static CTLFormula* parseCTL(B& in, int states) {
+	static CTLFormula* parseCTL(B& in) {
 		skipWhitespace(in);
 
-		CTLFormula* f = newCTLFormula(states);
+		CTLFormula* f = newCTLFormula();
+
 
 		// These are hardcoded synonyms for the Clarke/Emerson Mutex example
 		if (match(in, "NCS1")) {
@@ -103,7 +104,7 @@ static void matchFairness(B& in, CTLFormula* f, int states) {
 
 		// Normal parsing
 		if (match(in, "NEG") || match(in, "NOT") || match(in, "~") || match(in, "!")) {
-			CTLFormula* inside = parseCTL(in, states);
+			CTLFormula* inside = parseCTL(in);
 			f->op = NEG;
 			f->operand1 = inside;
 			return f;
@@ -113,48 +114,48 @@ static void matchFairness(B& in, CTLFormula* f, int states) {
 			return f;
 		}
 		if (match(in, "EX")) {
-			CTLFormula* inside = parseCTL(in, states);
+			CTLFormula* inside = parseCTL(in);
 			f->op = EX;
 			f->operand1 = inside;
 			return f;
 		}
 		if (match(in, "EF")) {
-			CTLFormula* inside = parseCTL(in, states);
+			CTLFormula* inside = parseCTL(in);
 			f->op = EF;
 			f->operand1 = inside;
 			return f;
 		}
 		if (match(in, "EG")) {
-			matchFairness(in, f, states);
-			CTLFormula* inside = parseCTL(in, states);
+			matchFairness(in, f);
+			CTLFormula* inside = parseCTL(in);
 			f->op = EG;
 			f->operand1 = inside;
 			return f;
 		}
 		if (match(in, "AX")) {
-			CTLFormula* inside = parseCTL(in, states);
+			CTLFormula* inside = parseCTL(in);
 			f->op = AX;
 			f->operand1 = inside;
 			return f;
 		}
 		if (match(in, "AF")) {
-			CTLFormula* inside = parseCTL(in, states);
+			CTLFormula* inside = parseCTL(in);
 			f->op = AF;
 			f->operand1 = inside;
 			return f;
 		}
 		if (match(in, "AG")) {
-			matchFairness(in, f, states);
-			CTLFormula* inside = parseCTL(in, states);
+			matchFairness(in, f);
+			CTLFormula* inside = parseCTL(in);
 			f->op = AG;
 			f->operand1 = inside;
 			return f;
 		}
 		if (match(in, "(")) {
-			CTLFormula* inside1 = parseCTL(in, states);
+			CTLFormula* inside1 = parseCTL(in);
 			skipWhitespace(in);
 			if (match(in, "EW")) {
-				CTLFormula* inside2 = parseCTL(in, states);
+				CTLFormula* inside2 = parseCTL(in);
 				skipWhitespace(in);
 				if (match(in, ")")) {
 					f->op = EW;
@@ -164,7 +165,7 @@ static void matchFairness(B& in, CTLFormula* f, int states) {
 					printf("Error: Expected closing bracket"); exit(1);
 				}
 			} else if (match(in, "EU")) {
-				CTLFormula* inside2 = parseCTL(in, states);
+				CTLFormula* inside2 = parseCTL(in);
 				skipWhitespace(in);
 				if (match(in, ")")) {
 					f->op = EU;
@@ -174,7 +175,7 @@ static void matchFairness(B& in, CTLFormula* f, int states) {
 					printf("Error: Expected closing bracket"); exit(1);
 				}
 			} else if (match(in, "AW")) {
-				CTLFormula* inside2 = parseCTL(in, states);
+				CTLFormula* inside2 = parseCTL(in);
 				skipWhitespace(in);
 				if (match(in, ")")) {
 					f->op = AW;
@@ -184,7 +185,7 @@ static void matchFairness(B& in, CTLFormula* f, int states) {
 					printf("Error: Expected closing bracket"); exit(1);
 				}
 			} else if (match(in, "AU")) {
-				CTLFormula* inside2 = parseCTL(in, states);
+				CTLFormula* inside2 = parseCTL(in);
 				skipWhitespace(in);
 				if (match(in, ")")) {
 					f->op = AU;
@@ -194,7 +195,7 @@ static void matchFairness(B& in, CTLFormula* f, int states) {
 					printf("Error: Expected closing bracket"); exit(1);
 				}
 			} else if (match(in, "OR") || match(in, "v") || match(in, "|")) {
-				CTLFormula* inside2 = parseCTL(in, states);
+				CTLFormula* inside2 = parseCTL(in);
 				skipWhitespace(in);
 				if (match(in, ")")) {
 					f->op = OR;
@@ -204,7 +205,7 @@ static void matchFairness(B& in, CTLFormula* f, int states) {
 					printf("Error: Expected closing bracket"); exit(1);
 				}
 			} else if (match(in, "AND") || match(in, "^") || match(in, "&")) {
-				CTLFormula* inside2 = parseCTL(in, states);
+				CTLFormula* inside2 = parseCTL(in);
 				skipWhitespace(in);
 				if (match(in, ")")) {
 					f->op = AND;
@@ -214,10 +215,10 @@ static void matchFairness(B& in, CTLFormula* f, int states) {
 					printf("Error: Expected closing bracket"); exit(1);
 				}
 			} else if (match(in, "IMP") || match(in, "->")) {
-				CTLFormula* inside2 = parseCTL(in, states);
+				CTLFormula* inside2 = parseCTL(in);
 				skipWhitespace(in);
 				if (match(in, ")")) {
-					CTLFormula* notinside1 = newCTLFormula(states);
+					CTLFormula* notinside1 = newCTLFormula();
 					notinside1->op = NEG;
 					notinside1->operand1 = inside1;
 					f->op = OR;
