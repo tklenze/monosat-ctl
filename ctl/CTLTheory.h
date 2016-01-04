@@ -2470,6 +2470,7 @@ public:
 		}
 
 		printPctlOutput();
+		printCTLSATOutput();
 
 		if(opt_verb>1)
 			printf("check_solved making sure that solution agrees with NuSMV solver...\n");
@@ -2624,6 +2625,21 @@ SPEC
 			//std::system(pctlsyscallchar);
 		}
 	}
+
+	void printCTLSATOutput() {
+		std::string CTLSATInput = getFormulaCTLSATFormat(f);
+		std::ofstream inputConvertedToCTLSAT;
+
+		inputConvertedToCTLSAT.open("regression-testing/inputConvertedToCTLSAT.txt", std::ios_base::out);
+		inputConvertedToCTLSAT << CTLSATInput;
+		inputConvertedToCTLSAT.close();
+		if (opt_verb > 0) {
+			std::cout << CTLSATInput;
+			printf("\n");
+		}
+
+	}
+
 
 	void drawCurrentAssignment() {
 		printf("digraph{\n");
