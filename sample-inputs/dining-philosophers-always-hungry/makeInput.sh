@@ -1,0 +1,2 @@
+# Use this script to obtain a version that can serve as an input. Named variables are assigned variable numbers
+cat dining-philosophers | sed 's/left0/0/g' | sed 's/table0/1/g' | sed 's/right0/2/g' | sed 's/left1/3/g' | sed 's/table1/4/g' | sed 's/right1/5/g' | sed 's/left2/6/g' | sed 's/table2/7/g' | sed 's/right2/8/g' | sed 's/left3/9/g' | sed 's/table3/10/g' | sed 's/right3/11/g' | sed 's/left4/12/g' | sed 's/table4/13/g' | sed 's/right4/14/g' > dining-philosophers-actual
