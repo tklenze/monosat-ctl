@@ -634,6 +634,21 @@ public:
 		for (int i = 0; i < detectors.size(); i++) {
 			detectors[i]->preprocess();
 		}
+
+		// AG EX True
+		// This is somewhat slow, but whatever. Only done once in preprocessing
+		vec<Lit> c;
+		for (int i = 0; i < g_over->states(); i++) { // iterate over neighbours of current front of queue
+			for (int j = 0; j < g_over->nIncident(i); j++) { // iterate over neighbours of current front of queue
+				e = g_over->incident(i, j);
+
+				Lit l = ~mkLit(e.id, true);
+				c.push(l);
+			}
+			addClauseSafely(c);
+			c.clear();
+		}
+
 		if (opt_verb > 0) {
 			printf("Formula:\n");
 			printFormula(f);

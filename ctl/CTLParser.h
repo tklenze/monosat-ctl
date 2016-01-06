@@ -217,13 +217,14 @@ class CTLParser: public Parser<B, Solver> {
 	void addCTL(B& in, Solver& S, int ctlVar) {
 
 		// OK, this is probably a bit controversial, but I will attach AND the formula together with AG (EX True).
-		// TODO properly document this, and make it able to switch it off
+		//   properly document this, and make it able to switch it off
+		// done in CTLTheory's preprocessing instead now!
 
-		//Sam: Don't do it this way.
-		std::string tmp = std::string("(AG EX True AND ")+in+std::string(")");
-		//std::cout << tmp;
-		char *fSafe = &tmp[0];
-		f = parseCTL(fSafe);
+		////Sam: Don't do it this way.
+		//std::string tmp = std::string("(AG EX True AND ")+in+std::string(")");
+		//char *fSafe = &tmp[0];
+		//f = parseCTL(fSafe);
+		f = parseCTL(in);
 
 		kripkes[currentKripkeID]->setCTL(*f, currentInitialNode);
 		kripkes[currentKripkeID]->newCTLVar(ctlVar);
