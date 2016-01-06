@@ -184,6 +184,8 @@ public:
 	// Compute AG EX True
 	CTLFormula* fAGEXTrue;
 
+	int processes = 0;
+	int statesperprocess = 0;
 
 	CTLTheorySolver(Solver * S_, int _id = -1) :
 			S(S_), id(_id){
@@ -647,6 +649,40 @@ public:
 			}
 			addClauseSafely(c);
 			c.clear();
+		}
+
+		// Each process is in exactly one process-state
+		int ap;
+		if (processes > 0) {
+			for (int s = 0; s < g_over->states(); s++) {         // state
+				for (int p = 0; p < processes; p++) {            // process
+					// Each process has to be in one of statesperprocess process-states
+					for (int j = 0; j < statesperprocess; j++) { // process-state
+						ap = p*statesperprocess + j;
+						Lit l = ~mkLit(getNodeAPVar(s, ap), true);
+						c.push(l);
+					}
+			  		printLearntClause(c);
+					addClauseSafely(c);
+					c.clear();
+					// For every combination of two process-states such that they're not the same, add a clause with two literals stating that they can't be both true
+					for (int i = 0; i < statesperprocess; i++) { // process-state
+						for (int j = 0; j < statesperprocess; j++) { // process-state
+							if (i != j) {
+								ap = p*statesperprocess + i;
+								Lit l1 = ~mkLit(getNodeAPVar(s, ap), false);
+								c.push(l1);
+								ap = p*statesperprocess + j;
+								Lit l2 = ~mkLit(getNodeAPVar(s, ap), false);
+								c.push(l2);
+						  		printLearntClause(c);
+								addClauseSafely(c);
+								c.clear();
+							}
+						}
+					}
+				}
+			}
 		}
 
 		if (opt_verb > 0) {
