@@ -640,6 +640,7 @@ public:
 		// AG EX True
 		// This is somewhat slow, but whatever. Only done once in preprocessing
 		vec<Lit> c;
+		/*
 		for (int i = 0; i < g_over->states(); i++) { // iterate over neighbours of current front of queue
 			for (int j = 0; j < g_over->nIncident(i); j++) { // iterate over neighbours of current front of queue
 				e = g_over->incident(i, j);
@@ -650,10 +651,11 @@ public:
 			addClauseSafely(c);
 			c.clear();
 		}
+		*/
 
 		// Each process is in exactly one process-state
 		int ap;
-		if (processes > 0) {
+		if (opt_ctl_process_in_single_state && processes > 0) {
 			for (int s = 0; s < g_over->states(); s++) {         // state
 				for (int p = 0; p < processes; p++) {            // process
 					// Each process has to be in one of statesperprocess process-states

@@ -180,6 +180,7 @@ extern BoolOption opt_learn_acyclic_flows;
 extern IntOption opt_ctl_skip_prop;
 
 extern BoolOption opt_ctl_learn_cache;
+extern BoolOption opt_ctl_process_in_single_state;
 extern IntOption opt_ctl_symmetry;
 extern IntOption opt_ctl_symmetry_statelabelandedges;
 extern IntOption opt_all_solutions;

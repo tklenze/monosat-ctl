@@ -283,10 +283,10 @@ class CTLParser: public Parser<B, Solver> {
 		// done in CTLTheory's preprocessing instead now!
 
 		////Sam: Don't do it this way.
-		//std::string tmp = std::string("(AG EX True AND ")+in+std::string(")");
-		//char *fSafe = &tmp[0];
-		//f = parseCTL(fSafe);
-		f = parseCTL(in);
+		std::string tmp = std::string("(AG EX True AND ")+in+std::string(")");
+		char *fSafe = &tmp[0];
+		f = parseCTL(fSafe);
+		//f = parseCTL(in);
 
 		kripkes[currentKripkeID]->setCTL(*f, currentInitialNode);
 		kripkes[currentKripkeID]->newCTLVar(ctlVar);
