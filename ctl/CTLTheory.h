@@ -993,6 +993,14 @@ public:
 				ctl_over->freeBitset(bit_over);
 				theoryPropagationAppendix(startproptime);
 				return false; // It does not hold in the overapproximation
+			} else if (opt_ctl_only_one_process_moves > 1 && processConflict.size() > 0) {
+				processConflict.copyTo(conflict);
+				if(opt_verb>1)
+					printf("propagateTheory: processConflict conflict is learned.\n");
+				toSolver(conflict);
+				ctl_over->freeBitset(bit_over);
+				theoryPropagationAppendix(startproptime);
+				return false;
 			}
 			ctl_over->freeBitset(bit_over);
 		}
