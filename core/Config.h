@@ -184,6 +184,7 @@ extern BoolOption opt_ctl_process_in_single_state;
 extern IntOption opt_ctl_symmetry;
 extern IntOption opt_ctl_symmetry_statelabelandedges;
 extern IntOption opt_all_solutions;
+extern IntOption opt_ctl_only_one_process_moves;
 
 enum class PointInPolygonAlg {
 	ALG_FULL, ALG_RECURSIVE_SPLIT

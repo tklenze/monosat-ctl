@@ -102,10 +102,7 @@ public:
 
 	vec<Lit> symmetryConflict;//this allocates a new symmetryConflict vector at each propagateTheory call, which is needlessly expensive.
 	vec<Lit> tmpConflict; // for comparing other conflicts
-
-	Lit p; // temporary Lit to use by any function :)
-	DynamicGraph<int>::Edge e;
-	int to;
+	vec<Lit> processConflict;
 
 	//// Vector of CTL Formulas on the specific Kripke structure this solver deals with
 	//vec<CTLFormula> formulas;
@@ -829,6 +826,26 @@ public:
 			throw std::runtime_error("ctl_lit is unassigned false by the SAT solver. This is not permitted?");
 		}
 
+		// Enforce that on every transition, exactly one process-state changes
+		if (opt_ctl_only_one_process_moves > 0 && processes > 0) {
+			processConflict.clear();
+			checkProcessInSingleState(processConflict);
+			if (processConflict.size() > 0) {
+				if (opt_verb>1) {
+					printf("Process in Single State:\n");
+					printLearntClause(processConflict);
+				}
+				if (opt_ctl_only_one_process_moves == 1) { // Always prefer single-process-moves clauses
+					processConflict.copyTo(conflict);
+					if(opt_verb>1)
+						printf("propagateTheory: processConflict conflict is learned, since it is always preferred.\n");
+					toSolver(conflict);
+					theoryPropagationAppendix(startproptime);
+					return false;
+				}
+			}
+		}
+
 		/*
 		 * Try to find a clause to learn. With symmetry reduction disabled, this will be a CTL clause. Otherwise, it may also be a symmetry clause
 		 * Which clause is preferred depends on the mode in opt_ctl_symmetry.
@@ -856,6 +873,14 @@ public:
 
 			if ((symmetryConflict.size() != 0) && (opt_ctl_symmetry < 3 || opt_ctl_symmetry == 4 || opt_ctl_symmetry == 5)) {
 				symmetryConflict.copyTo(conflict); // Overwrite conflict
+
+				// Overwrite with process conflict, if it is smaller.
+				if (opt_ctl_only_one_process_moves > 1 && processConflict.size() > 0) {
+					minimizeClause(processConflict);
+					if (processConflict.size() < symmetryConflict.size())
+						processConflict.copyTo(conflict);
+				}
+
 				toSolver(conflict);
 				stats_symmetry_conflicts++;
 				stats_symmetry_conflict_literals+=conflict.size();
@@ -889,9 +914,19 @@ public:
 					if(opt_verb>1)
 						printf("propagateTheory returns false. Choosing to learn symmetry conflict rather than CTL conflict, since it is smaller (%d literals vs %d literals)\n", symmetryConflict.size(), conflict.size());
 					symmetryConflict.copyTo(conflict); // Overwrite conflict
-				} else
+				} else {
 					if(opt_verb>1)
 						printf("propagateTheory returns false, since formula is asserted true, but fails to hold in the overapproximation (and hence also fails to hold in the underapproximation) \n");
+				}
+				// Overwrite with process conflict, if it is smaller.
+				if (opt_ctl_only_one_process_moves > 1 && processConflict.size() > 0) {
+					minimizeClause(processConflict);
+					if (processConflict.size() < conflict.size()) {
+						processConflict.copyTo(conflict);
+						if(opt_verb>1)
+							printf("NOT, actually the processConflict conflict is learned.\n");
+					}
+				}
 				toSolver(conflict);
 				ctl_over->freeBitset(bit_over);
 				stats_ctl_conflicts++;
@@ -903,9 +938,25 @@ public:
 			// There is no CTL conflict, so just learn the symmetry conflict, if there is one
 			if (symmetryConflict.size() != 0) {
 				symmetryConflict.copyTo(conflict); // Overwrite conflict
+				// Overwrite with process conflict, if it is smaller.
+				if (opt_ctl_only_one_process_moves > 1 && processConflict.size() > 0) {
+					minimizeClause(processConflict);
+					if (processConflict.size() < symmetryConflict.size()) {
+						processConflict.copyTo(conflict);
+						if(opt_verb>1)
+							printf("propagateTheory: processConflict conflict is learned.\n");
+					}
+				}
 				toSolver(conflict);
 				stats_symmetry_conflicts++;
 				stats_symmetry_conflict_literals+=conflict.size();
+				theoryPropagationAppendix(startproptime);
+				return false;
+			} else if (opt_ctl_only_one_process_moves > 1 && processConflict.size() > 0) {
+				processConflict.copyTo(conflict);
+				if(opt_verb>1)
+					printf("propagateTheory: processConflict conflict is learned.\n");
+				toSolver(conflict);
 				theoryPropagationAppendix(startproptime);
 				return false;
 			}
@@ -919,6 +970,15 @@ public:
 				learnClausePos(conflict, *f, initialNode);
 				stats_theory_prop_clause_learning_time+=rtime(2)-start_ctl_clause_learning_time;
 				minimizeClause(conflict);
+				// Overwrite with process conflict, if it is smaller.
+				if (opt_ctl_only_one_process_moves > 1 && processConflict.size() > 0) {
+					minimizeClause(processConflict);
+					if (processConflict.size() < symmetryConflict.size()) {
+						processConflict.copyTo(conflict);
+						if(opt_verb>1)
+							printf("propagateTheory: processConflict conflict is learned.\n");
+					}
+				}
 				toSolver(conflict);
 				stats_ctl_conflicts++;
 				stats_ctl_conflict_literals+=conflict.size();
@@ -979,6 +1039,7 @@ public:
 	void minimizeClause(vec<Lit> & ps) {
     	sort(ps);
     	int i, j;
+    	Lit p;
     	for (i = j = 0, p = lit_Undef; i < ps.size(); i++) {
     		if (ps[i] != p) {
     			ps[j++] = p = ps[i];
@@ -986,6 +1047,100 @@ public:
     	}
     	ps.shrink(i - j);
 	}
+
+	void checkProcessInSingleState(vec<Lit> & conflict) {
+		//printf("checkProcessInSingleState\n");
+		int from, to;
+		DynamicGraph<int>::FullEdge e;
+		int fromP, toP;
+		int fromP2, toP2;
+		int processThatMoved;
+		for (int edge = 0; edge < g_under->edges(); edge++) {         // all edges
+			if (g_under->edgeEnabled(edge)) {
+				processThatMoved = -1;
+				e = g_under->getEdge(edge);
+				assert (edge == e.id);
+				from = e.from;
+				to = e.to;
+
+				//printf("checkProcessInSingleState: edge %d->%d\n", from, to);
+
+				// Find the first process that changed its process-state in to vs from
+				for (int p = 0; p < processes && processThatMoved < 0; p++) {
+					fromP = -1;
+					toP = -1;
+					//printf("checkProcessInSingleState: edge %d->%d, process %d\n", from, to, p);
+
+					// Find out which process-state this process is in, both for from and for to
+					for (int j = 0; j < statesperprocess && (fromP < 0 || toP < 0); j++) { // process-state
+						if (g_under->isAPinStateLabel(from, p*statesperprocess + j)) {
+							fromP = j;
+							//printf("checkProcessInSingleState: edge %d->%d. process %d set fromP to %d\n", from, to, p, fromP);
+
+						}
+						if (g_under->isAPinStateLabel(to, p*statesperprocess + j)) {
+							toP = j;
+							//printf("checkProcessInSingleState: edge %d->%d. process %d set toP to %d\n", from, to, p, toP);
+						}
+					}
+					// Register if process p has moved
+					if (fromP >= 0 && toP >= 0 && fromP != toP) {
+						processThatMoved = p;
+						//printf("checkProcessInSingleState: edge %d->%d. first move in process %d that went from %d to %d\n", from, to, p, fromP, toP);
+					}
+				}
+
+				// If we found a first process that changed, try to find a second one
+				if (processThatMoved >=0) {
+					for (int p = processThatMoved + 1; p < processes; p++) {
+						fromP2 = -1;
+						toP2 = -1;
+						//printf("checkProcessInSingleState: edge %d->%d, second iteration, process %d\n", from, to, p);
+						// Find out which process-state this process is in, both for from and for to
+						for (int j = 0; j < statesperprocess && (fromP2 < 0 || toP2 < 0); j++) { // process-state
+							if (g_under->isAPinStateLabel(from, p*statesperprocess + j)) {
+								fromP2 = j;
+							}
+							if (g_under->isAPinStateLabel(to, p*statesperprocess + j)) {
+								toP2 = j;
+							}
+						}
+						// Register if process p has moved
+						if (fromP2 >= 0 && toP2 >= 0 && fromP2 != toP2) {
+							//printf("checkProcessInSingleState: edge %d->%d. SECOND move in process %d that went from %d to %d\n", from, to, p, fromP2, toP2);
+							// we know there is a conflict. Learn it
+							learnProcessInSingleState(conflict, e.id, processThatMoved, fromP, toP, p, fromP2, toP2);
+							return;
+						}
+					}
+				}
+
+			}
+		}
+	}
+
+	void learnProcessInSingleState(vec<Lit> & conflict, int eid, int p, int fromP, int toP, int p2, int fromP2, int toP2) {
+		Lit l1 = ~mkLit(getNodeAPVar(g_under->getEdge(eid).from, p*statesperprocess + fromP), false);
+		conflict.push(l1);
+		assert(value(l1)==l_False);
+		Lit l2 = ~mkLit(getNodeAPVar(g_under->getEdge(eid).from, p2*statesperprocess + fromP2), false);
+		conflict.push(l2);
+		assert(value(l2)==l_False);
+
+		Lit l3 = ~mkLit(getNodeAPVar(g_under->getEdge(eid).to, p*statesperprocess + toP), false);
+		conflict.push(l3);
+		assert(value(l3)==l_False);
+		Lit l4 = ~mkLit(getNodeAPVar(g_under->getEdge(eid).to, p2*statesperprocess + toP2), false);
+		conflict.push(l4);
+		assert(value(l4)==l_False);
+
+		Lit l = ~mkLit(getTransitionVar(eid), false);
+		conflict.push(l);
+		assert(value(l)==l_False);
+
+		return;
+	}
+
 
 	/*
 	 * Do Symmetry Reduction. Check if any of the symmetry constraints are violated, and if so, build a clause describing this conflict.
@@ -1106,6 +1261,8 @@ public:
 
 	// i has more edges than j, despite i<j. Learn a conflict describing this
 	void learnClauseSymmetryConflictEdges(vec<Lit> & conflict, int i, int j) {
+		DynamicGraph<int>::Edge e;
+		int from, to;
 		for (int k = 0; k < g_under->nIncident(i); k++) {
 			e = g_under->incident(i, k);
 			to = g_under->getEdge(e.id).to;
