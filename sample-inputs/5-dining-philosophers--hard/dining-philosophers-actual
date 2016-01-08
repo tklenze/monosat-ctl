@@ -1,0 +1,74 @@
+c Philosopher's state is implicit by the state of the forks left and right
+c
+c Every fork is in exactly on of three states:
+c left - it belongs to the philosopher to the left
+c right - it belongs to the philosopher to the right
+c table - it does not belong to any philosopher
+c
+c     <#Vars> <#Clauses>
+p cnf 1000     1
+1000 0
+c kctlsimp <KripkeID> <#Nodes> <#APs> <selfloops> <ctlvar> <CTL formula>"
+kctlsimp   0          18        20     0           1000      1
+AND 4
+AND 7
+AND 10
+AND 13
+c
+c Encoding the fork state: it is exactly on of {left, right, table}
+AND AG (0 OR (2 OR 1))
+AND AG (0 -> NOT (2 OR 1))
+AND AG (2 -> NOT (0 OR 1))
+AND AG (1 -> NOT (0 OR 2))
+AND AG (3 OR (5 OR 4))
+AND AG (3 -> NOT (5 OR 4))
+AND AG (5 -> NOT (3 OR 4))
+AND AG (4 -> NOT (3 OR 5))
+AND AG (6 OR (8 OR 7))
+AND AG (6 -> NOT (8 OR 7))
+AND AG (8 -> NOT (6 OR 7))
+AND AG (7 -> NOT (6 OR 8))
+AND AG (9 OR (11 OR 10))
+AND AG (9 -> NOT (11 OR 10))
+AND AG (11 -> NOT (9 OR 10))
+AND AG (10 -> NOT (9 OR 11))
+AND AG (12 OR (14 OR 13))
+AND AG (12 -> NOT (14 OR 13))
+AND AG (14 -> NOT (12 OR 13))
+AND AG (13 -> NOT (12 OR 14))
+c
+c Absence of starvation
+cc commmented out, because there is a path in which a philosopher is always hungry
+cAND AG AF (2 AND 3)
+cAND AG AF (5 AND 6)
+cAND AG AF (8 AND 9)
+cAND AG AF (11 AND 12)
+cAND AG AF (14 AND 0)
+c
+c Forks have to be exchanged via table
+AND AG (2 -> AX (1 OR 2))
+AND AG (5 -> AX (4 OR 5))
+AND AG (8 -> AX (7 OR 8))
+AND AG (11 -> AX (10 OR 11))
+AND AG (14 -> AX (13 OR 14))
+AND AG (0 -> AX (1 OR 0))
+AND AG (3 -> AX (4 OR 3))
+AND AG (6 -> AX (7 OR 6))
+AND AG (9 -> AX (10 OR 9))
+AND AG (12 -> AX (13 OR 12))
+c
+c If a philosopher is not hungry, then he can remain non-hungry or he can become hungry
+AND AG (NOT 15 -> (EX 15 AND EX NOT 15))
+AND AG (NOT 16 -> (EX 16 AND EX NOT 16))
+AND AG (NOT 17 -> (EX 17 AND EX NOT 17))
+AND AG (NOT 18 -> (EX 18 AND EX NOT 18))
+AND AG (NOT 19 -> (EX 19 AND EX NOT 19))
+c
+c If a philosopher is hungry, then he is hungry until he eats, and then he is not hungry
+AND AG (15 -> (15 AU ((2 AND 3) AND NOT 15)))
+AND AG (16 -> (16 AU ((5 AND 6) AND NOT 16)))
+AND AG (17 -> (17 AU ((8 AND 9) AND NOT 17)))
+AND AG (18 -> (18 AU ((11 AND 12) AND NOT 18)))
+AND AG (19 -> (19 AU ((14 AND 0) AND NOT 19)))
+
+

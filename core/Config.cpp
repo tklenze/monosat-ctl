@@ -314,9 +314,13 @@ IntOption Monosat::opt_ctl_symmetry_statelabelandedges(_cat_ctl, "symmetry-label
 		"This variable may be used to enforce symmetry reduction strictly only on the state label and not on edges for similar-labelled states. 0: No edge symmetry reduction. 1: Edge reduction in case of strict label equivalence. 2: Edge reduction in case of possible label equivalence", 1, IntRange(0,INT32_MAX));
 IntOption Monosat::opt_all_solutions(_cat_ctl, "all-solutions",
 		"0: standard mode, just one solution. 1: all solutions, print all satisfying assignment spaces", 0, IntRange(0,INT32_MAX));
- IntOption Monosat::opt_ctl_skip_prop(_cat_ctl,"ctl-skip", "Only check CTL theory propagation every NTH round (1 to check all rounds)",1, IntRange(1,INT32_MAX));
+IntOption Monosat::opt_ctl_skip_prop(_cat_ctl,"ctl-skip", "Only check CTL theory propagation every NTH round (1 to check all rounds)",1, IntRange(1,INT32_MAX));
 
- BoolOption Monosat::opt_ctl_learn_cache(_cat_ctl,"ctl-cache","Cache CTL computations during clause learning\n",true);
+BoolOption Monosat::opt_ctl_learn_cache(_cat_ctl,"ctl-cache","Cache CTL computations during clause learning\n",true);
+BoolOption Monosat::opt_ctl_process_in_single_state(_cat_ctl,"ctl-single-state-per-process","Enforce at SAT level that each process is in exactly one state. Only used when kctlsinglestate is used for specification. When set, you may omit from the CTL formula that each process is in exactly one state\n",true);
+IntOption Monosat::opt_ctl_only_one_process_moves(_cat_ctl, "only-one-process-moves",
+		"Enforce that only one process moves at a time. Only used when kctlsinglestate is used for specification. When set, you may omit from the CTL formula that for every transition, only one process changes its process-state. 0: Turn off, 1: Always prefer this clause to other clauses (w/o symmetry learning or clause learning), 2: choose clause that is minimal)", 2, IntRange(0,INT32_MAX));
+
 
 IntOption Monosat::opt_width("GRAPH", "width", "Width of graph.\n", 0, IntRange(0, INT32_MAX));
 IntOption Monosat::opt_height("GRAPH", "height", "Height of graph.\n", 0, IntRange(0, INT32_MAX));

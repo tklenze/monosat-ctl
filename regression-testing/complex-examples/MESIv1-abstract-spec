@@ -1,0 +1,42 @@
+
+# initial
+(S1 AND S2)
+
+# Each process has exactly one of M, E, S, or I
+
+AG (M1 OR (E1 OR (S1 OR I1)))
+
+AG (NOT M1 OR NOT (E1 OR (S1 OR I1)))
+AG (NOT E1 OR NOT (M1 OR (S1 OR I1)))
+AG (NOT S1 OR NOT (M1 OR (E1 OR I1)))
+AG (NOT I1 OR NOT (M1 OR (E1 OR S1)))
+
+AG (M2 OR (E2 OR (S2 OR I2)))
+
+AG (NOT M2 OR NOT (E2 OR (S2 OR I2)))
+AG (NOT E2 OR NOT (M2 OR (S2 OR I2)))
+AG (NOT S2 OR NOT (M2 OR (E2 OR I2)))
+AG (NOT I2 OR NOT (M2 OR (E2 OR S2)))
+
+# safety property
+
+AG ((E1 OR M1) -> I2)
+AG ((E2 OR M2) -> I1)
+
+AG NOT ((E1 OR M1) AND (E2 OR M2))
+
+# more properties
+AG (S1 -> S2)
+AG (S2 -> S1)
+
+AG NOT (I1 AND I2)
+
+AG (NOT E1 -> EX E1)
+AG (NOT M1 -> EX M1)
+AG (NOT S1 -> EX S1)
+
+AG (NOT E2 -> EX E2)
+AG (NOT M2 -> EX M2)
+AG (NOT S2 -> EX S2)
+
+

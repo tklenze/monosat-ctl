@@ -2,7 +2,7 @@ c     <#Vars> <#Clauses>
 p cnf 1000     1
 1000 0
 c kctlsimp <KripkeID> <#Nodes> <#APs> <selfloops> <ctlvar> <CTL formula>"
-kctlsimp   0          7        6      0           1000        (NCS1 AND NCS2)
+kctlsimp   0          6        6      0           1000        (NCS1 AND NCS2)
 c
 c 2.
 AND AG NOT (CS1 AND CS2)

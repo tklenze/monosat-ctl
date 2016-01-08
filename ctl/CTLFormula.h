@@ -222,9 +222,58 @@ namespace Monosat {
 		case AW: s = getFormulaPctlFormat(*phiAW5); break;
 		case AU: s = "P>=1/1 (" + getFormulaPctlFormat(*f.operand1) + " U " + getFormulaPctlFormat(*f.operand2) + " )"; break;
 
-		default : s = "Unknown formula";
+		default : s = "getFormulaPctlFormat: Unknown formula";
 		}
 		return s;
 	}
+
+	std::string getFormulaCTLSATFormat(CTLFormula* foo) {
+		CTLFormula f = *foo;
+
+		// Pctl doesn't understand most of the operators we are using, that's why we convert the formula to use other operators
+		CTLFormula * phiEW1 = new CTLFormula(EG, f.operand1, nullptr);
+		CTLFormula * phiEW2 = new CTLFormula(EU, f.operand1, f.operand2);
+		CTLFormula * phiEW3 = new CTLFormula(OR, phiEW1, phiEW2);
+
+		CTLFormula * phiAW1 = new CTLFormula(OR, f.operand1, f.operand2);
+		CTLFormula * phiAW2 = new CTLFormula(NEG, phiAW1, nullptr);
+		CTLFormula * phiAW3 = new CTLFormula(NEG, f.operand2, nullptr);
+		CTLFormula * phiAW4 = new CTLFormula(EU, phiAW3, phiAW2);
+		CTLFormula * phiAW5 = new CTLFormula(NEG, phiAW4, nullptr);
+
+		std::string s;
+		switch (f.op) {
+		case ID : switch (f.value) {
+		case 0 : s = "p"; break;
+		case 1 : s = "q"; break;
+		case 2 : s = "r"; break;
+		case 3 : s = "s"; break;
+		case 4 : s = "u"; break;
+		case 5 : s = "w"; break;
+		default : s = "ERROR: too many atomic propositions in formula";
+		} break;
+		case True :  s+="T"; break;
+		case NEG: s = "~ " + getFormulaCTLSATFormat(f.operand1); break;
+		case OR : s = "(" + getFormulaCTLSATFormat(f.operand1) + " v " + getFormulaCTLSATFormat(f.operand2) + ")"; break;
+		case AND : s = "(" + getFormulaCTLSATFormat(f.operand1) + " ^ " + getFormulaCTLSATFormat(f.operand2) + ")"; break;
+
+		case EX: s = "EX " + getFormulaCTLSATFormat(f.operand1); break;
+		case EF: s = "EF " + getFormulaCTLSATFormat(f.operand1); break;
+		case EG: s = "EG " + getFormulaCTLSATFormat(f.operand1); break;
+		case EW: s = getFormulaCTLSATFormat(phiEW3); break;
+		case EU: s = "E(" + getFormulaCTLSATFormat(f.operand1) + " U " + getFormulaCTLSATFormat(f.operand2) + " )"; break;
+
+		case AX: s = "AX " + getFormulaCTLSATFormat(f.operand1); break;
+		case AF: s = "AF " + getFormulaCTLSATFormat(f.operand1); break;
+		case AG: s = "AG " + getFormulaCTLSATFormat(f.operand1); break;
+		case AW: s = getFormulaCTLSATFormat(phiAW5); break;
+		case AU: s = "A(" + getFormulaCTLSATFormat(f.operand1) + " U " + getFormulaCTLSATFormat(f.operand2) + " )"; break;
+
+		default : printf("getFormulaCTLSATFormat: Unknown formula: %d", f.op);
+		}
+		return s;
+	}
+
+
 }
 #endif /* CTL_FORMULA_H_ */

@@ -144,6 +144,68 @@ class CTLParser: public Parser<B, Solver> {
 		S.addTheory(kripke);
 	}
 
+	// Even simpler format, which assumes that there are a certain number of processes and each process is in exactly one of a certain number of states
+	// The APs will be numbered continuously, e.g. for two processes and three states per process:
+	// AP 0: process 0, state 0
+	// AP 5: process 1, state 2
+	// The advantage of using kctlsinglestate is that certain optimizations can be done outside of the CTL formula
+	//c kctlsinglestate <KripkeID> <#Nodes> <#Processes> <States/Process> <selfloops> <ctlvar> <CTL formula>"
+	void readCTLSingleState(B& in, Solver& S) {
+		if (opt_ignore_theories) {
+			skipLine(in);
+			return;
+		}
+
+		int kripkeID = parseInt(in);
+		int n = parseInt(in); //num node
+		int p = parseInt(in);  //number of Processes
+		int s = parseInt(in);  //number of States per Process
+		int a = p * s;
+		int loops = parseInt(in);  //loops: 0 or 1
+		int ctlVar = parseInt(in) - 1;
+
+		kripkes.growTo(kripkeID + 1);
+
+		CTLTheorySolver *kripke = new CTLTheorySolver(&S, kripkeID);
+		kripke->newNodes(n);
+		kripke->g_under->setAPCount(a);
+		kripke->g_over->setAPCount(a);
+		kripke->processes = p;
+		kripke->statesperprocess = s;
+		nodeCount = n;
+		kripke->initNodeAPVarLookup(n, a);
+		kripkes[kripkeID] = kripke;
+		currentKripkeID = kripkeID;
+		currentInitialNode = 0;
+
+		while (n * (n - 1 + loops) + n * a + 2 >= S.nVars())
+			S.newVar();
+
+		int var = 0;
+		// Add edges
+		for (int i = 0; i < n; i ++) {
+			for (int j = 0; j < n; j ++) {
+				if (i!=j || loops == 1) {
+					kripkes[kripkeID]->newTransition(i, j, var);
+					var++;
+				}
+			}
+		}
+		// Add stateAPs
+		for (int i = 0; i < n; i ++) {
+			for (int j = 0; j < a; j ++) {
+				kripkes[kripkeID]->newNodeAP(i, j, var);
+				var++;
+			}
+		}
+		// if we wanted, we could replace the explicit ctlVar by: (n * (n - 1 + loops) + n * a)
+		addCTL(in, S, ctlVar); // set initial node to 0
+
+		S.addTheory(kripke);
+	}
+
+
+
 	void readNodeAP(B& in, Solver& S) {
 		if (opt_ignore_theories) {
 			skipLine(in);
@@ -217,13 +279,14 @@ class CTLParser: public Parser<B, Solver> {
 	void addCTL(B& in, Solver& S, int ctlVar) {
 
 		// OK, this is probably a bit controversial, but I will attach AND the formula together with AG (EX True).
-		// TODO properly document this, and make it able to switch it off
+		//   properly document this, and make it able to switch it off
+		// done in CTLTheory's preprocessing instead now!
 
-		//Sam: Don't do it this way.
+		////Sam: Don't do it this way.
 		std::string tmp = std::string("(AG EX True AND ")+in+std::string(")");
-		//std::cout << tmp;
 		char *fSafe = &tmp[0];
 		f = parseCTL(fSafe);
+		//f = parseCTL(in);
 
 		kripkes[currentKripkeID]->setCTL(*f, currentInitialNode);
 		kripkes[currentKripkeID]->newCTLVar(ctlVar);
@@ -433,6 +496,9 @@ public:
 		else if (*in == 'c') {
 			//just a comment
 			return false;
+		} else if (match(in, "kctlsinglestate")) {
+			readCTLSingleState(in, S);
+			return true;
 		} else if (match(in, "kctlsimp")) {
 			skipWhitespace(in);
 			readCTLSimp(in, S);
