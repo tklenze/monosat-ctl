@@ -150,6 +150,9 @@ public:
 	void setAPCount(int apc) {
 		apcount = apc;
 	}
+	int nProperties(){
+		return this->apcount;
+	}
 
 	// Is ap in the label of state?
 	// 1: Yes, 0: No, -1: AP not present

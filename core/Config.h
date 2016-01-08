@@ -181,6 +181,7 @@ extern IntOption opt_ctl_skip_prop;
 
 extern BoolOption opt_ctl_learn_cache;
 extern IntOption opt_ctl_symmetry;
+extern IntOption opt_ctl_symmetry_cnf;
 extern IntOption opt_ctl_symmetry_statelabelandedges;
 extern IntOption opt_all_solutions;
 
