@@ -1,0 +1,99 @@
+c
+c Three processes: 1, 2, 3.
+c They can each be in one of three states:
+c - NCS - Non critical section
+c - TRY - Signaling that they are trying to enter the critical section
+c - CS  - Critical section
+c
+c     <#Vars> <#Clauses>
+p cnf 1000     1
+1000 0
+c kctlsimp <KripkeID> <#Nodes> <#APs> <selfloops> <ctlvar> <CTL formula>"
+kctlsimp   0          17       9      0           1000        (NCS1 AND NCS2)
+AND NCS3
+c
+c 2. Mutual exclusion
+AND AG NOT (CS1 AND (CS2 OR CS3))
+AND AG NOT (CS2 AND CS3)
+c
+c 3. If one enters the try section, one is guaranteed to eventually enter the critical section
+AND AG (NOT TRY1 OR AF CS1)
+AND AG (NOT TRY2 OR AF CS2)
+AND AG (NOT TRY3 OR AF CS3)
+c
+c 4. encoding: each process is in exactly one of states {NCS,TRY,CS}
+AND AG (NCS1 OR (TRY1 OR CS1))
+AND AG (NCS2 OR (TRY2 OR CS2))
+AND AG (NCS3 OR (TRY3 OR CS3))
+AND AG (NOT NCS1 OR NOT (TRY1 OR CS1))
+AND AG (NOT NCS2 OR NOT (TRY2 OR CS2))
+AND AG (NOT NCS3 OR NOT (TRY3 OR CS3))
+AND AG (NOT TRY1 OR NOT (NCS1 OR CS1))
+AND AG (NOT TRY2 OR NOT (NCS2 OR CS2))
+AND AG (NOT TRY3 OR NOT (NCS3 OR CS3))
+AND AG (NOT CS1 OR NOT (NCS1 OR TRY1))
+AND AG (NOT CS2 OR NOT (NCS2 OR TRY2))
+AND AG (NOT CS3 OR NOT (NCS3 OR TRY3))
+c
+c 5. NCS process can enter the try section
+AND AG (NOT NCS1 OR EX TRY1)
+AND AG (NOT NCS2 OR EX TRY2)
+AND AG (NOT NCS3 OR EX TRY3)
+c
+c 6. we ommit EXi True, since that is guaranteed in 9. for the product automaton. Basically this is similar to 5., but we do not require that eventually CSi is reached
+AND AG (NOT TRY1 OR AX (CS1 OR TRY1))
+AND AG (NOT TRY2 OR AX (CS2 OR TRY2))
+AND AG (NOT TRY3 OR AX (CS3 OR TRY3))
+c
+c 7. Similar to 5.
+AND AG (NOT CS1 OR EX NCS1)
+AND AG (NOT CS2 OR EX NCS2)
+AND AG (NOT CS3 OR EX NCS3)
+c
+c 8. if process one moves, process two does nothing
+c
+c
+AND AG (NOT (NCS1 AND NCS2) OR AX (NCS1 OR NCS2))
+AND AG (NOT (NCS1 AND TRY2) OR AX (NCS1 OR TRY2))
+AND AG (NOT (NCS1 AND CS2) OR AX (NCS1 OR CS2))
+c
+AND AG (NOT (TRY1 AND NCS2) OR AX (TRY1 OR NCS2))
+AND AG (NOT (TRY1 AND TRY2) OR AX (TRY1 OR TRY2))
+AND AG (NOT (TRY1 AND CS2) OR AX (TRY1 OR CS2))
+c
+AND AG (NOT (CS1 AND NCS2) OR AX (CS1 OR NCS2))
+AND AG (NOT (CS1 AND TRY2) OR AX (CS1 OR TRY2))
+AND AG (NOT (CS1 AND CS2) OR AX (CS1 OR CS2))
+c
+c
+c
+AND AG (NOT (NCS1 AND NCS3) OR AX (NCS1 OR NCS3))
+AND AG (NOT (NCS1 AND TRY3) OR AX (NCS1 OR TRY3))
+AND AG (NOT (NCS1 AND CS3) OR AX (NCS1 OR CS3))
+c
+AND AG (NOT (TRY1 AND NCS3) OR AX (TRY1 OR NCS3))
+AND AG (NOT (TRY1 AND TRY3) OR AX (TRY1 OR TRY3))
+AND AG (NOT (TRY1 AND CS3) OR AX (TRY1 OR CS3))
+c
+AND AG (NOT (CS1 AND NCS3) OR AX (CS1 OR NCS3))
+AND AG (NOT (CS1 AND TRY3) OR AX (CS1 OR TRY3))
+AND AG (NOT (CS1 AND CS3) OR AX (CS1 OR CS3))
+c
+c
+c
+AND AG (NOT (NCS2 AND NCS3) OR AX (NCS2 OR NCS3))
+AND AG (NOT (NCS2 AND TRY3) OR AX (NCS2 OR TRY3))
+AND AG (NOT (NCS2 AND CS3) OR AX (NCS2 OR CS3))
+c
+AND AG (NOT (TRY2 AND NCS3) OR AX (TRY2 OR NCS3))
+AND AG (NOT (TRY2 AND TRY3) OR AX (TRY2 OR TRY3))
+AND AG (NOT (TRY2 AND CS3) OR AX (TRY2 OR CS3))
+c
+AND AG (NOT (CS2 AND NCS3) OR AX (CS2 OR NCS3))
+AND AG (NOT (CS2 AND TRY3) OR AX (CS2 OR TRY3))
+AND AG (NOT (CS2 AND CS3) OR AX (CS2 OR CS3))
+c
+c
+c 9. There is always a next state. We don't need that, since it is implicitly added to the formula
+c AG EX True
+
