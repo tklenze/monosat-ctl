@@ -36,6 +36,8 @@
 #include "utils/System.h"
 #include "core/Solver.h"
 
+#include "api/Circuit.h"
+
 #include <vector>
 
 #include <cstdio>
@@ -47,6 +49,8 @@
 #include <map>
 #include <stdexcept>
 #include <string>
+
+
 using namespace dgl;
 namespace Monosat {
 
@@ -625,143 +629,117 @@ public:
 		}
 
 	}
+	void cnfSymmetryBreaking(){
+		//Every node must have an outgoing edge (which may be a self loop).
+		Circuit<Solver> c(*S);
+		Lit True = c.True();
+		Lit False = c.False();
+			if(opt_ctl_symmetry_cnf==1 || opt_ctl_symmetry_cnf==3){
+				//Node 0 is reachable.
+				//Every other node is reachable exactly if it has an incoming edge from a lower indexed node.
+				assert(initialNode==0);
+				//If a node is not reachable, then it has exactly one in/out edge, which is the self loop.
+				//if node i>0 is reachable, then node i-1 must also be reachable
+				vec<Lit> nodes_reachable;
+				nodes_reachable.push(True);//node 0 is always reachable
+				for(int i = 1;i<g_over->nodes();i++){
+					Lit reachable = False;
+					for(int j = 0;j<g_over->nIncoming(i);j++){
+						int edgeID = g_over->incoming(i,j).id;
+						int to = g_over->incoming(i,j).node;
+						if(to<i){
+							Lit edge_enabled = mkLit(this->toSolver(getTransitionVar(edgeID)));
+							reachable = c.Or(edge_enabled,reachable);
+							/*Lit reachable_or_edge_enabled = mkLit(S->newVar());
+							S->addClause(reachable_or_edge_enabled,~edge_enabled);
+							S->addClause(reachable_or_edge_enabled,~reachable);
+							S->addClause(~reachable_or_edge_enabled,edge_enabled,reachable);*/
+							//reachable=reachable_or_edge_enabled;
+						}
+					}
+					nodes_reachable.push(reachable);
+				}
 
+				//if a node is not reachable, then all incoming and outgoing edges, except for the self loop, are disabled, and the self loop edge is enabled
+				for(int i = 1;i<g_over->nodes();i++){
+					Lit r = nodes_reachable[i];
+					for(int j = 0;j<g_over->nIncoming(i);j++){
+						int edgeID = g_over->incoming(i,j).id;
+						int to = g_over->incoming(i,j).node;
+						if(to>i){
+							Lit edge_enabled = mkLit(this->toSolver(getTransitionVar(edgeID)));
+							S->addClause(r,~edge_enabled);//if this node is _not_ reachable, then this incoming edge must be disabled.
+							//note that the case for to<i doesn't need to be checked here, since it was checked above.
+						}else if (to==i){
+							//this is the self loop edge. If this node is not reachable, then force it to have a self loop
+							Lit edge_enabled = mkLit(this->toSolver(getTransitionVar(edgeID)));
+							S->addClause(r,edge_enabled);
+						}
+					}
+					for(int j = 0;j<g_over->nIncident(i);j++){
+						int edgeID = g_over->incident(i,j).id;
+						int to = g_over->incident(i,j).node;
+						if(to!=i){
+							Lit edge_enabled = mkLit(this->toSolver(getTransitionVar(edgeID)));
+							S->addClause(r,~edge_enabled);//if this node is _not_ reachable, then this outgoing edge must be disabled.
+							//note that the case for to<i doesn't need to be checked here, since it was checked above.
+						}
+					}
+				}
+
+				//if node i is reachable, then node i-1 must also be reachable (can skip node 1 here, since node 0 is always reachable).
+				for(int i = 2;i<g_over->nodes();i++){
+					Lit r = nodes_reachable[i];
+					Lit prev_r = nodes_reachable[i-1];
+					S->addClause(~r, prev_r);//node i being reachable implies that the previous node must be reachable.
+				}
+			}
+			if(opt_ctl_symmetry_cnf==2 || opt_ctl_symmetry_cnf==3){
+				assert(initialNode==0);//haven't generalized this yet
+				//interpret the property assignment of each state i as bitvector bv(i), and enforce that bv(i) <= bv(i+1).
+				//but ignore the starting state in these constraints.
+				vec<vec<Lit> > state_assignments;
+				for(int i = 0;i<g_over->nodes();i++){
+					state_assignments.push();
+					vec<Lit> & state_assignment = state_assignments.last();
+					for(int j =0;j<g_over->nProperties();j++){
+						Var v= this->getNodeAPVar(i,j);
+						Lit l = mkLit(toSolver(v));
+						state_assignment.push(l);
+					}
+				}
+
+				//enforce that each state assignment is less than its predecessor
+				for(int i = 2;i<state_assignments.size();i++){
+					vec<Lit> & p = state_assignments[i-1];
+					vec<Lit> & n = state_assignments[i];
+					assert(p.size()==n.size());
+					//starting from the most significant bit, check if they are all the same
+					Lit p_lt_n=False;
+					Lit p_eq_n = True;
+					for(int j = p.size()-1;j>=0;j--){
+						//Lit pj_eq_n =  mkLit(S->newVar());
+						Lit pj_eq_n = c.Xnor(n[j],p[j]);
+						Lit pj_ltn = c.And(n[j],p[j]);
+						Lit lt = c.And(p_eq_n,pj_ltn);
+						p_lt_n = c.Or(lt,p_lt_n);
+						p_eq_n=c.And(pj_eq_n,p_eq_n);
+					}
+					//The bv(i-1) must be less or equal to bv(i)
+					S->addClause(p_eq_n,p_lt_n);
+				}
+				if(opt_ctl_symmetry_statelabelandedges>0){
+					//if p_eq_n, then also enforce symmetry constraints on the edges
+
+				}
+			}
+	}
 	void preprocess() {
 		if(opt_ctl_learn_cache){
 			prepare_ids(f);
 		}
-		//Every node must have an outgoing edge (which may be a self loop).
-		for(int i = 0;i<g_over->nodes();i++){
-
-		}
-		Lit True = mkLit(S->newVar());
-		S->addClause(True);
-		Lit False = ~True;
-		if(opt_ctl_symmetry_cnf==1 || opt_ctl_symmetry_cnf==3){
-			//Node 0 is reachable.
-			//Every other node is reachable exactly if it has an incoming edge from a lower indexed node.
-			assert(initialNode==0);
-			//If a node is not reachable, then it has exactly one in/out edge, which is the self loop.
-			//if node i>0 is reachable, then node i-1 must also be reachable
-			vec<Lit> nodes_reachable;
-			nodes_reachable.push(True);//node 0 is always reachable
-			for(int i = 1;i<g_over->nodes();i++){
-				Lit reachable = False;
-				for(int j = 0;j<g_over->nIncoming(i);j++){
-					int edgeID = g_over->incoming(i,j).id;
-					int to = g_over->incoming(i,j).node;
-					if(to<i){
-						Lit edge_enabled = mkLit(this->toSolver(getTransitionVar(edgeID)));
-						Lit reachable_or_edge_enabled = mkLit(S->newVar());
-						S->addClause(reachable_or_edge_enabled,~edge_enabled);
-						S->addClause(reachable_or_edge_enabled,~reachable);
-						S->addClause(~reachable_or_edge_enabled,edge_enabled,reachable);
-						reachable=reachable_or_edge_enabled;
-					}
-				}
-				nodes_reachable.push(reachable);
-			}
-
-			//if a node is not reachable, then all incoming and outgoing edges, except for the self loop, are disabled, and the self loop edge is enabled
-			for(int i = 1;i<g_over->nodes();i++){
-				Lit r = nodes_reachable[i];
-				for(int j = 0;j<g_over->nIncoming(i);j++){
-					int edgeID = g_over->incoming(i,j).id;
-					int to = g_over->incoming(i,j).node;
-					if(to>i){
-						Lit edge_enabled = mkLit(this->toSolver(getTransitionVar(edgeID)));
-						S->addClause(r,~edge_enabled);//if this node is _not_ reachable, then this incoming edge must be disabled.
-						//note that the case for to<i doesn't need to be checked here, since it was checked above.
-					}else if (to==i){
-						//this is the self loop edge. If this node is not reachable, then force it to have a self loop
-						Lit edge_enabled = mkLit(this->toSolver(getTransitionVar(edgeID)));
-						S->addClause(r,edge_enabled);
-					}
-				}
-				for(int j = 0;j<g_over->nIncident(i);j++){
-					int edgeID = g_over->incident(i,j).id;
-					int to = g_over->incident(i,j).node;
-					if(to!=i){
-						Lit edge_enabled = mkLit(this->toSolver(getTransitionVar(edgeID)));
-						S->addClause(r,~edge_enabled);//if this node is _not_ reachable, then this outgoing edge must be disabled.
-						//note that the case for to<i doesn't need to be checked here, since it was checked above.
-					}
-				}
-			}
-
-			//if node i is reachable, then node i-1 must also be reachable (can skip node 1 here, since node 0 is always reachable).
-			for(int i = 2;i<g_over->nodes();i++){
-				Lit r = nodes_reachable[i];
-				Lit prev_r = nodes_reachable[i-1];
-				S->addClause(~r, prev_r);//node i being reachable implies that the previous node must be reachable.
-			}
-		}
-		if(opt_ctl_symmetry_cnf==2 || opt_ctl_symmetry_cnf==3){
-			//interpret the property assignment of each state i as bitvector bv(i), and enforce that bv(i) <= bv(i+1).
-			//but ignore the starting state in these constraints.
-			vec<vec<Lit> > state_assignments;
-			for(int i = 0;i<g_over->nodes();i++){
-				if(i==initialNode)
-					continue;
-				state_assignments.push();
-				vec<Lit> & state_assignment = state_assignments.last();
-				for(int j =0;j<g_over->nProperties();j++){
-					Var v= this->getNodeAPVar(i,j);
-					Lit l = mkLit(toSolver(v));
-					state_assignment.push(l);
-				}
-			}
-
-			//enforce that each state assignment is less than its predecessor
-			for(int i = 1;i<state_assignments.size();i++){
-
-				vec<Lit> & p = state_assignments[i-1];
-				vec<Lit> & n = state_assignments[i];
-				assert(p.size()==n.size());
-				//starting from the most significant bit, check if they are all the same
-				Lit p_lt_n=False;
-				Lit p_eq_n = True;
-				for(int j = p.size()-1;j>=0;j--){
-					Lit pj_eq_n =  mkLit(S->newVar());
-					//pj_eq_n = p[j] XNOR n[j]
-
-					S->addClause(n[j],p[j],pj_eq_n);
-					S->addClause(~n[j],p[j],~pj_eq_n);
-					S->addClause(n[j],~p[j],~pj_eq_n);
-					S->addClause(~n[j],~p[j],pj_eq_n);
-
-					Lit eq = mkLit(S->newVar());
-					//eq = pj_eq_n && p_eq_n
-					S->addClause(pj_eq_n,~eq);
-					S->addClause(p_eq_n,~eq);
-					S->addClause(~pj_eq_n,~p_eq_n,eq);
-
-
-					Lit pj_ltn = mkLit(S->newVar());
-					//p is less than n if we have nj and not pj, and all higher order bits are equal
-					S->addClause(~n[j],pj_ltn);
-					S->addClause(~p[j],pj_ltn);
-					S->addClause(n[j],p[j],~pj_ltn);
-
-					Lit lt = mkLit(S->newVar());
-					//lt = eq and pj_ltn
-					S->addClause(p_eq_n,~lt);
-					S->addClause(pj_ltn,~lt);
-					S->addClause(~p_eq_n,~pj_ltn,lt);
-
-					Lit n_lt = mkLit(S->newVar());
-					//n_lt = lt or p_lt_n
-					S->addClause(~lt,n_lt);
-					S->addClause(~p_lt_n,n_lt);
-					S->addClause(lt,p_lt_n,~n_lt);
-
-					p_lt_n = n_lt;
-					p_eq_n=eq;
-				}
-				//The bv(i-1) must be less or equal to bv(i)
-				S->addClause(p_eq_n,p_lt_n);
-			}
-
+		if(opt_ctl_symmetry_cnf>0){
+			cnfSymmetryBreaking();
 		}
 		for (int i = 0; i < detectors.size(); i++) {
 			detectors[i]->preprocess();
