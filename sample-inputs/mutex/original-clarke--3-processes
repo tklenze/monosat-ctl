@@ -9,7 +9,7 @@ c     <#Vars> <#Clauses>
 p cnf 1000     1
 1000 0
 c kctlsimp <KripkeID> <#Nodes> <#APs> <selfloops> <ctlvar> <CTL formula>"
-kctlsimp   0          17       9      0           1000        (NCS1 AND NCS2)
+kctlsimp   0          13       9      0           1000        (NCS1 AND NCS2)
 AND NCS3
 c
 c 2. Mutual exclusion

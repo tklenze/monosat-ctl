@@ -24,6 +24,7 @@
 
 #include "core/SolverTypes.h"
 #include "mtl/Vec.h"
+#include <list>
 namespace Monosat{
 
 //Barebones helper methods for expressing combinatorial logic in CNF.
@@ -307,7 +308,7 @@ public:
 
 
 
-	Lit Ite(Lit cond, Lit thn, Lit els=(~lit_True)){
+	Lit Ite(Lit cond, Lit thn, Lit els){
 		Lit l = ~And(cond,~thn);
 		Lit r = ~And(~cond,~els);
 		return And(l,r);
