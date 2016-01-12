@@ -351,16 +351,19 @@ public:
 	}
 
 	int solveEGwithFairness(CTLFormula& f) {
-		printf("solveEGwithFairness, formula: ");
-		printFormula(&f);
-		printf("\nComponents: \n");
+		if (opt_verb > 1) {
+			printf("solveEGwithFairness, formula: ");
+			printFormula(&f);
+			printf("\nComponents: \n");
+		}
 		DynamicGraph<int> & g = k->g;
 
 		int innerBitset = solve(*f.operand1);
 		tarjan->setInnerFormula(*bitsets[innerBitset]);
-		printStateSet(*bitsets[innerBitset]);
-		printf("\n");
-
+		if (opt_verb > 1) {
+			printStateSet(*bitsets[innerBitset]);
+			printf("\n");
+		}
 		// This will end up being μ(f.operand1), restricted to states that are on an SCC which satisfies all fairness constraints
 		int st = getFreshBitset();
 
@@ -372,9 +375,11 @@ public:
 		innerFair.resize(f.fairnessConstraints.size());
 		for (int i = 0; i < innerFair.size(); i ++) {
 			innerFair[i] = solve(*f.fairnessConstraints.operator [](i));
-			printf("Fairness constraint and set of states in which it is true: ");
-			printFormula(f.fairnessConstraints.operator [](i));
-			printStateSet(*bitsets[innerFair[i]]);
+			if (opt_verb > 1) {
+				printf("Fairness constraint and set of states in which it is true: ");
+				printFormula(f.fairnessConstraints.operator [](i));
+				printStateSet(*bitsets[innerFair[i]]);
+			}
 		}
 
 
@@ -386,7 +391,8 @@ public:
 			// Find all other elements of the SCC
 			// Makes sure that we skip over lone vertices that have no self loop.
 			if (tarjan->getComponentSize(i) > 1 || suitable(k->getEdge(node, node),*bitsets[innerBitset])) {
-				printf("Component %d:",i);
+				if (opt_verb > 1)
+					printf("Component %d:",i);
 				assert(q.size()==0);
 				comp.clear();
 				q.push_back(node);
@@ -402,10 +408,12 @@ public:
 					for (int j = 0; j < innerFair.size(); j ++) {
 						if (bitsets[innerFair[j]]->operator [](u)) {
 							fairnessConstraintsSat->set(j);
-							printf("\nSCC satisfies fairness constraint %d, because state %d satisfies it\n", j, u);
+							if (opt_verb > 1)
+								printf("\nSCC satisfies fairness constraint %d, because state %d satisfies it\n", j, u);
 						}
 					}
-					printf(" %d",u);
+					if (opt_verb > 1)
+						printf(" %d",u);
 					for(int j = 0;j<g.nIncident(u);j++){
 						int edgeID = g.incident(u,j).id;
 						int to = g.incident(u,j).node;
@@ -419,7 +427,8 @@ public:
 				for (int j=0; j<fairnessConstraintsSat->size(); j++) {
 					if (!fairnessConstraintsSat->operator [](j)) {
 						fairSCC = false;
-						printf("\nUnfair SCC due to fairness constraint #%d\n", j);
+						if (opt_verb > 1)
+							printf("\nUnfair SCC due to fairness constraint #%d\n", j);
 					}
 				}
 				if (fairSCC) {
@@ -430,13 +439,12 @@ public:
 
 			}
 		}
-
-		printf("\n");
-
-		printf("Nodes belonging to an SCCs that we are backtracking from in EGFair: ");
-		printStateSet(*bitsets[st]);
-		printf("\n");
-
+		if (opt_verb > 1) {
+			printf("\n");
+			printf("Nodes belonging to an SCCs that we are backtracking from in EGFair: ");
+			printStateSet(*bitsets[st]);
+			printf("\n");
+		}
 		// We solve for X, and initialize X with st:
 		// X = μ(p) ∩ (X ∪ pre(X))
 		// Where μ(p) is innerBitset
@@ -465,9 +473,11 @@ public:
 					freeBitset(innerFair[i]);
 				delete fairnessConstraintsSat;
 
-				printf("Solution to EGFair: ");
-				printStateSet(*bitsets[andst]);
-				printf("\n\n");
+				if (opt_verb > 1) {
+					printf("Solution to EGFair: ");
+					printStateSet(*bitsets[andst]);
+					printf("\n\n");
+				}
 				return andst; // fixpoint reached
 			}
 			bitsets[st]->copyFrom(*bitsets[andst]);
@@ -530,7 +540,9 @@ public:
 
 		// Exclude those states of μ(p) in which there is no fair path. Save this temporarily into orst
 		bitsets[st]->And(*bitsets[fair], *bitsets[orst]);
-		printf("solveEFwithFairness: st: "); printStateSet(*bitsets[st]); printf(", fair: "); printFormula(fairFormula); printf(" : "); printStateSet(*bitsets[fair]); printf(", result: "); printStateSet(*bitsets[orst]);
+		if (opt_verb > 1) {
+			printf("solveEFwithFairness: st: "); printStateSet(*bitsets[st]); printf(", fair: "); printFormula(fairFormula); printf(" : "); printStateSet(*bitsets[fair]); printf(", result: "); printStateSet(*bitsets[orst]);
+		}
 		bitsets[st]->copyFrom(*bitsets[orst]);
 
 		while (true) { // fixpoint guaranteed to exist, therefore this will terminate

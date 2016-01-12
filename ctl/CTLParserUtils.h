@@ -48,7 +48,12 @@ static void matchFairness(B& in, CTLFormula* f) {
 }
 	template<typename B>
 
+	// Parse the formula
 
+	// We convert formulas with universal quantification to formulas with only existential quantification, this this
+	// aids the caching in the solver
+	// e.g.: AX φ ≡ ¬ EX ¬φ
+	// For now, we only do this for unary predicates, because I can't be bothered and it seems to have little effect anyway
 	static CTLFormula* parseCTL(B& in) {
 		skipWhitespace(in);
 
@@ -133,22 +138,37 @@ static void matchFairness(B& in, CTLFormula* f) {
 			return f;
 		}
 		if (match(in, "AX")) {
-			CTLFormula* inside = parseCTL(in);
-			f->op = AX;
-			f->operand1 = inside;
+			CTLFormula* phi1 = newCTLFormula();
+			CTLFormula* phi2 = newCTLFormula();
+			phi1->op = NEG;
+			phi1->operand1 = parseCTL(in);
+			phi2->op = EX;
+			phi2->operand1 = phi1;
+			f->op = NEG;
+			f->operand1 = phi2;
 			return f;
 		}
 		if (match(in, "AF")) {
-			CTLFormula* inside = parseCTL(in);
-			f->op = AF;
-			f->operand1 = inside;
+			CTLFormula* phi1 = newCTLFormula();
+			CTLFormula* phi2 = newCTLFormula();
+			phi1->op = NEG;
+			phi1->operand1 = parseCTL(in);
+			phi2->op = EG;
+			phi2->operand1 = phi1;
+			f->op = NEG;
+			f->operand1 = phi2;
 			return f;
 		}
 		if (match(in, "AG")) {
-			matchFairness(in, f);
-			CTLFormula* inside = parseCTL(in);
-			f->op = AG;
-			f->operand1 = inside;
+			CTLFormula* phi1 = newCTLFormula();
+			CTLFormula* phi2 = newCTLFormula();
+			matchFairness(in, phi2);
+			phi1->op = NEG;
+			phi1->operand1 = parseCTL(in);
+			phi2->op = EF;
+			phi2->operand1 = phi1;
+			f->op = NEG;
+			f->operand1 = phi2;
 			return f;
 		}
 		if (match(in, "(")) {

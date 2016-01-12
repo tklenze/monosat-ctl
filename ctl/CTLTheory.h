@@ -772,7 +772,8 @@ public:
 						Lit l = ~mkLit(getNodeAPVar(s, ap), true);
 						c.push(l);
 					}
-			  		printLearntClause(c);
+					if (opt_verb > 1)
+						printLearntClause(c);
 					addClauseSafely(c);
 					c.clear();
 					// For every combination of two process-states such that they're not the same, add a clause with two literals stating that they can't be both true
@@ -785,7 +786,8 @@ public:
 								ap = p*statesperprocess + j;
 								Lit l2 = ~mkLit(getNodeAPVar(s, ap), false);
 								c.push(l2);
-						  		printLearntClause(c);
+								if (opt_verb > 1)
+									printLearntClause(c);
 								addClauseSafely(c);
 								c.clear();
 							}
