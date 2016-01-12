@@ -92,17 +92,17 @@ namespace Monosat {
 		case OR : printf("("); printFormula(f.operand1); printf(" or "); printFormula(f.operand2); printf(")"); break;
 		case AND : printf("("); printFormula(f.operand1); printf(" and "); printFormula(f.operand2); printf(")"); break;
 
-		case EX : printf("EX "); printFormula(f.operand1); break;
-		case EF : printf("EF "); printFormula(f.operand1); break;
+		case EX : printf("EX "); printFairnessConstraints(foo); printFormula(f.operand1); break;
+		case EF : printf("EF "); printFairnessConstraints(foo); printFormula(f.operand1); break;
 		case EG : printf("EG "); printFairnessConstraints(foo); printFormula(f.operand1); break;
-		case EW : printf("("); printFormula(f.operand1); printf(" EW "); printFormula(f.operand2); printf(")"); break;
-		case EU : printf("("); printFormula(f.operand1); printf(" EU "); printFormula(f.operand2); printf(")"); break;
+		case EW : printf("("); printFormula(f.operand1); printf(" EW "); printFairnessConstraints(foo); printFormula(f.operand2); printf(")"); break;
+		case EU : printf("("); printFormula(f.operand1); printf(" EU "); printFairnessConstraints(foo); printFormula(f.operand2); printf(")"); break;
 
-		case AX : printf("AX "); printFormula(f.operand1); break;
-		case AF : printf("AF "); printFormula(f.operand1); break;
+		case AX : printf("AX "); printFairnessConstraints(foo); printFormula(f.operand1); break;
+		case AF : printf("AF "); printFairnessConstraints(foo); printFormula(f.operand1); break;
 		case AG : printf("AG "); printFairnessConstraints(foo); printFormula(f.operand1); break;
-		case AW : printf("("); printFormula(f.operand1); printf(" AW "); printFormula(f.operand2); printf(")"); break;
-		case AU : printf("("); printFormula(f.operand1); printf(" AU "); printFormula(f.operand2); printf(")"); break;
+		case AW : printf("("); printFormula(f.operand1); printf(" AW "); printFairnessConstraints(foo); printFormula(f.operand2); printf(")"); break;
+		case AU : printf("("); printFormula(f.operand1); printf(" AU "); printFairnessConstraints(foo); printFormula(f.operand2); printf(")"); break;
 
 		default : printf("Unknown formula: %d", f.op);
 		}

@@ -304,6 +304,8 @@ public:
 
 	int solveEX(CTLFormula& f) {
 		assert(f.op == EX);
+		if (f.fairnessConstraints.size() > 0)
+			return solveEXwithFairness(f);
 		int st = solve(*f.operand1);
 
 		int prest = pre(st);
@@ -317,6 +319,19 @@ public:
 		delete st;
 
 		return prest;*/
+	}
+
+	// EX_C phi = EX( phi /\ EG_C True)
+	int solveEXwithFairness(CTLFormula& f) {
+		CTLFormula* phi1 = newCTLFormula();
+		phi1->fairnessConstraints = f.fairnessConstraints;
+		int fair = solve(*phi1);
+		int st = solve(*f.operand1);
+		int prest = pre(st);
+		bitsets[fair]->And(*bitsets[prest], *bitsets[st]); // st := fair ∩ prest
+		freeBitset(prest);
+		freeBitset(fair);
+		return st;
 	}
 
 	/*
@@ -565,13 +580,25 @@ public:
 	// φ 1 EW φ 2 ≡ EG φ 1 ∨ (φ 1 EU φ 2 )
 	int solveEW(CTLFormula& f) {
 		CTLFormula phi1 = {EG, f.operand1, NULL, 0};
-		CTLFormula phi2 = {EU, f.operand1, f.operand2, 0};
+		CTLFormula phi2 = {EU, f.operand1, f.operand2, 0, f.fairnessConstraints};
 		CTLFormula phi3 = {OR, &phi1, &phi2, 0};
 		return solve(phi3);
 	}
 
+	// φ 1 EU_C φ 2 ≡ φ 1 EU (φ 2 /\ EG_C True)
+	int solveEUwithFairness(CTLFormula& f) {
+		CTLFormula phi1 = {True, NULL, NULL, 0};
+		CTLFormula phi2 = {EG, &phi1, NULL, 0, f.fairnessConstraints};
+		CTLFormula phi3 = {AND, &phi2, f.operand2, 0};
+		CTLFormula phi4 = {EU, f.operand1, &phi3, 0};
+		return solve(phi4);
+	}
+
 	// X = μ(q) ∪ (μ(p) ∩ pre(X)).
 	int solveEU(CTLFormula& f) {
+		if (f.fairnessConstraints.size() > 0)
+			return solveEUwithFairness(f);
+
 		assert(f.op == EU);
 		// μ(p)
 		int st1 = solve(*f.operand1);
@@ -609,7 +636,7 @@ public:
 	// AX φ ≡ ¬ EX ¬φ
 	int solveAX(CTLFormula& f) {
 		CTLFormula phi1 = CTLFormula(NEG, f.operand1);
-		CTLFormula phi2 = CTLFormula(EX, &phi1);
+		CTLFormula phi2 = CTLFormula(EX, &phi1, NULL, 0, f.fairnessConstraints);
 		CTLFormula phi3 = CTLFormula(NEG, &phi2);
 		return solve(phi3);
 	}
@@ -617,7 +644,7 @@ public:
 	// AF φ ≡ ¬ EG ¬φ
 	int solveAF(CTLFormula& f) {
 		CTLFormula phi1 = CTLFormula(NEG, f.operand1);
-		CTLFormula phi2 = CTLFormula(EG, &phi1);
+		CTLFormula phi2 = CTLFormula(EG, &phi1, NULL, 0, f.fairnessConstraints);
 		CTLFormula phi3 = CTLFormula(NEG, &phi2);
 		return solve(phi3);
 	}
@@ -635,14 +662,14 @@ public:
 		CTLFormula phi1 = CTLFormula(OR, f.operand1, f.operand2);
 		CTLFormula phi2 = CTLFormula(NEG, &phi1);
 		CTLFormula phi3 = CTLFormula(NEG, f.operand2);
-		CTLFormula phi4 = CTLFormula(EU, &phi3, &phi2);
+		CTLFormula phi4 = CTLFormula(EU, &phi3, &phi2, 0, f.fairnessConstraints);
 		CTLFormula phi5 = CTLFormula(NEG, &phi4);
 		return solve(phi5);
 	}
 	// φ 1 AU φ 2 ≡ AF φ 2 ∧ (φ 1 AW φ 2 ))
 	int solveAU(CTLFormula& f) {
 		CTLFormula phi1 = CTLFormula(AF, f.operand2);
-		CTLFormula phi2 = CTLFormula(AW, f.operand1, f.operand2);
+		CTLFormula phi2 = CTLFormula(AW, f.operand1, f.operand2, 0, f.fairnessConstraints);
 		CTLFormula phi3 = CTLFormula(AND, &phi1, &phi2);
 		return solve(phi3);
 	}

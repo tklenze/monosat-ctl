@@ -1453,8 +1453,15 @@ public:
 
 		if(opt_verb>1) {
 			printf("Clause learning subformula... ");
-			printFormula2(subf);
+			printFormula(&subf);
 			printf(", for startNode %d\n", startNode);
+		}
+
+		if (subf.fairnessConstraints.size() > 0 && subf.op != EG) {
+			if(opt_verb>1)
+				printf("Learning naive clause, since we don't support clause learning with fairness constraints on this operator yet...\n");
+			learnNaiveClause(conflict, initialNode);
+			return;
 		}
 
 		if (subf.op == AND) {

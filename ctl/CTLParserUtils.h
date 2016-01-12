@@ -119,12 +119,14 @@ static void matchFairness(B& in, CTLFormula* f) {
 			return f;
 		}
 		if (match(in, "EX")) {
+			matchFairness(in, f);
 			CTLFormula* inside = parseCTL(in);
 			f->op = EX;
 			f->operand1 = inside;
 			return f;
 		}
 		if (match(in, "EF")) {
+			matchFairness(in, f);
 			CTLFormula* inside = parseCTL(in);
 			f->op = EF;
 			f->operand1 = inside;
@@ -140,6 +142,7 @@ static void matchFairness(B& in, CTLFormula* f) {
 		if (match(in, "AX")) {
 			CTLFormula* phi1 = newCTLFormula();
 			CTLFormula* phi2 = newCTLFormula();
+			matchFairness(in, phi2);
 			phi1->op = NEG;
 			phi1->operand1 = parseCTL(in);
 			phi2->op = EX;
@@ -151,6 +154,7 @@ static void matchFairness(B& in, CTLFormula* f) {
 		if (match(in, "AF")) {
 			CTLFormula* phi1 = newCTLFormula();
 			CTLFormula* phi2 = newCTLFormula();
+			matchFairness(in, phi2);
 			phi1->op = NEG;
 			phi1->operand1 = parseCTL(in);
 			phi2->op = EG;
@@ -175,6 +179,7 @@ static void matchFairness(B& in, CTLFormula* f) {
 			CTLFormula* inside1 = parseCTL(in);
 			skipWhitespace(in);
 			if (match(in, "EW")) {
+				matchFairness(in, f);
 				CTLFormula* inside2 = parseCTL(in);
 				skipWhitespace(in);
 				if (match(in, ")")) {
@@ -185,6 +190,7 @@ static void matchFairness(B& in, CTLFormula* f) {
 					printf("Error: Expected closing bracket"); exit(1);
 				}
 			} else if (match(in, "EU")) {
+				matchFairness(in, f);
 				CTLFormula* inside2 = parseCTL(in);
 				skipWhitespace(in);
 				if (match(in, ")")) {
@@ -195,6 +201,7 @@ static void matchFairness(B& in, CTLFormula* f) {
 					printf("Error: Expected closing bracket"); exit(1);
 				}
 			} else if (match(in, "AW")) {
+				matchFairness(in, f);
 				CTLFormula* inside2 = parseCTL(in);
 				skipWhitespace(in);
 				if (match(in, ")")) {
@@ -205,6 +212,7 @@ static void matchFairness(B& in, CTLFormula* f) {
 					printf("Error: Expected closing bracket"); exit(1);
 				}
 			} else if (match(in, "AU")) {
+				matchFairness(in, f);
 				CTLFormula* inside2 = parseCTL(in);
 				skipWhitespace(in);
 				if (match(in, ")")) {
