@@ -180,11 +180,21 @@ public:
 		pre(st, prest);
 		return prest;
 	}
-	void pre(int st, int prest) {
+	// Old pre, less efficient!
+	void oldpre(int st, int prest) {
 		bitsets[prest]->memset(false); // clean it, just in case
 		for (int i=0; i<k->nEdgeIDs();i++) {
 			if (bitsets[st]->operator [](k->getEdge(i).to) && k->transitionEnabled(i)) {
 				bitsets[prest]->set(k->getEdge(i).from);
+			}
+		}
+	}
+	// New and improved pre()
+	void pre(int st, int prest) {
+		bitsets[prest]->memset(false); // clean it, just in case
+		for (int i=0; i<k->statecount; i++) {
+			if (bitsets[st]->operator [](i)) { // state is enabled, add predecessors
+				bitsets[prest]->Or(*k->predecessors[i]);
 			}
 		}
 	}
@@ -307,7 +317,6 @@ public:
 		if (f.fairnessConstraints.size() > 0)
 			return solveEXwithFairness(f);
 		int st = solve(*f.operand1);
-
 		int prest = pre(st);
 		freeBitset(st);
 

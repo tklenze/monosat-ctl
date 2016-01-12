@@ -41,11 +41,13 @@ public:
 	bool is_linear=true;
 public:
 	std::vector<bool> transitions;
+	std::vector<Bitset*> predecessors; // Each state's predecessor
 
 	// This represents the labels of states, which are sets of atomic propositions
 	// <s>Access via statelabel[stateID][AP]</s>
 	std::vector<Bitset*> statelabel;
 	int apcount = 0;
+	int statecount = 0;
 
 	bool adaptive_history_clear = false;
 	long historyClearInterval = 1000;
@@ -150,6 +152,11 @@ public:
 	void setAPCount(int apc) {
 		apcount = apc;
 	}
+	// Note that this is not reliable information, vectors might have different
+	// lengths if initialization messes up
+	void setStateCount(int sc) {
+		statecount = sc;
+	}
 	int nProperties(){
 		return this->apcount;
 	}
@@ -179,6 +186,10 @@ public:
 		}
 		transitions.resize(edgeID+1);
 		transitions[edgeID] = defaultEnabled;
+		if (defaultEnabled)
+			predecessors[to]->set(from);
+		else
+			predecessors[to]->clear(from);
 
 		return edgeID;
 	}
@@ -189,6 +200,7 @@ public:
 		assert(isEdge(edgeID));
 		if (!transitions[edgeID]) {
 			transitions[edgeID] = true;
+			predecessors[getEdge(edgeID).to]->set(getEdge(edgeID).from);
 			modifications++;
 			additions = modifications;
 			history.push_back( { true, false, edgeID, 0, modifications });
@@ -200,6 +212,7 @@ public:
 		assert(isEdge(edgeID));
 		if (transitions[edgeID]) {
 			transitions[edgeID] = false;
+			predecessors[getEdge(edgeID).to]->clear(getEdge(edgeID).from);
 			modifications++;
 			history.push_back( { false, false, edgeID, 0, modifications });
 			deletions = modifications;
@@ -219,6 +232,9 @@ public:
 		additions = modifications;
 		deletions = modifications;
 		statelabel.push_back(&v);
+		Bitset *pd = new Bitset(statecount);
+		pd->zero();
+		predecessors.push_back(pd);
 		markChanged();
 		clearHistory(true);
 
@@ -389,6 +405,18 @@ public:
 			}
 
 			printf("}\n");
+
+			printf("Predecessors:\n");
+			for (int i = 0; i < g.nodes(); i++) {
+				printf("%d: ", i);
+				printf("{");
+				for (int j=0; j<predecessors[i]->size(); j++) {
+					if (predecessors[i]->operator [](j)) {
+						printf("%d, ", j);
+					}
+				}
+				printf("}\n");
+			}
 		}
 	}
 

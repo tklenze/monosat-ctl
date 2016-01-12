@@ -78,9 +78,11 @@ class CTLParser: public Parser<B, Solver> {
 		kripkes.growTo(g + 1);
 
 		CTLTheorySolver *kripke = new CTLTheorySolver(&S, g);
-		kripke->newNodes(n);
 		kripke->g_under->setAPCount(a);
 		kripke->g_over->setAPCount(a);
+		kripke->g_under->setStateCount(n);
+		kripke->g_over->setStateCount(n);
+		kripke->newNodes(n);
 		nodeCount = n;
 		kripke->initNodeAPVarLookup(n, a);
 		kripkes[g] = kripke;
@@ -109,9 +111,11 @@ class CTLParser: public Parser<B, Solver> {
 		kripkes.growTo(kripkeID + 1);
 
 		CTLTheorySolver *kripke = new CTLTheorySolver(&S, kripkeID);
-		kripke->newNodes(n);
 		kripke->g_under->setAPCount(a);
 		kripke->g_over->setAPCount(a);
+		kripke->g_under->setStateCount(n);
+		kripke->g_over->setStateCount(n);
+		kripke->newNodes(n);
 		nodeCount = n;
 		kripke->initNodeAPVarLookup(n, a);
 		kripkes[kripkeID] = kripke;
@@ -167,12 +171,14 @@ class CTLParser: public Parser<B, Solver> {
 		kripkes.growTo(kripkeID + 1);
 
 		CTLTheorySolver *kripke = new CTLTheorySolver(&S, kripkeID);
-		kripke->newNodes(n);
 		kripke->g_under->setAPCount(a);
 		kripke->g_over->setAPCount(a);
+		kripke->g_under->setStateCount(n);
+		kripke->g_over->setStateCount(n);
+		nodeCount = n;
+		kripke->newNodes(n);
 		kripke->processes = p;
 		kripke->statesperprocess = s;
-		nodeCount = n;
 		kripke->initNodeAPVarLookup(n, a);
 		kripkes[kripkeID] = kripke;
 		currentKripkeID = kripkeID;
