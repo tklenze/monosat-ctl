@@ -12,6 +12,7 @@
 #define CTL_CTLSOLVER_H_
 
 #include <vector>
+#include <queue>
 #include "mtl/Vec.h"
 #include "mtl/Bitset.h"
 #include <algorithm>
@@ -522,6 +523,36 @@ public:
 		assert(f.op == EF);
 		// μ(p)
 		int st = solve(*f.operand1);
+
+		//printf("solveEF on formula");
+		//printFormula(&f);
+
+		// do a BFS backwards search instead of the fixpoint search, since the fixpoint description is slow
+		std::queue <int> list; // to-do list... these state's neighbours have to be inspected
+
+		// Add all states μ(p) to the to-do list
+		for (int i = 0; i < k->states(); i++) {
+			if (bitsets[st]->operator [](i))
+				list.push(i);
+		}
+
+		int s;
+		while (list.size() > 0) {
+			s = list.front();
+			//printf("Considering predecessors of state %d\n", s);
+			list.pop();
+			// iterate through all predecessors of s
+			for (std::list<int>::const_iterator pres = k->predecessorsList[s].begin(), end = k->predecessorsList[s].end(); pres != end; ++pres) {
+				if (!bitsets[st]->operator [](*pres)) {
+					bitsets[st]->set(*pres);
+					list.push(*pres);
+				}
+			}
+		}
+		return st;
+
+		// Old fixpoint characterization:
+/*
 		// Auxiliary bitsets
 		int orst = getFreshBitset();
 		int prest = getFreshBitset();
@@ -540,6 +571,7 @@ public:
 			}
 			bitsets[st]->copyFrom(*bitsets[orst]);
 		}
+*/
 	}
 
 

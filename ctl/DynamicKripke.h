@@ -21,6 +21,7 @@
 #include "alg/NFATypes.h"
 #include "dgl/DynamicGraph.h"
 #include <string>
+#include <list>
 using namespace dgl;
 namespace Monosat {
 
@@ -42,6 +43,7 @@ public:
 public:
 	std::vector<bool> transitions;
 	std::vector<Bitset*> predecessors; // Each state's predecessor
+	std::vector<std::list <int>> predecessorsList; // Each state's predecessor, expressed as a list
 
 	// This represents the labels of states, which are sets of atomic propositions
 	// <s>Access via statelabel[stateID][AP]</s>
@@ -186,10 +188,12 @@ public:
 		}
 		transitions.resize(edgeID+1);
 		transitions[edgeID] = defaultEnabled;
-		if (defaultEnabled)
+		if (defaultEnabled) {
 			predecessors[to]->set(from);
-		else
+			predecessorsList[to].push_back(from);
+		} else {
 			predecessors[to]->clear(from);
+		}
 
 		return edgeID;
 	}
@@ -201,6 +205,7 @@ public:
 		if (!transitions[edgeID]) {
 			transitions[edgeID] = true;
 			predecessors[getEdge(edgeID).to]->set(getEdge(edgeID).from);
+			predecessorsList[getEdge(edgeID).to].push_back(getEdge(edgeID).from);
 			modifications++;
 			additions = modifications;
 			history.push_back( { true, false, edgeID, 0, modifications });
@@ -213,6 +218,7 @@ public:
 		if (transitions[edgeID]) {
 			transitions[edgeID] = false;
 			predecessors[getEdge(edgeID).to]->clear(getEdge(edgeID).from);
+			predecessorsList[getEdge(edgeID).to].remove(getEdge(edgeID).from);
 			modifications++;
 			history.push_back( { false, false, edgeID, 0, modifications });
 			deletions = modifications;
@@ -235,6 +241,8 @@ public:
 		Bitset *pd = new Bitset(statecount);
 		pd->zero();
 		predecessors.push_back(pd);
+		std::list<int> *l = new std::list<int>();
+		predecessorsList.push_back(*l);
 		markChanged();
 		clearHistory(true);
 
@@ -414,6 +422,15 @@ public:
 					if (predecessors[i]->operator [](j)) {
 						printf("%d, ", j);
 					}
+				}
+				printf("}\n");
+			}
+			printf("PredecessorsList:\n");
+			for (int i = 0; i < g.nodes(); i++) {
+				printf("%d: ", i);
+				printf("{");
+				for (std::list<int>::const_iterator iterator = predecessorsList[i].begin(), end = predecessorsList[i].end(); iterator != end; ++iterator) {
+					printf("%d, ", *iterator);
 				}
 				printf("}\n");
 			}
