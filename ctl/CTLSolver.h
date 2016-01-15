@@ -715,6 +715,31 @@ public:
 		return solve(phi3);
 	}
 
+	// Return a bitset with all reachable states
+	int getReachableStates(int initS) {
+		int visited = getFreshBitset();
+		std::queue <int> list; // to-do list... these state's neighbours have to be inspected
+
+		DynamicGraph<int>::Edge e;
+		int from, to, eid;
+		int s;
+		list.push(initS);
+		while (list.size() > 0) {
+			s = list.front();
+			list.pop();
+			bitsets[visited]->set(s);
+			// iterate through all successors of s
+			for (int i = 0; i < k->nIncident(s); i++) { // iterate over neighbours of current front of queue
+				e = k->incident(s, i);
+				from = k->getEdge(e.id).from;
+				to = k->getEdge(e.id).to;
+				if (!bitsets[visited]->operator [](to) && k->edgeEnabled(e.id))
+					list.push(to);
+			}
+		}
+		return visited;
+	}
+
 	void funwithctl() {
 		CTLFormula a (ID, NULL, NULL, 0);
 		CTLFormula b (ID, NULL, NULL, 1);
@@ -794,8 +819,8 @@ public:
 	}
 
 public:
-	void printStateSet(Bitset& s) {
-		if(opt_verb>1){
+	void printStateSet(Bitset& s, bool forceprint = false) {
+		if(opt_verb>1 || forceprint){
 			printf("{");
 			for (int i=0; i<s.size(); i++) {
 				if (s[i]) {
