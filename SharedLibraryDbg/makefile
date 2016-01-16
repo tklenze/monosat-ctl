@@ -10,6 +10,7 @@ RM := rm -rf
 -include sources.mk
 -include utils/subdir.mk
 -include simp/subdir.mk
+-include mtl/subdir.mk
 -include graph/subdir.mk
 -include geometry/polypartition/subdir.mk
 -include geometry/cevans/subdir.mk
@@ -17,6 +18,7 @@ RM := rm -rf
 -include fsm/subdir.mk
 -include dgl/alg/subdir.mk
 -include dgl/subdir.mk
+-include ctl/subdir.mk
 -include core/subdir.mk
 -include api/subdir.mk
 -include subdir.mk
@@ -48,19 +50,19 @@ endif
 # Add inputs and outputs from these tool invocations to the build variables 
 
 # All Target
-all: libmonosat_dbg.so
+all: libmonosat.so
 
 # Tool invocations
-libmonosat_dbg.so: $(OBJS) $(USER_OBJS)
+libmonosat.so: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C++ Linker'
-	g++  -L.././lib -shared -o "libmonosat_dbg.so" $(OBJS) $(USER_OBJS) $(LIBS)
+	g++  -L.././lib -shared -o "libmonosat.so" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) $(OBJS)$(C++_DEPS)$(C_DEPS)$(CC_DEPS)$(LIBRARIES)$(CPP_DEPS)$(CXX_DEPS)$(C_UPPER_DEPS) libmonosat_dbg.so
+	-$(RM) $(OBJS)$(C++_DEPS)$(C_DEPS)$(CC_DEPS)$(LIBRARIES)$(CPP_DEPS)$(CXX_DEPS)$(C_UPPER_DEPS) libmonosat.so
 	-@echo ' '
 
 .PHONY: all clean dependents

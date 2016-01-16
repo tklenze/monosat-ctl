@@ -3,21 +3,18 @@
 ################################################################################
 
 # Add inputs and outputs from these tool invocations to the build variables 
-CC_SRCS += \
-../utils/Options.cc \
-../utils/System.cc 
+CPP_SRCS += \
+../mtl/Bitset.cpp 
 
 OBJS += \
-./utils/Options.o \
-./utils/System.o 
+./mtl/Bitset.o 
 
-CC_DEPS += \
-./utils/Options.d \
-./utils/System.d 
+CPP_DEPS += \
+./mtl/Bitset.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
-utils/%.o: ../utils/%.cc
+mtl/%.o: ../mtl/%.cpp
 	@echo 'Building file: $<'
 	@echo 'Invoking: GCC C++ Compiler'
 	g++ -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS -I.././ -O0 -g3 -Wall -c -fmessage-length=0 -std=c++11 -Wno-unused-variable -Wno-unused-but-set-variable  -static  -static-libgcc     -static-libstdc++ -fPIC -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
