@@ -25,6 +25,7 @@ C_UPPER_DEPS :=
 SUBDIRS := \
 utils \
 simp \
+mtl \
 graph \
 geometry/polypartition \
 geometry/cevans \
@@ -32,6 +33,7 @@ geometry \
 fsm \
 dgl/alg \
 dgl \
+ctl \
 core \
 api \
 . \

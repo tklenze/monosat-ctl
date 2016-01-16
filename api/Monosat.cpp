@@ -19,6 +19,7 @@
 #include "graph/GraphParser.h"
 #include "utils/ParseUtils.h"
 #include "amo/AMOParser.h"
+#include "ctl/CTLParser.h"
 
 #include <stdexcept>
 #include <cstdarg>
@@ -950,19 +951,29 @@ Monosat::CTLTheorySolver * newKripkeStructure(Monosat::SimpSolver * S){
 	return kripke;
 }
 
- int newKripke_Property(Monosat::SimpSolver *  S,Monosat::CTLTheorySolver *  G){
-
- }
  int newKripke_State(Monosat::SimpSolver *  S,Monosat::CTLTheorySolver *  G){
-
+	 return G->newNode();
  }
  int newKripke_Transition(Monosat::SimpSolver *  S, Monosat::CTLTheorySolver *  G,int from,int to){
-
+	  Var v = newVar(S);
+	  Lit l =mkLit(v);
+	  G->newTransition(from,to,v);
+	  return toInt(l);
  }
- int assertCTLFormula(Monosat::SimpSolver *  S, Monosat::CTLTheorySolver *  kripke, int starting_state){
-
+ void assertCTLFormula(Monosat::SimpSolver *  S, Monosat::CTLTheorySolver *  kripke, int starting_state, const char * ctl_formula){
+		CTLFormula* fLine = parseCTL(ctl_formula);
+		CTLFormula* fBoth = newCTLFormula();
+		CTLFormula * f = kripke->f;
+		fBoth->op = AND;
+		fBoth->operand1 = f;
+		fBoth->operand2 = fLine;
+		f = fBoth;
+		kripke->setCTL(*f, starting_state);
  }
-
+int getKripkePropertyLit(Monosat::SimpSolver *  S, Monosat::CTLTheorySolver *  G,int state, const char * property){
+	//todo
+	return -1;
+}
 
 
  //model query
