@@ -309,6 +309,11 @@ class Monosat(metaclass=Singleton):
         self.monosat_c.newKripke_Transition.argtypes=[c_solver_p,c_kripke_p, c_int, c_int]
         self.monosat_c.newKripke_Transition.restype=c_literal
 
+        self.monosat_c.getKripkePropertyLit.argtypes=[c_solver_p,c_kripke_p, c_int, c_int]
+        self.monosat_c.getKripkePropertyLit.restype=c_literal
+        
+         
+
         self.monosat_c.assertCTLFormula.argtypes=[c_solver_p,c_kripke_p, c_int, c_char_p]
                 
         self.monosat_c.getModel_Literal.argtypes=[c_solver_p,c_literal]
@@ -991,6 +996,10 @@ class Monosat(metaclass=Singleton):
         self.backtrack()
         l = self.monosat_c.newKripke_Transition(self.solver._ptr,kripke,c_int(u),c_int(v))
         return l
+    
+    def getKripkePropertyLit(self, kripke, state, property):
+        l = self.monosat_c.getKripkePropertyLit(self.solver._ptr,kripke,c_int(state),c_int(property))
+        return l        
     
     def assertKripkeFormula(self,kripke,start_state, formula):
         self.monosat_c.assertCTLFormula(self.solver._ptr,kripke, start_state,  c_char_p(bytes(formula, 'utf-8')))

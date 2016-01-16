@@ -989,11 +989,13 @@ Monosat::CTLTheorySolver * newKripkeStructure(Monosat::SimpSolver * S, int nStat
 
 
  }
-int getKripkePropertyLit(Monosat::SimpSolver *  S, Monosat::CTLTheorySolver *  G,int state, const char * property){
+int getKripkePropertyFromSymbol(Monosat::SimpSolver *  S, Monosat::CTLTheorySolver *  kripke, const char * symbol){
 	//todo
 	return -1;
 }
-
+int getKripkePropertyLit(Monosat::SimpSolver *  S, Monosat::CTLTheorySolver *  kripke,int state, int property){
+	return kripke->getNodeAPVar(state,property);
+}
 
  //model query
  //Returns 0 for true, 1 for false, 2 for unassigned.

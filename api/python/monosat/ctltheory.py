@@ -89,6 +89,9 @@ class KripkeStructure():
     def getSymbol(self,node):
         return self.names[node]
  
+    def getProperty(self, state, property):
+        p= self._monosat.getKripkePropertyLit(self.kripke,state,property)
+        return Var(p)
     
     
     def getTransition(self,f,t):
