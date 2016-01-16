@@ -42,6 +42,7 @@ c_int_p = POINTER(c_int)
 
 c_solver_p = c_void_p
 c_graph_p = c_void_p
+c_kripke_p = c_void_p
 c_bv_p = c_void_p
 
 c_literal = c_int
@@ -82,6 +83,10 @@ class Solver():
         self.symbolmap=dict()  
         self.graphs = []
         self.graph_ids=dict()
+
+        self.kripkes = []
+        self.kripke_ids=dict()        
+        
         self._true = None
       
     def delete(self):        
@@ -297,6 +302,15 @@ class Monosat(metaclass=Singleton):
         self.monosat_c.acyclic_directed.argtypes=[c_solver_p,c_graph_p]
         self.monosat_c.acyclic_directed.restype=c_literal            
         
+        
+        self.monosat_c.newKripkeStructure.argtypes=[c_solver_p,c_int, c_int]
+        self.monosat_c.newKripkeStructure.restype=c_kripke_p       
+                
+        self.monosat_c.newKripke_Transition.argtypes=[c_solver_p,c_kripke_p, c_int, c_int]
+        self.monosat_c.newKripke_Transition.restype=c_literal
+
+        self.monosat_c.assertCTLFormula.argtypes=[c_solver_p,c_kripke_p, c_int, c_char_p]
+                
         self.monosat_c.getModel_Literal.argtypes=[c_solver_p,c_literal]
         self.monosat_c.getModel_Literal.restype=c_int      
 
@@ -949,6 +963,38 @@ class Monosat(metaclass=Singleton):
         if self.solver.output:                      
             self._echoOutput("acyclic " + str(self.getGID(graph)) + " " +  str(dimacs(l)) + "\n" );
         return l  
+
+
+  
+    def newKripkeStructure(self, states, properties):
+        self.backtrack()
+        k = self.monosat_c.newKripkeStructure(self.solver._ptr,states,properties)
+        kid = len(self.solver.kripkes)
+        self.solver.kripkes.append(k)
+        self.solver.kripke_ids[k]=kid
+        return k
+    
+    def getKripkeStructure(self,id):
+        return self.solver.kripkes[id]
+    
+    def nKripkeStructures(self):
+        return len(self.solver.kripkes)
+    
+    def hasKripkeStructure(self,gID):
+        return gID in self.solver.kripke_ids
+    
+    def newKripke_State(self, kripke):
+        self.backtrack()
+        return self.monosat_c.newKripke_State(self.solver._ptr,kripke)
+
+    def newKripke_Transition(self, kripke, u,v):
+        self.backtrack()
+        l = self.monosat_c.newKripke_Transition(self.solver._ptr,kripke,c_int(u),c_int(v))
+        return l
+    
+    def assertKripkeFormula(self,kripke,start_state, formula):
+        self.monosat_c.assertCTLFormula(self.solver._ptr,kripke, start_state,  c_char_p(bytes(formula, 'utf-8')))
+                
   
     #0 = true, 1=false, 2=unassigned
     def getModel_Literal(self, lit):

@@ -173,9 +173,9 @@ typedef int Var;
 
   //theory interface for CTL ModelChecking/Satisfiability/Synthesis
 
-  CTLTheorySolverPtr newKripkeStructure(SolverPtr S);
-  int newKripke_Property(SolverPtr S,CTLTheorySolverPtr G);
-  int newKripke_State(SolverPtr S,CTLTheorySolverPtr G);
+  CTLTheorySolverPtr newKripkeStructure(SolverPtr S, int nStates, int properties);
+
+  //int newKripke_State(SolverPtr S,CTLTheorySolverPtr G);
   int newKripke_Transition(SolverPtr S, CTLTheorySolverPtr G,int from,int to);
   int getKripkePropertyLit(SolverPtr  S,  CTLTheorySolverPtr  G,int state, const char * property);
   void assertCTLFormula(SolverPtr S, CTLTheorySolverPtr kripke, int starting_state, const char * ctl_formula);

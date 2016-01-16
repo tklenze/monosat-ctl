@@ -945,15 +945,32 @@ void bv_slice( Monosat::SimpSolver * S, Monosat::BVTheorySolver<long> * bv,int a
 	 return toInt(l);
  }
 
-Monosat::CTLTheorySolver * newKripkeStructure(Monosat::SimpSolver * S){
+Monosat::CTLTheorySolver * newKripkeStructure(Monosat::SimpSolver * S, int nStates, int nProperties){
 	Monosat::CTLTheorySolver *kripke = new Monosat::CTLTheorySolver(S, S->theories.size());
 	S->addTheory(kripke);
+
+	kripke->g_under->setStateCount(nStates);
+	kripke->g_over->setStateCount(nStates);
+	kripke->g_under->setAPCount(nProperties);
+	kripke->g_over->setAPCount(nProperties);
+	kripke->newNodes(nStates);
+	kripke->initNodeAPVarLookup(nStates, nProperties);
+	// Add stateAPs
+	for (int i = 0; i < nStates; i ++) {
+		for (int j = 0; j < nProperties; j ++) {
+			kripke->newNodeAP(i, j, S->newVar());
+		}
+	}
+	Var v = newVar(S);
+	Lit l =mkLit(v);
+	kripke->newCTLVar(v);
+	S->addClause(l);
 	return kripke;
 }
 
- int newKripke_State(Monosat::SimpSolver *  S,Monosat::CTLTheorySolver *  G){
+/* int newKripke_State(Monosat::SimpSolver *  S,Monosat::CTLTheorySolver *  G){
 	 return G->newNode();
- }
+ }*/
  int newKripke_Transition(Monosat::SimpSolver *  S, Monosat::CTLTheorySolver *  G,int from,int to){
 	  Var v = newVar(S);
 	  Lit l =mkLit(v);
@@ -969,6 +986,8 @@ Monosat::CTLTheorySolver * newKripkeStructure(Monosat::SimpSolver * S){
 		fBoth->operand2 = fLine;
 		f = fBoth;
 		kripke->setCTL(*f, starting_state);
+
+
  }
 int getKripkePropertyLit(Monosat::SimpSolver *  S, Monosat::CTLTheorySolver *  G,int state, const char * property){
 	//todo
