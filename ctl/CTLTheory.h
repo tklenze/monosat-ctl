@@ -3080,7 +3080,7 @@ SPEC
 
 		Var nodeap = newVar(outerVar, node, ap, NODEAP, true);
 
-		nodeAPVarLookup[node][ap] = outerVar;
+		nodeAPVarLookup[node][ap] = nodeap;
 
 		return mkLit(nodeap, false);
 	}
