@@ -10,7 +10,7 @@ c kctlsimp <KripkeID> <#Nodes> <#APs> <selfloops> <ctlvar> <CTL formula>"
 kctlsimp   0          8        6      0           105      (NCS1 AND NCS2)
 c 
 c 1. Priority of writer over reader for outstanding requests to enter the critical region:
-AND AG((TRY1 AND TRY2 ) -> (TRY1 AU CS2)).
+AND AG((TRY1 AND TRY2 ) -> (TRY1 AU CS2))
 c 
 c 2. Mutex property
 AND AG NOT (CS1 AND CS2)
