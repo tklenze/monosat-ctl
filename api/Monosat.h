@@ -18,12 +18,14 @@ typedef Monosat::GraphTheorySolver<int64_t> * GraphTheorySolver_long;
 typedef Monosat::GraphTheorySolver<double>*  GraphTheorySolver_double;
 typedef Monosat::BVTheorySolver<int64_t>* BVTheoryPtr;
 typedef Monosat::FSMTheorySolver * FSMTheorySolverPtr;
+typedef Monosat::CTLTheorySolver * CTLTheorySolverPtr;
 #else
 typedef void * SolverPtr;
 typedef void*  BVTheoryPtr;
 typedef void*  GraphTheorySolver_long;
 typedef void*  GraphTheorySolver_double;
 typedef void*  FSMTheorySolverPtr;
+typedef void*  CTLTheorySolverPtr;
 typedef int Var;
 #endif
 
@@ -168,6 +170,14 @@ typedef int Var;
   int newTransition(SolverPtr S,FSMTheorySolverPtr fsmTheory, int fsmID, int fromNode, int toNode,int inputLabel, int outputLabel);
   int newString(SolverPtr S,FSMTheorySolverPtr fsmTheory, int * str,int len);
   int fsmAcceptsString(SolverPtr S,FSMTheorySolverPtr fsmTheory, int fsmID, int startNode, int acceptNode,int stringID);
+
+  //theory interface for CTL ModelChecking/Satisfiability/Synthesis
+
+  CTLTheorySolverPtr newKripkeStructure(SolverPtr S);
+  int newKripke_Property(SolverPtr S,CTLTheorySolverPtr G);
+  int newKripke_State(SolverPtr S,CTLTheorySolverPtr G);
+  int newKripke_Transition(SolverPtr S, CTLTheorySolverPtr G,int from,int to);
+  int assertCTLFormula(SolverPtr S, CTLTheorySolverPtr kripke, int starting_state);
 
   //model query
   //For a given literal (not variable!), returns 0 for true, 1 for false, 2 for unassigned.

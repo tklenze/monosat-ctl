@@ -7,17 +7,19 @@
 #include "graph/GraphTheory.h"
 #include "geometry/GeometryTheory.h"
 #include "fsm/FSMTheory.h"
+#include "ctl/CTLTheory.h"
 #include "pb/PbTheory.h"
 #include "bv/BVTheorySolver.h"
 #include "amo/AMOTheory.h"
 #include "core/SolverTypes.h"
-#include "Monosat.h"
+
 #include "mtl/Vec.h"
 #include "core/Dimacs.h"
 #include "bv/BVParser.h"
 #include "graph/GraphParser.h"
 #include "utils/ParseUtils.h"
 #include "amo/AMOParser.h"
+
 #include <stdexcept>
 #include <cstdarg>
 #include "core/Optimize.h"
@@ -28,6 +30,9 @@
 #include <sstream>
 #include <algorithm>
 #include <iterator>
+
+#include "Monosat.h"
+
 using namespace Monosat;
 using namespace std;
 
@@ -937,6 +942,25 @@ void bv_slice( Monosat::SimpSolver * S, Monosat::BVTheorySolver<long> * bv,int a
 	 Lit l =mkLit(v);
 	 fsmTheory->addAcceptLit(fsmID,startNode,acceptNode,stringID,v);
 	 return toInt(l);
+ }
+
+Monosat::CTLTheorySolver * newKripkeStructure(Monosat::SimpSolver * S){
+	Monosat::CTLTheorySolver *kripke = new Monosat::CTLTheorySolver(S, S->theories.size());
+	S->addTheory(kripke);
+	return kripke;
+}
+
+ int newKripke_Property(Monosat::SimpSolver *  S,Monosat::CTLTheorySolver *  G){
+
+ }
+ int newKripke_State(Monosat::SimpSolver *  S,Monosat::CTLTheorySolver *  G){
+
+ }
+ int newKripke_Transition(Monosat::SimpSolver *  S, Monosat::CTLTheorySolver *  G,int from,int to){
+
+ }
+ int assertCTLFormula(Monosat::SimpSolver *  S, Monosat::CTLTheorySolver *  kripke, int starting_state){
+
  }
 
 

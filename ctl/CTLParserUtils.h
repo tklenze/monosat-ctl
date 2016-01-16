@@ -27,7 +27,6 @@ ATTENTION: This file is not in use, currently. It was planned to put some things
 namespace Monosat {
 
 template<typename B>
-
 static CTLFormula* parseCTL(B& in);
 
 template<typename B>

@@ -18,6 +18,7 @@ RM := rm -rf
 -include fsm/subdir.mk
 -include dgl/alg/subdir.mk
 -include dgl/subdir.mk
+-include ctl/subdir.mk
 -include core/subdir.mk
 -include api/subdir.mk
 -include subdir.mk
