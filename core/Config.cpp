@@ -28,6 +28,8 @@ int dbg_total_iterations = 0;
 #endif
 
 static const char* _cat = "CORE";
+static const char* _cat_opt = "OPT";
+
 static const char* _cat_sms = "SMS";
 static const char* _cat_graph = "GRAPH";
 static const char* _cat_bv = "BV";
@@ -36,10 +38,12 @@ static const char* _cat_geom = "GEOMETRY";
 static const char* _cat_fsm = "FSM";
 static const char* _cat_ctl = "CTL";
 
-IntOption Monosat::opt_verb("MAIN", "verb", "Verbosity level (0=silent, 1=some, 2=more).", 1, IntRange(0, 3));
+IntOption Monosat::opt_verb("MAIN", "verb", "Verbosity level (0=silent, 1=some, 2=more).",0, IntRange(0, 3));
 DoubleOption Monosat::opt_var_decay(_cat, "var-decay", "The variable activity decay factor", 0.95,
 		DoubleRange(0, false, 1, false));
 DoubleOption Monosat::opt_clause_decay(_cat, "cla-decay", "The clause activity decay factor", 0.999,
+		DoubleRange(0, false, 1, false));
+DoubleOption Monosat::opt_theory_decay(_cat, "theory-decay", "The theory activity decay factor", 0.95,
 		DoubleRange(0, false, 1, false));
 DoubleOption Monosat::opt_random_var_freq(_cat, "rnd-freq",
 		"The frequency with which the decision heuristic tries to choose a random variable", 0,
@@ -62,6 +66,8 @@ BoolOption Monosat::opt_pre("MAIN", "pre", "Completely turn on/off any preproces
 IntOption Monosat::opt_time(_cat, "verb-time", "Detail level of timing benchmarks (these add some overhead)", 0,
 		IntRange(0, 5));
 
+IntOption Monosat::opt_limit_optimization_conflicts(_cat_opt, "opt-conflict-limit", "Limit number of conflicts during optimization rounds before giving up (0 to allow infinite conflicts)", 0, IntRange(0, INT32_MAX));
+
 StringOption Monosat::opt_record_file(_cat, "debug-log",
 		"Log (very expensive) debugging info at extensions of the following path (empty string (recommended) disables)", "");
 bool Monosat::opt_record=false;
@@ -74,6 +80,8 @@ StringOption Monosat::opt_debug_learnt_clauses(_cat, "debug-learnts",
 		"Write all learnt clauses to the following file (empty string (recommended) disables)", "");
 FILE* Monosat::opt_write_learnt_clauses = nullptr;
 
+//StringOption Monosat::StringOption opt_fsm_model(_cat_fsm,"File to write fsm model, if fsm theory is used","","");
+
 BoolOption Monosat::opt_write_bv_analysis(_cat, "debug-analysis","",false);
 BoolOption Monosat::opt_write_bv_bounds(_cat, "debug-bounds","",false);
 
@@ -84,9 +92,23 @@ IntOption Monosat::opt_theory_conflict_max(_cat, "theory-conflict-limit",
 DoubleOption Monosat::opt_random_theory_freq(_cat, "rnd-theory-freq",
 		"The frequency with which the decision theory solvers are selected to make decisions", 1,
 		DoubleRange(0, true, 1, true));
+
+DoubleOption Monosat::opt_random_theory_vsids_freq(_cat, "rnd-theory-vsids-freq",
+		"The frequency with which the decision theory uses vsids to make decisions, if theory-order-vsids is enabled", 1,
+		DoubleRange(0, true, 1, true));
+
+BoolOption Monosat::opt_randomomize_theory_order(_cat, "rnd-theory-order",
+		"If theory decisions are used, randomize the order that theories are decided at each restart", false);
+
 BoolOption Monosat::opt_early_theory_prop(_cat, "early-theory-prop",
 		"If false, the solver waits until all literals are propagated before propagating theories; if true, theories are propagated while the solver is still propagating literals",
 		false);
+
+ BoolOption Monosat::opt_remap_vars(_cat,"remap-vars","Remap variables in the GNF internally in the solver, to minimize space required",true);
+ BoolOption Monosat::opt_decide_optimization_lits(_cat_opt,"decide-opt-lits","Allow decisions on literals introduced by optimization constraints",true);
+ BoolOption  Monosat::opt_binary_search_optimization(_cat_opt,"binary-search","Use binary search (instead of linear search) for optimization constraints",true);
+
+
 
 BoolOption Monosat::opt_amo_eager_prop(_cat_amo,"amo-eager-prop","Propagate a-m-o literals as soon as they are implied, instead of waiting for theory propagation",true);
 
@@ -154,7 +176,12 @@ BoolOption Monosat::opt_lazy_backtrack_decisions(_cat_graph, "lazy-backtrack-dec
 IntOption Monosat::opt_lazy_conflicts(_cat_graph, "lazy-conflicts", "0= unassign all lazy lits and reprop, 1=unassign all lazy lits in the clause, reprop, 2=unassign one lit, reprop, 3=skip lazy conflict analysis",0,IntRange(0,3));
 BoolOption Monosat::opt_keep_lazy_conflicts(_cat_graph, "keep-lazy-conflicts", "Keep clauses from lazy conflicts (only relevant if lazy-backtracking is enabled)",true);
 BoolOption Monosat::opt_lazy_backtrack_redecide(_cat_graph, "lazy-backtrack-redecide", "",false);
-BoolOption Monosat::opt_theory_vsids(_cat_graph, "theory-vsids", "Use vsids decision heuristic within theory solvers",false);
+BoolOption Monosat::opt_vsids_both(_cat_graph, "vsids-both", "Use vsids decision heuristic for both theories and main solver, in combination",false);
+DoubleOption Monosat::opt_theory_vsids_balance(_cat_graph,"vsids-balance", "",1,DoubleRange(0, false, 10000000, true));
+BoolOption Monosat::opt_vsids_solver_as_theory(_cat_graph, "vsids-solver-as-theory", "Use vsids decision heuristic for both theories and main solver, treating the main solver as a theory",false);
+BoolOption Monosat::opt_use_var_decay_for_theory_vsids(_cat_graph,"use-var-decay-for-theory-vsids-both","",true);
+BoolOption Monosat::opt_theory_order_vsids(_cat_graph, "theory-order-vsids", "Use vsids decision heuristic outside of theory solvers, to pick which theory solver to make decisions next",true);
+BoolOption Monosat::opt_theory_internal_vsids(_cat_graph, "theory-internal-vsids", "Use vsids decision heuristic within theory solvers",false);
 BoolOption Monosat::opt_theory_prioritize_conflicts(_cat_graph, "theory-prioritize-conflicts", "",false);
 BoolOption Monosat::opt_theory_priority_clear(_cat_graph, "theory-prioritize-clear", "",false);
 
@@ -171,6 +198,7 @@ BoolOption Monosat::opt_force_directed(_cat_graph, "force-directed",
 		false);
 
 BoolOption Monosat::opt_rnd_restart(_cat, "rnd-restart", "Randomize activity on restart", false);
+BoolOption Monosat::opt_rnd_theory_restart(_cat, "rnd-theory-restart", "Randomize theory activity on restart", false);
 
 IntOption Monosat::opt_learn_reaches(_cat_graph, "learn-reach",
 		"Learn using reach variables: 0 = Never, 1=Paths, 2=Cuts,3=Always", 0, IntRange(0, 3));
@@ -184,7 +212,7 @@ BoolOption Monosat::opt_init_rnd_phase(_cat, "init-rnd-phase", "", false);
 
 BoolOption Monosat::opt_encode_reach_underapprox_as_sat(_cat_graph, "reach-underapprox-cnf",
 		"Compute the under-approximate side of reachability constraints using CNF (only requires linear number of constraints), instead of the chosen algorithm",
-		false);
+		true);
 
 IntOption Monosat::opt_encode_dist_underapprox_as_sat(_cat_graph, "dist-underapprox-cnf",
 		"Compute the under-approximate side of distance constraints using CNF, instead of the chosen algorithm (0=don't use CNF encoding)",
@@ -258,6 +286,7 @@ BoolOption Monosat::opt_use_kt_for_conflicts(_cat_graph, "use-kt-for-conflicts",
 BoolOption Monosat::opt_kt_preserve_order(_cat_graph, "kt-preserve-order",
 		"Attempt to preserve the order of flow assigned by the kohli-torr maxflow algorithm", false);
 
+
 BoolOption Monosat::opt_lazy_maxflow_decisions(_cat_graph, "lazy-maxflow-decisions", "", true);
 BoolOption Monosat::opt_maxflow_allow_cycles(_cat_graph, "allow-maxflow-cycles", "Allow (superfluous) cycles in the maxflow solution", false);
 
@@ -295,8 +324,14 @@ IntOption  Monosat::opt_graph_prop_skip(_cat_graph, "graph-theory-skip",
 IntOption  Monosat::opt_bv_prop_skip(_cat_bv, "bv-theory-skip",
 		"Only process every nth bv theory propagation ('1' skips no propagations)",1, IntRange(1,INT32_MAX));
 
+IntOption  Monosat::opt_fsm_prop_skip(_cat_fsm, "fsm-theory-skip",
+		"Only process every nth fsm theory propagation ('1' skips no propagations)",1, IntRange(1,INT32_MAX));
 
+BoolOption  Monosat::opt_graph_bv_prop(_cat_graph, "graph-bv-prop","",false);
 
+BoolOption Monosat::opt_fsm_track_used_transitions(_cat_fsm,"fsm-track-used","",true);
+IntOption Monosat::opt_fsm_symmetry_breaking(_cat_fsm, "fsm-symmetry-breaking",
+			"", 0,IntRange(0,2));
 BoolOption Monosat::opt_fsm_negate_underapprox(_cat_fsm, "fsm-negate-under",
 		"", true);
 BoolOption Monosat::opt_fsm_edge_prop(_cat_fsm, "fsm-edge-prop",
@@ -320,6 +355,7 @@ BoolOption Monosat::opt_ctl_learn_cache(_cat_ctl,"ctl-cache","Cache CTL computat
 BoolOption Monosat::opt_ctl_process_in_single_state(_cat_ctl,"ctl-single-state-per-process","Enforce at SAT level that each process is in exactly one state. Only used when kctlsinglestate is used for specification. When set, you may omit from the CTL formula that each process is in exactly one state\n",true);
 IntOption Monosat::opt_ctl_only_one_process_moves(_cat_ctl, "only-one-process-moves",
 		"Enforce that only one process moves at a time. Only used when kctlsinglestate is used for specification. When set, you may omit from the CTL formula that for every transition, only one process changes its process-state. 0: Turn off, 1: Always prefer this clause to other clauses (w/o symmetry learning or clause learning), 2: choose clause that is minimal)", 2, IntRange(0,INT32_MAX));
+
 
 
 IntOption Monosat::opt_width("GRAPH", "width", "Width of graph.\n", 0, IntRange(0, INT32_MAX));

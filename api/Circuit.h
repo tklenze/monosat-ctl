@@ -25,6 +25,7 @@
 #include "core/SolverTypes.h"
 #include "mtl/Vec.h"
 #include <list>
+
 namespace Monosat{
 
 //Barebones helper methods for expressing combinatorial logic in CNF.
@@ -78,6 +79,7 @@ public:
 		lit_True = mkLit(S.newVar());
 		S.addClause(lit_True);
 	}
+
 
 	Lit True(){
 		return lit_True;
@@ -304,6 +306,7 @@ public:
 		collect(store,b,args...);
 		return Xnor(store);
 	}
+
 
 
 

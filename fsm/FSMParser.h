@@ -42,6 +42,7 @@ namespace Monosat {
 // GRAPH Parser:
 template<class B, class Solver>
 class FSMParser: public Parser<B, Solver> {
+	using Parser<B, Solver>::mapVar;
 	vec<int> fsmIDs;
 
 	vec<int> inAlphabets;
@@ -57,7 +58,9 @@ class FSMParser: public Parser<B, Solver> {
 	vec<bool> hasEpsilonTransitions;
 	vec<vec<Transition> > transitions;
 	vec<bool> created_strings;
-	vec<vec<int>> strings;
+	vec<int> stringIDMap;
+
+	vec<vec<int>> * strings;
 	vec<int> stringLabels;
 	struct Accepts{
 		int fsm;
@@ -135,6 +138,7 @@ class FSMParser: public Parser<B, Solver> {
 		hasEpsilonTransitions.growTo(fsmID+1);
 		inAlphabets.growTo(fsmID+1,0);
 		outAlphabets.growTo(fsmID+1,0);
+		hasEpsilonTransitions[fsmID]=false;
 	}
 	
 	void readString(B& in, Solver & S){
@@ -144,7 +148,13 @@ class FSMParser: public Parser<B, Solver> {
 		}
 
 		int strID = parseInt(in);
-		strings.growTo(strID+1);
+		//strings->growTo(strID+1);
+
+		stringIDMap.growTo(strID+1,-1);
+		stringIDMap[strID]=strings->size();
+		strID = strings->size();
+		strings->push();
+
 		created_strings.growTo(strID+1);
 		stringLabels.growTo(strID+1);
 		if(strID<0 || created_strings[strID]){
@@ -160,7 +170,7 @@ class FSMParser: public Parser<B, Solver> {
 			if (i<=0){
 				parse_errorf("FSM strings must contain only positive (non-zero) integers, found %d\n", i);
 			}
-			strings[strID].push(i);
+			strings->[strID].push(i);
 			stringLabels[strID]= std::max(stringLabels[strID],i+1);
 			skipWhitespace(in);
 			if (isEof(in) || *in == '\n')
@@ -202,11 +212,9 @@ class FSMParser: public Parser<B, Solver> {
 			hasEpsilonTransitions[fsmID]=true;
 		}
 
-		while (edgeVar >= S.nVars())
-			S.newVar();
-		
-		inAlphabets[fsmID]=std::max(inAlphabets[fsmID],input);
-		outAlphabets[fsmID]=std::max(outAlphabets[fsmID],output);
+		edgeVar= mapVar(S,edgeVar);
+		inAlphabets[fsmID]=std::max(inAlphabets[fsmID],input+1);
+		outAlphabets[fsmID]=std::max(outAlphabets[fsmID],output+1);
 		transitions[fsmID].push({fsmID,from,to,input,output,edgeVar});
 	}
 
@@ -223,7 +231,10 @@ class FSMParser: public Parser<B, Solver> {
 		int to = parseInt(in);
 		int strID = parseInt(in);
 		int reachVar = parseInt(in) - 1;
-
+		reachVar= mapVar(S,reachVar);
+		if (fsmID < 0 || fsmID >= fsmIDs.size()) {
+			parse_errorf("Undefined fsm %d",fsmID);
+		}
 		//now read in the string
 		accepts[fsmID].push();
 
@@ -246,9 +257,7 @@ class FSMParser: public Parser<B, Solver> {
 		if (reachVar < 0) {
 			parse_errorf("Edge variables must be >=0, was %d\n", reachVar);
 		}
-		
-		while (reachVar >= S.nVars())
-			S.newVar();
+
 
 
 	}
@@ -269,7 +278,7 @@ class FSMParser: public Parser<B, Solver> {
 		int to2 = parseInt(in);
 		int strID = parseInt(in);
 		int reachVar = parseInt(in) - 1;
-
+		reachVar= mapVar(S,reachVar);
 		//now read in the string
 		compose_accepts.push();
 
@@ -305,8 +314,7 @@ class FSMParser: public Parser<B, Solver> {
 			parse_errorf("Edge variables must be >=0, was %d\n", reachVar);
 		}
 
-		while (reachVar >= S.nVars())
-			S.newVar();
+
 
 	}
 
@@ -323,7 +331,7 @@ class FSMParser: public Parser<B, Solver> {
 
 		int strID = parseInt(in);
 		int reachVar = parseInt(in) - 1;
-
+		reachVar= mapVar(S,reachVar);
 		//now read in the string
 		generates[fsmID].push();
 
@@ -345,8 +353,7 @@ class FSMParser: public Parser<B, Solver> {
 			parse_errorf("Edge variables must be >=0, was %d\n", reachVar);
 		}
 
-		while (reachVar >= S.nVars())
-			S.newVar();
+
 
 
 	}
@@ -365,7 +372,7 @@ class FSMParser: public Parser<B, Solver> {
 		int strID = parseInt(in);
 		int strID2 = parseInt(in);
 		int reachVar = parseInt(in) - 1;
-
+		reachVar= mapVar(S,reachVar);
 		//now read in the string
 		transduces[fsmID].push();
 
@@ -391,15 +398,13 @@ class FSMParser: public Parser<B, Solver> {
 			parse_errorf("Edge variables must be >=0, was %d\n", reachVar);
 		}
 
-		while (reachVar >= S.nVars())
-			S.newVar();
 
 
 	}
 
 public:
 	FSMParser():Parser<B, Solver>("Finite State Machine"){
-		
+		strings = new vec<vec<int>>();
 	}
 
 	bool parseLine(B& in, Solver& S) {
@@ -421,6 +426,9 @@ public:
 		}else if (match(in,"str")){
 			readString(in,S);
 			return true;
+		}else if (match(in,"accepts_composition")){//previously, was 'composition_accepts'; changed to avoid conflicting with comments
+			readCompositionAccepts(in,S);
+			return true;
 		}else if (match(in, "accepts")) {
 			readAccepts(in, S);
 			return true;
@@ -429,9 +437,6 @@ public:
 			return true;
 		}else if (match(in,"transduces")){
 			readTransduces(in,S);
-			return true;
-		}else if (match(in,"composition_accepts")){
-			readCompositionAccepts(in,S);
 			return true;
 		}
 		return false;
@@ -449,9 +454,10 @@ public:
 			if(!theory){
 				theory = new FSMTheorySolver(&S);
 				S.addTheory(theory);
-				theory->setStrings(&strings);
+				theory->setStrings(strings);
 			}
 				theory->newFSM(fsmID);
+
 
 				theory->setAlphabets(fsmID,inAlphabets[i],outAlphabets[i]);
 
@@ -460,10 +466,16 @@ public:
 				}
 
 				for(auto & a: accepts[i]){
+					if (a.strID<0 ){
+							parse_errorf("String ID must be a non-negative integer, was %d\n", a.strID);
+						}
+					stringIDMap.growTo(a.strID+1,-1);
+					a.strID = stringIDMap[a.strID];
 
-					if (a.strID<0 || !created_strings[a.strID]){
+					if (a.strID<0  || a.strID>=created_strings.size() || !created_strings[a.strID]){
 						parse_errorf("String ID must be a non-negative integer, was %d\n", a.strID);
 					}
+
 					if(a.from<0 || a.from>=theory->nNodes(fsmID)){
 							parse_errorf("%d is not a valid state\n", a.from);
 						}
@@ -475,8 +487,12 @@ public:
 				}
 
 				for(auto & a: generates[i]){
-
-					if (a.strID<0 || !created_strings[a.strID]){
+					if (a.strID<0 ){
+							parse_errorf("String ID must be a non-negative integer, was %d\n", a.strID);
+						}
+					stringIDMap.growTo(a.strID+1,-1);
+					a.strID = stringIDMap[a.strID];
+					if (a.strID<0  || a.strID>=created_strings.size() || !created_strings[a.strID]){
 						parse_errorf("String ID must be a non-negative integer, was %d\n", a.strID);
 					}
 					if(a.from<0 || a.from>=theory->nNodes(fsmID)){
@@ -487,8 +503,17 @@ public:
 				}
 
 				for(auto & a: transduces[i]){
-
-					if (a.strID<0 || !created_strings[a.strID]){
+					if (a.strID<0 ){
+							parse_errorf("String ID must be a non-negative integer, was %d\n", a.strID);
+						}
+					if (a.strID2<0 ){
+							parse_errorf("String ID must be a non-negative integer, was %d\n", a.strID2);
+						}
+					stringIDMap.growTo(a.strID+1,-1);
+					a.strID = stringIDMap[a.strID];
+					stringIDMap.growTo(a.strID2+1,-1);
+					a.strID2 = stringIDMap[a.strID2];
+					if (a.strID<0 || a.strID>=created_strings.size() || !created_strings[a.strID]){
 						parse_errorf("String ID must be a non-negative integer, was %d\n", a.strID);
 					}
 					if(a.from<0 || a.from>=theory->nNodes(fsmID)){
@@ -508,7 +533,14 @@ public:
 				parse_errorf("No fsms declared!\n");
 
 			}
-
+			if (c.strID<0 ){
+				parse_errorf("String ID must be a non-negative integer, was %d\n", c.strID);
+			}
+			stringIDMap.growTo(c.strID+1,-1);
+			c.strID = stringIDMap[c.strID];
+			if (c.strID<0 || c.strID>=created_strings.size() || !created_strings[c.strID]){
+				parse_errorf("String ID must be a non-negative integer, was %d\n", c.strID);
+			}
 			theory->addComposeAcceptLit(c.fsmID1,c.fsmID2,c.from1,c.to1,c.from2,c.to2, c.strID,c.reachVar);
 		}
 

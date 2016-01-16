@@ -142,6 +142,7 @@ public:
 	double pathtime = 0;
 	double propagationtime = 0;
 	long stats_propagations = 0;
+	long propagations=0;
 	long stats_num_conflicts = 0;
 	long stats_decisions = 0;
 	long stats_num_reasons = 0;
@@ -163,11 +164,13 @@ public:
 
 	FSMTheorySolver(Solver * S_, int _id = -1) :
 			S(S_), id(_id){
-
-
+		strings = new vec<vec<int>>();
 		rnd_seed = opt_random_seed;
 	}
 	~FSMTheorySolver(){
+		if(this->strings){
+			delete(this->strings);
+		}
 		for (DynamicFSM * f:g_unders){
 			delete(f);
 		}
@@ -232,6 +235,14 @@ public:
 		for(int i =0;i<edge_labels[fsmID].size();i++){
 			edge_labels[fsmID][i].growTo(inAlphabet(fsmID)*outAlphabet(fsmID));
 		}
+	}
+	int newString(vec<int> & str){
+		strings->push();
+		str.copyTo(strings->last());
+		return strings->size()-1;
+	}
+	int nStrings()const{
+		return strings->size();
 	}
 /*	void addInCharacter(){
 		n_in_alphabet++;
@@ -488,7 +499,9 @@ public:
 		assert(dbg_graphsUpToDate());
 		
 	};
-
+	virtual bool supportsDecisions() {
+		return true;
+	}
 	Lit decideTheory() {
 		if (!opt_decide_theories)
 			return lit_Undef;
@@ -665,8 +678,12 @@ public:
 	}
 	;
 	bool propagateTheory(vec<Lit> & conflict) {
+		return propagateTheory(conflict,false);
+	}
+
+	bool propagateTheory(vec<Lit> & conflict, bool force_propagation) {
 		static int itp = 0;
-		if (++itp == 62279) {
+		if (++itp == 11673) {
 			int a = 1;
 		}
 		stats_propagations++;
@@ -677,6 +694,13 @@ public:
 			return true;
 		}
 		
+		propagations++;
+
+		if (propagations>1 && (!force_propagation && (propagations % opt_fsm_prop_skip != 0))){
+			stats_propagations_skipped++;
+			return true;
+		}
+
 		bool any_change = false;
 		double startproptime = rtime(1);
 		//static vec<int> detectors_to_check;
@@ -706,11 +730,13 @@ public:
 		
 		requiresPropagation = false;
 		for(int i = 0;i<nFsms();i++){
-			g_unders[i]->clearChanged();
-			g_overs[i]->clearChanged();
+			if(g_unders[i]){
+				g_unders[i]->clearChanged();
+				g_overs[i]->clearChanged();
 
-			g_unders[i]->clearHistory();
-			g_overs[i]->clearHistory();
+				g_unders[i]->clearHistory();
+				g_overs[i]->clearHistory();
+			}
 		}
 
 		//detectors_to_check.clear();
@@ -724,9 +750,13 @@ public:
 
 	bool solveTheory(vec<Lit> & conflict) {
 		requiresPropagation = true;		//Just to be on the safe side... but this shouldn't really be required.
-		bool ret = propagateTheory(conflict);
+		bool ret = propagateTheory(conflict,true);
+		if(ret){
+			requiresPropagation = true;
+			assert(propagateTheory(conflict,true));
+		}
 		//Under normal conditions, this should _always_ hold (as propagateTheory should have been called and checked by the parent solver before getting to this point).
-		assert(ret);
+		assert(ret || opt_fsm_prop_skip>1);
 		return ret;
 	}
 	;
@@ -814,7 +844,10 @@ public:
 		marker_map[mnum] = detectorID;
 		return reasonMarker;
 	}
-	void newFSM(int fsmID){
+	int newFSM(int fsmID=-1){
+		if(fsmID<0){
+			fsmID = g_unders.size();
+		}
 		g_unders.growTo(fsmID+1,nullptr);
 		g_overs.growTo(fsmID+1,nullptr);
 		if(g_unders[fsmID]){
@@ -825,6 +858,7 @@ public:
 		g_overs[fsmID]=new DynamicFSM(fsmID);
 		n_in_alphabets.growTo(fsmID+1,1);//number of transition labels. Transition labels start from 0 (which is the non-consuming epsilon transition) and go to n_labels-1.
 		n_out_alphabets.growTo(fsmID+1,1);
+		return fsmID;
 	}
 
 	Lit newTransition(int fsmID,int from, int to,int input,int output, Var outerVar = var_Undef) {
@@ -881,13 +915,21 @@ public:
 			assert(d);
 			d->printSolution();
 		}
+/*		std::string fsm_file = opt_fsm_model;
+		if(fsm_file.length()>0){
+			std::ofstream theory_out(fsm_file, std::ios::out);
+
+			writeTheoryWitness(write_to);
+		}*/
+
 	}
 	
 	void setStrings(vec<vec<int>>* strings){
-		assert(!this->strings);
+		if(this->strings){
+			delete(this->strings);
+		}
 		this->strings=strings;
 	}
-
 
 	void addAcceptLit(int fsmID,int source ,int reach, int strID, Var outer_var){
 		assert(g_unders[fsmID]);

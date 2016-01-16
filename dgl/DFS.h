@@ -68,7 +68,6 @@ public:
 	long stats_skipped_updates=0;
 	long stats_num_skipable_deletions=0;
 
-
 	double stats_full_update_time=0;
 	double stats_fast_update_time=0;
 public:

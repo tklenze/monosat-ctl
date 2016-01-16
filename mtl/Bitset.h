@@ -210,6 +210,7 @@ public:
         	out.sz=sz;
         }
 
+
     bool Equiv(const Bitset & with){
           	int max = size();
           	if(max != with.size()){
@@ -222,6 +223,7 @@ public:
           	}
           	return true;
     	}
+
     bool GreaterThan(const Bitset & with){
           	int max = size();
           	if(max != with.size()){
