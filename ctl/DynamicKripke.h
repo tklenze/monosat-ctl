@@ -413,27 +413,38 @@ public:
 			}
 
 			printf("}\n");
+		}
+	}
 
-			printf("Predecessors:\n");
+
+	// Print the graph restricted to vertices set to 1 in bs.
+	// Useful to call this function with bs = reachable states
+	void drawRestricted(Bitset* bs, int source=-1, int dest=-1, bool forceprint=false){ // forceprint will make it print even if opt_verb=0
+		if(opt_verb>1 || forceprint){
+			printf("digraph{\n");
+
 			for (int i = 0; i < g.nodes(); i++) {
-				printf("%d: ", i);
-				printf("{");
-				for (int j=0; j<predecessors[i]->size(); j++) {
-					if (predecessors[i]->operator [](j)) {
-						printf("%d, ", j);
+				if (bs->operator [](i)) {
+					std::string s = "node [label=\"" + std::to_string(i) + std::string(": {") + statelabelToString(i) + "}\"] ";
+					if(i == dest){
+						std::cout << s << "[shape=doublecircle] " << i << ";\n";
+					} else {
+						std::cout << s << "[shape=circle] " << i << ";\n";
 					}
 				}
-				printf("}\n");
 			}
-			printf("PredecessorsList:\n");
-			for (int i = 0; i < g.nodes(); i++) {
-				printf("%d: ", i);
-				printf("{");
-				for (std::list<int>::const_iterator iterator = predecessorsList[i].begin(), end = predecessorsList[i].end(); iterator != end; ++iterator) {
-					printf("%d, ", *iterator);
+
+			if(source>=0){
+				printf("node [label=\"start\",shape=plaintext] start;\n");
+				printf("start->%d\n",source);
+			}
+			for(int i = 0;i<transitions.size();i++){
+				if (transitions[i] && bs->operator [](g.getEdge(i).from) && bs->operator [](g.getEdge(i).to)){
+					printf("%d->%d\n", g.getEdge(i).from,g.getEdge(i).to);
 				}
-				printf("}\n");
 			}
+
+			printf("}\n");
 		}
 	}
 

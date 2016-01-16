@@ -2735,9 +2735,13 @@ public:
 	}
 
 	bool check_solved() {
+		int infinitePaths = ctl_over->getReachableStates(initialNode);
+
 		// hacked in something to print out the solution
 		printf("\n--------------------\nSolution\n");
 		g_under->draw(initialNode, -1, true);
+		printf("\n--------------------\nSolution restricted to reachable states\n");
+		g_under->drawRestricted(ctl_over->bitsets[infinitePaths], initialNode, -1, true);
 
 		// Sanity check: Make sure that the solution is fully determined (no Undef) and the Kripke structure corresponds to the variables
 		for (int edgeID = 0; edgeID < edge_labels.size(); edgeID++) {
@@ -2816,7 +2820,7 @@ public:
 		// Even more paranoidly, check solution against nuSMV's CTL solver to make sure it is sound
 		std::ofstream inputConvertedToNuSMVInput;
 		inputConvertedToNuSMVInput.open("regression-testing/inputConvertedToNuSMVInput.txt", std::ios_base::out);
-		inputConvertedToNuSMVInput << getNuSMVInput();
+		inputConvertedToNuSMVInput << getNuSMVInput(ctl_over->bitsets[infinitePaths]);
 		inputConvertedToNuSMVInput.close();
 		std::system("NuSMV regression-testing/inputConvertedToNuSMVInput.txt | grep Counterexample");
 
@@ -2829,7 +2833,7 @@ public:
 	 * The translation to the NuSMV input format is somewhat involved in that no states are allowed that don't have a successor.
 	 * We thus compute the set of states satisfying AG EX True and only output those.
 	 * */
-	std::string getNuSMVInput() {
+	std::string getNuSMVInput(Bitset* infinitePaths) {
 		/*
 		 * Format for NuSMV:
 MODULE main
@@ -2855,9 +2859,6 @@ SPEC
   AG (v0 -> EX AF !v0)
 		 *
 		 * */
-
-		// Compute set of states satisfying AG EX True
-		Bitset* infinitePaths = ctl_standalone_over->solveFormula(*fAGEXTrue);
 
 		std::string nuSMVInput = "MODULE main\nVAR\n  state: {"; // prints Output sentence on screen
 

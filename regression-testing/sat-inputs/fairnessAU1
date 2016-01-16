@@ -1,0 +1,10 @@
+c     <#Vars> <#Clauses>
+p cnf 100     1
+100 0
+c kctlsimp <KripkeID> <#Nodes> <#APs> <selfloops> <ctlvar> <CTL formula>"
+kctlsimp   0          3        3      1           100      True
+AND AG (1 AU {AG 2} 0)
+AND AG (NOT 1 AU {AG NOT 2} 0)
+AND NOT 0
+AND EX NOT 0
+
