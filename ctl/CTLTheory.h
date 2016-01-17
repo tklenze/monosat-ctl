@@ -109,7 +109,7 @@ public:
 	vec<Lit> processConflict;
 
 	vec<const char *> property_symbols;
-	std::map<string, int> property_symbol_map;
+	std::map<std::string, int> property_symbol_map;
 
 	//// Vector of CTL Formulas on the specific Kripke structure this solver deals with
 	//vec<CTLFormula> formulas;
@@ -826,12 +826,13 @@ public:
 		}
 	}
 	int getPropertyFromSymbol(const char * symbol){
-		string s(symbol);
+	/*	string s(symbol);
 		if(property_symbol_map.count(s)){
 			return property_symbol_map[s];
 		}else{
 			return -1;
-		}
+		}*/
+		return -1;
 	}
 
 	void enqueueTheory(Lit l) {
@@ -2879,7 +2880,7 @@ SPEC
 		 *
 		 * */
 
-		std::string { = "MODULE main\nVAR\n  state: {"; // prints Output sentence on screen
+		std::string nuSMVInput = "MODULE main\nVAR\n  state: {"; // prints Output sentence on screen
 
 		// Print set of states, but only those that belong on an infinite path
 		for (int i = 0; i < g_under->states(); i++) {

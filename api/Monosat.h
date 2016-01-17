@@ -11,14 +11,26 @@
 #ifdef __cplusplus
 #include <stdint.h>
 
-extern "C"
-{
+#include "core/SolverTypes.h"
+#include "core/Solver.h"
+#include "simp/SimpSolver.h"
+#include "graph/GraphTheory.h"
+#include "geometry/GeometryTheory.h"
+#include "fsm/FSMTheory.h"
+#include "ctl/CTLTheory.h"
+#include "pb/PbTheory.h"
+#include "bv/BVTheorySolver.h"
+#include "amo/AMOTheory.h"
+#include "mtl/Vec.h"
 typedef Monosat::SimpSolver *  SolverPtr;
 typedef Monosat::GraphTheorySolver<int64_t> * GraphTheorySolver_long;
 typedef Monosat::GraphTheorySolver<double>*  GraphTheorySolver_double;
 typedef Monosat::BVTheorySolver<int64_t>* BVTheoryPtr;
 typedef Monosat::FSMTheorySolver * FSMTheorySolverPtr;
 typedef Monosat::CTLTheorySolver * CTLTheorySolverPtr;
+extern "C"
+{
+
 #else
 typedef void * SolverPtr;
 typedef void*  BVTheoryPtr;
