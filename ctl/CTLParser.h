@@ -107,7 +107,8 @@ class CTLParser: public Parser<B, Solver> {
 		int loops = parseInt(in);  //loops: 0 or 1
 		int ctlVar = parseInt(in) - 1;
 		ctlVar = mapVar(S,ctlVar);
-
+		while (ctlVar >= S.nVars())
+			S.newVar();
 
 		kripkes.growTo(kripkeID + 1);
 
@@ -132,7 +133,6 @@ class CTLParser: public Parser<B, Solver> {
 			for (int j = 0; j < n; j ++) {
 				if (i!=j || loops == 1) {
 					Var var = S.newVar();
-					var =mapVar(S,var);
 					kripkes[kripkeID]->newTransition(i, j, var);
 
 				}
@@ -142,7 +142,6 @@ class CTLParser: public Parser<B, Solver> {
 		for (int i = 0; i < n; i ++) {
 			for (int j = 0; j < a; j ++) {
 				Var var = S.newVar();
-				var =mapVar(S,var);
 				kripkes[kripkeID]->newNodeAP(i, j, var);
 			}
 		}
@@ -172,6 +171,8 @@ class CTLParser: public Parser<B, Solver> {
 		int loops = parseInt(in);  //loops: 0 or 1
 		int ctlVar = parseInt(in) - 1;
 		ctlVar = mapVar(S,ctlVar);
+		while (ctlVar >= S.nVars())
+			S.newVar();
 		kripkes.growTo(kripkeID + 1);
 
 		CTLTheorySolver *kripke = new CTLTheorySolver(&S, kripkeID);
@@ -194,7 +195,6 @@ class CTLParser: public Parser<B, Solver> {
 			for (int j = 0; j < n; j ++) {
 				if (i!=j || loops == 1) {
 					Var var = S.newVar();
-					var =mapVar(S,var);
 					kripkes[kripkeID]->newTransition(i, j, var);
 
 				}
@@ -204,7 +204,6 @@ class CTLParser: public Parser<B, Solver> {
 		for (int i = 0; i < n; i ++) {
 			for (int j = 0; j < a; j ++) {
 				Var var = S.newVar();
-				var =mapVar(S,var);
 				kripkes[kripkeID]->newNodeAP(i, j, var);
 			}
 		}
@@ -281,6 +280,8 @@ class CTLParser: public Parser<B, Solver> {
 		int initialNode = parseInt(in);
 		int ctlVar = parseInt(in) - 1;
 		ctlVar = mapVar(S,ctlVar);
+		while (ctlVar >= S.nVars())
+			S.newVar();
 		currentKripkeID = kripkeID;
 		currentInitialNode = initialNode;
 		addCTL(in, S, ctlVar);

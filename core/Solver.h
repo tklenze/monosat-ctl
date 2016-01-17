@@ -279,6 +279,9 @@ public:
 			//handle the True literal specially, so that all the theories can share it...
 			return;
 		}
+		if(solverVar==0){
+			int a=1;
+		}
 		if (hasTheory(solverVar)) {
 			fprintf(stderr, "Variable %d is used for multiple atoms. Theory variables may not be re-used! Aborting.\n",
 					solverVar + 1);
