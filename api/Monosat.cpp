@@ -963,6 +963,7 @@ Monosat::CTLTheorySolver * newKripkeStructure(Monosat::SimpSolver * S, int nStat
 	}
 	Var v = newVar(S);
 	Lit l =mkLit(v);
+
 	kripke->newCTLVar(v);
 	S->addClause(l);
 	return kripke;

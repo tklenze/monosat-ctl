@@ -101,7 +101,7 @@ public:
 	CTLSolverStandalone* ctl_standalone_over;
 
 	CTLFormula* f;
-	int initialNode; // Start state
+	int initialNode=0; // Start state
 	Lit ctl_lit; // the Lit corresponding to the ctl formula
 
 	vec<Lit> symmetryConflict;//this allocates a new symmetryConflict vector at each propagateTheory call, which is needlessly expensive.
@@ -196,7 +196,7 @@ public:
 		ctl_over = new CTLSolver(id, *g_over, *g_under, 1);
 		ctl_standalone_over = new CTLSolverStandalone(id, *g_over);
 		ctl_standalone_under = new CTLSolverStandalone(id, *g_under);
-		f = newCTLFormula();
+		f = new CTLFormula(True, nullptr, nullptr);
 
 		rnd_seed = opt_random_seed;
 
@@ -753,7 +753,7 @@ public:
 			for (int j = 0; j < g_over->nIncident(i); j++) { // iterate over neighbours of current front of queue
 				e = g_over->incident(i, j);
 
-				Lit l = ~mkLit(e.id, true);
+				Lit l = ~mkLit(getTransitionVar(e.id), true);
 				c.push(l);
 			}
 			addClauseSafely(c);
@@ -1721,7 +1721,7 @@ public:
 			if (g_over->edgeEnabled(e.id)) {
 				learnClausePos(conflict, subf, to);
 			} else { // No recursive evaluation needed
-				Lit l = ~mkLit(e.id, true);
+				Lit l = ~mkLit(getTransitionVar(e.id), true);
 				conflict.push(l);
 				assert(value(l)==l_False);
 			}
@@ -1752,7 +1752,7 @@ public:
 			// that either it will satisfy phi or that the edge be disabled
 			if (g_under->edgeEnabled(e.id) && ! ctl_over->bitsets[phi_over]->operator [](to)) {
 				learnClausePos(conflict, subf, to);
-				Lit l = ~mkLit(e.id, false);
+				Lit l = ~mkLit(getTransitionVar(e.id), false);
 				conflict.push(l);
 				assert(value(l)==l_False);
 				ctl_over->freeBitset(phi_over);
@@ -1808,7 +1808,7 @@ public:
 						learnClausePos(conflict, subf, to);
 					} // else we already have visited the phi-state "to" and recursively all its neighbours
 				} else {
-					Lit l = ~mkLit(e.id, true);
+					Lit l = ~mkLit(getTransitionVar(e.id), true);
 					conflict.push(l);
 					assert(value(l)==l_False);
 				}
@@ -1952,7 +1952,7 @@ public:
 			if(opt_verb>1)
 				printf("learnAG: %d -> %d\n", from1, to1);
 
-			Lit l = ~mkLit(eid, false);
+			Lit l = ~mkLit(getTransitionVar(eid), false);
 			conflict.push(l);
 			assert(value(l)==l_False);
 
@@ -2009,7 +2009,7 @@ public:
 							printf("learnEF: Learning that the edge between %d and %d (edgeid: %d) could be enabled.\n", i, to, e.id);
 
 						assert(!g_over->edgeEnabled(e.id)); // if edge was enabled, then j would be reachable, which means j would be visited
-						Lit l = ~mkLit(e.id, true);
+						Lit l = ~mkLit(getTransitionVar(e.id), true);
 						conflict.push(l);
 						assert(value(l)==l_False);
 					}
@@ -2072,7 +2072,7 @@ public:
 							if(opt_verb>1)
 								printf("learnAF: %d -> %d\n", from1, to1);
 
-							Lit l = ~mkLit(eid, false);
+							Lit l = ~mkLit(getTransitionVar(eid), false);
 							assert(value(l)==l_False);
 
 							pred = predpred;
@@ -2097,7 +2097,7 @@ public:
 
 		// First, get the very last edge in the path accounted for (the one that completes the loop of the lasso)
 		eid = g_under->getEdge(from, to);
-		Lit l = ~mkLit(eid, false);
+		Lit l = ~mkLit(getTransitionVar(eid), false);
 		conflict.push(l);
 		assert(value(l)==l_False);
 		learnClausePos(conflict, subf, from); // learn that this reachable node satisfy phi
@@ -2112,7 +2112,7 @@ public:
 				printf("learnAF: %d -> %d\n", from1, to1);
 
 			// Learn that the edge might be turned off
-			Lit l = ~mkLit(eid, false);
+			Lit l = ~mkLit(getTransitionVar(eid), false);
 			conflict.push(l);
 			assert(value(l)==l_False);
 
@@ -2194,7 +2194,7 @@ public:
 					if (!g_over->edgeEnabled(e.id)) {
 						if(opt_verb>1)
 							printf("learnEW: Learning that the edge between %d and %d (edgeid: %d) could be enabled.\n", i, to, e.id);
-						Lit l = ~mkLit(e.id, true);
+						Lit l = ~mkLit(getTransitionVar(e.id), true);
 						conflict.push(l);
 						assert(value(l)==l_False);
 					}
@@ -2272,7 +2272,7 @@ public:
 					if (!g_over->edgeEnabled(e.id) && !ctl_over->bitsets[visited]->operator [](to)) { // This is where the difference to EW is... we don't learn the edge if it merely leads to a phi-reachable state
 						if(opt_verb>1)
 							printf("learnEU: Learning that the edge between %d and %d (edgeid: %d) could be enabled.\n", i, to, e.id);
-						Lit l = ~mkLit(e.id, true);
+						Lit l = ~mkLit(getTransitionVar(e.id), true);
 						conflict.push(l);
 						assert(value(l)==l_False);
 					}
@@ -2359,7 +2359,7 @@ public:
 							if(opt_verb>1)
 								printf("learnAW: %d -> %d\n", from1, to1);
 
-							Lit l = ~mkLit(eid, false);
+							Lit l = ~mkLit(getTransitionVar(eid), false);
 							assert(value(l)==l_False);
 
 							pred = predpred;
@@ -2419,7 +2419,7 @@ public:
 				return;
 			} else {
 				// Learn that we can disable the transition
-				Lit l = ~mkLit(eid, false);
+				Lit l = ~mkLit(getTransitionVar(eid), false);
 				conflict.push(l);
 				assert(value(l)==l_False);
 			}
@@ -2514,7 +2514,7 @@ public:
 			learnClausePos(conflict, subf2, from); // learn that this reachable node satisfy psi
 
 			// Learn that we can disable the transition
-			Lit l = ~mkLit(eid, false);
+			Lit l = ~mkLit(getTransitionVar(eid), false);
 			conflict.push(l);
 			assert(value(l)==l_False);
 		}
@@ -2647,7 +2647,7 @@ public:
 			learnClausePos(conflict, subf2, from); // learn that this reachable node satisfy psi
 
 			// Learn that we can disable the transition
-			Lit l = ~mkLit(eid, false);
+			Lit l = ~mkLit(getTransitionVar(eid), false);
 			conflict.push(l);
 			assert(value(l)==l_False);
 		}
