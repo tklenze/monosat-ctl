@@ -45,7 +45,7 @@ namespace Monosat {
 // Kripke Parser:
 template<class B, class Solver>
 class CTLParser: public Parser<B, Solver> {
-
+	using Parser<B, Solver>::mapVar;
 	vec<CTLTheorySolver*> kripkes;
 
 	vec<vec<SteinerStruct*>> steiners;
@@ -106,6 +106,7 @@ class CTLParser: public Parser<B, Solver> {
 		int a = parseInt(in);  //number of APs
 		int loops = parseInt(in);  //loops: 0 or 1
 		int ctlVar = parseInt(in) - 1;
+		ctlVar = mapVar(S,ctlVar);
 
 
 		kripkes.growTo(kripkeID + 1);
@@ -122,24 +123,27 @@ class CTLParser: public Parser<B, Solver> {
 		currentKripkeID = kripkeID;
 		currentInitialNode = 0;
 
-		while (n * (n - 1 + loops) + n * a + 2 >= S.nVars())
-			S.newVar();
+		//while (n * (n - 1 + loops) + n * a + 2 >= S.nVars())
+		//	;
 
-		int var = 0;
+
 		// Add edges
 		for (int i = 0; i < n; i ++) {
 			for (int j = 0; j < n; j ++) {
 				if (i!=j || loops == 1) {
+					Var var = S.newVar();
+					var =mapVar(S,var);
 					kripkes[kripkeID]->newTransition(i, j, var);
-					var++;
+
 				}
 			}
 		}
 		// Add stateAPs
 		for (int i = 0; i < n; i ++) {
 			for (int j = 0; j < a; j ++) {
+				Var var = S.newVar();
+				var =mapVar(S,var);
 				kripkes[kripkeID]->newNodeAP(i, j, var);
-				var++;
 			}
 		}
 		// if we wanted, we could replace the explicit ctlVar by: (n * (n - 1 + loops) + n * a)
@@ -167,7 +171,7 @@ class CTLParser: public Parser<B, Solver> {
 		int a = p * s;
 		int loops = parseInt(in);  //loops: 0 or 1
 		int ctlVar = parseInt(in) - 1;
-
+		ctlVar = mapVar(S,ctlVar);
 		kripkes.growTo(kripkeID + 1);
 
 		CTLTheorySolver *kripke = new CTLTheorySolver(&S, kripkeID);
@@ -184,24 +188,24 @@ class CTLParser: public Parser<B, Solver> {
 		currentKripkeID = kripkeID;
 		currentInitialNode = 0;
 
-		while (n * (n - 1 + loops) + n * a + 2 >= S.nVars())
-			S.newVar();
 
-		int var = 0;
 		// Add edges
 		for (int i = 0; i < n; i ++) {
 			for (int j = 0; j < n; j ++) {
 				if (i!=j || loops == 1) {
+					Var var = S.newVar();
+					var =mapVar(S,var);
 					kripkes[kripkeID]->newTransition(i, j, var);
-					var++;
+
 				}
 			}
 		}
 		// Add stateAPs
 		for (int i = 0; i < n; i ++) {
 			for (int j = 0; j < a; j ++) {
+				Var var = S.newVar();
+				var =mapVar(S,var);
 				kripkes[kripkeID]->newNodeAP(i, j, var);
-				var++;
 			}
 		}
 		// if we wanted, we could replace the explicit ctlVar by: (n * (n - 1 + loops) + n * a)
@@ -241,7 +245,7 @@ class CTLParser: public Parser<B, Solver> {
 		int from = parseInt(in);
 		int to = parseInt(in);
 		int edgeVar = parseInt(in) - 1;
-
+		edgeVar = mapVar(S,edgeVar);
 		if (kripkeID < 0 || kripkeID >= kripkes.size()) {
 			parse_errorf("PARSE ERROR! Undeclared graph identifier %d for edge %d\n", kripkeID, edgeVar);
 		}
@@ -276,6 +280,7 @@ class CTLParser: public Parser<B, Solver> {
 		int kripkeID = parseInt(in);
 		int initialNode = parseInt(in);
 		int ctlVar = parseInt(in) - 1;
+		ctlVar = mapVar(S,ctlVar);
 		currentKripkeID = kripkeID;
 		currentInitialNode = initialNode;
 		addCTL(in, S, ctlVar);

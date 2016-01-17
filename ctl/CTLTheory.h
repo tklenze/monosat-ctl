@@ -936,7 +936,7 @@ public:
 			throw std::runtime_error("ctl_lit is assigned false by the SAT solver. So far this is not supported. Please negate the CTL formula and assign ctl_lit true");
 		}
 		if (value(ctl_lit)==l_Undef) {
-			throw std::runtime_error("ctl_lit is unassigned false by the SAT solver. This is not permitted?");
+			throw std::runtime_error("ctl_lit is unassigned by the SAT solver. This is not permitted?");
 		}
 
 		// Enforce that on every transition, exactly one process-state changes
