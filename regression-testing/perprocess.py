@@ -7,7 +7,10 @@ from monosat import *
 # You may run the scrip with the argument "--stats", which will output useful information about the generated instance
 # 
 ################## CONFIGURATION
-input_file = "../sample-inputs/mutex/original-clarke--kctlsimp--7-states-sat"
+if(len(sys.argv)<1):
+    print("Please specify ctl formula to encode\n")
+    sys.exit(1)
+input_file = sys.argv[1]
 processes = 3
 localstatesPerProcess = 3 # We assume that each process has the same number of local states (though they might behave differently!). If this does not suit you, re-write the script :)
 wildcardStates = 7
@@ -18,8 +21,8 @@ enforceLocalStructure = False
 Monosat().init("-use-symmetry-reduction=0 -only-one-process-moves=0")
 ################## SCRIPT
 displayStatistics = False
-if len(sys.argv)>1:
-    if sys.argv[1] == "--stats":
+if len(sys.argv)>2:
+    if sys.argv[2] == "--stats":
         displayStatistics = True
 
 APs = processes * localstatesPerProcess
