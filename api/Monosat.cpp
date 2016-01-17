@@ -995,7 +995,9 @@ int getKripkePropertyFromSymbol(Monosat::SimpSolver *  S, Monosat::CTLTheorySolv
 	return -1;
 }
 int getKripkePropertyLit(Monosat::SimpSolver *  S, Monosat::CTLTheorySolver *  kripke,int state, int property){
-	return kripke->getNodeAPVar(state,property);
+	Var v = kripke->getNodeAPVar(state,property);
+	v = kripke->toSolver(v);
+	return toInt(mkLit(v));
 }
 
  //model query

@@ -2819,10 +2819,11 @@ public:
 
 		// Even more paranoidly, check solution against nuSMV's CTL solver to make sure it is sound
 		std::ofstream inputConvertedToNuSMVInput;
-		inputConvertedToNuSMVInput.open("regression-testing/inputConvertedToNuSMVInput.txt", std::ios_base::out);
+		//Sam: moved this to /tmp so that it will work if monosat is run from other directories.
+		inputConvertedToNuSMVInput.open("/tmp/inputConvertedToNuSMVInput.txt", std::ios_base::out);
 		inputConvertedToNuSMVInput << getNuSMVInput(ctl_over->bitsets[infinitePaths]);
 		inputConvertedToNuSMVInput.close();
-		std::system("NuSMV regression-testing/inputConvertedToNuSMVInput.txt | grep Counterexample");
+		std::system("NuSMV /tmp/inputConvertedToNuSMVInput.txt | grep Counterexample");
 
 		// Solution passed all checks
 		return true;
@@ -2860,7 +2861,7 @@ SPEC
 		 *
 		 * */
 
-		std::string nuSMVInput = "MODULE main\nVAR\n  state: {"; // prints Output sentence on screen
+		std::string { = "MODULE main\nVAR\n  state: {"; // prints Output sentence on screen
 
 		// Print set of states, but only those that belong on an infinite path
 		for (int i = 0; i < g_under->states(); i++) {
