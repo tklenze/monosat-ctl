@@ -177,7 +177,8 @@ typedef int Var;
 
   //int newKripke_State(SolverPtr S,CTLTheorySolverPtr G);
   int newKripke_Transition(SolverPtr S, CTLTheorySolverPtr G,int from,int to);
-  int getKripkePropertyFromSymbol(SolverPtr  S,  CTLTheorySolverPtr  G,int state, const char * property);
+  int getKripkePropertyFromSymbol(SolverPtr  S,  CTLTheorySolverPtr  G, const char * property);
+  const char * getKripkePropertySymbol(SolverPtr  S,  CTLTheorySolverPtr  G,int property);
   int getKripkePropertyLit(SolverPtr  S,  CTLTheorySolverPtr  G,int state, int property);
   void assertCTLFormula(SolverPtr S, CTLTheorySolverPtr kripke, int starting_state, const char * ctl_formula);
 

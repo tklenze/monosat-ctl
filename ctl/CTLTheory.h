@@ -108,6 +108,9 @@ public:
 	vec<Lit> tmpConflict; // for comparing other conflicts
 	vec<Lit> processConflict;
 
+	vec<const char *> property_symbols;
+	std::map<string, int> property_symbol_map;
+
 	//// Vector of CTL Formulas on the specific Kripke structure this solver deals with
 	//vec<CTLFormula> formulas;
 	
@@ -814,6 +817,21 @@ public:
 				detectors[getDetector(var(l))]->setOccurs(l, occurs);
 		}
 
+	}
+	const char *getPropertySymbol(int property){
+		if(property>=0 && property<this->property_symbols.size()){
+			return this->property_symbols[property];
+		}else{
+			return "";
+		}
+	}
+	int getPropertyFromSymbol(const char * symbol){
+		string s(symbol);
+		if(property_symbol_map.count(s)){
+			return property_symbol_map[s];
+		}else{
+			return -1;
+		}
 	}
 
 	void enqueueTheory(Lit l) {
@@ -3065,6 +3083,8 @@ SPEC
 	}
 
 	void initNodeAPVarLookup(int nNodes, int nAp){
+
+
 		nodeAPVarLookup.growTo(nNodes);
 		for (int i = 0; i<nNodes; i++) {
 			nodeAPVarLookup[i].growTo(nAp);
