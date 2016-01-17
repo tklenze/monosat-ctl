@@ -48,6 +48,8 @@ $cd ../api/python
 $sudo python3 setup.py install
 ```
 
+You might also have to add "export LD_LIBRARY_PATH=/usr/local/lib" to your ~/.bashrc
+
 ###Usage
 MonoSAT is based on [MiniSat 2][Minisat], and supports many of the same calling conventions:
 

@@ -7,12 +7,13 @@ import sys
 # You may run the scrip with the argument "--stats", which will output useful information about the generated instance
 # 
 ################## CONFIGURATION
-processes = 3
+processes = 4
 localstatesPerProcess = 3 # We assume that each process has the same number of local states (though they might behave differently!). If this does not suit you, re-write the script :)
-wildcardStates = 10
+wildcardStates = 0
+sharedVariables = 4 # Number of shared boolean variables
 
 # We assume that processes loops through their local states, i.e. 0->1, 1->2, ... n-1->0
-enforceLocalStructure = True
+enforceLocalStructure = False
 
 
 ################## SCRIPT
@@ -21,8 +22,8 @@ if len(sys.argv)>1:
     if sys.argv[1] == "--stats":
         displayStatistics = True
 
-APs = processes * localstatesPerProcess
-states = localstatesPerProcess ** processes + wildcardStates + 1 # The +1 is the initial state with the state ID 0
+APs = processes * localstatesPerProcess + sharedVariables
+states = 2 ** sharedVariables * localstatesPerProcess ** processes + wildcardStates + 1 # The +1 is the initial state with the state ID 0
 kripkeID = 0 # Kripke ID
 
 varnum = states * (states - 1) + states * APs + 1
@@ -49,12 +50,14 @@ for s in range(1, states - wildcardStates): # We skip the initial state (state 0
         localState[s][pID] = localStateInit[pID]
         #print str(localState[s][pID]) + " "
     #print "\n"
-    # Increase counter
-    for pID in range(processes-1, -1, -1):
-        if (localStateInit[pID] + 1) != localstatesPerProcess:
+    # Once we've created 2^sharedVariables states of the same sort, move on
+    if sharedVariables == 0 or s % 2 ** sharedVariables == sharedVariables - 1:
+        # Increase binary counter
+        for pID in range(processes-1, -1, -1):
+            if (localStateInit[pID] + 1) != localstatesPerProcess:
+                localStateInit[pID] = (localStateInit[pID] + 1) % localstatesPerProcess
+                break
             localStateInit[pID] = (localStateInit[pID] + 1) % localstatesPerProcess
-            break
-        localStateInit[pID] = (localStateInit[pID] + 1) % localstatesPerProcess
 
 
 edgeVar = dict()
@@ -183,45 +186,55 @@ def addClausesDeterminedState(): # this encodes as unit clauses, the determined 
                     clausesCount['Determined state APs (Unit clauses)'] += 1
 
 
+
+def printOutput():
+    print "c     <#Vars> <#Clauses>"
+    print "p cnf %d      %d" % ((z+1), len(clauses))
+
+    for clause in clauses:
+        s = ""
+        for literal in clause:
+            s += str(literal) + " "
+        s += "0"
+        print s
+    
+    print "%d 0" % (z)
+    print "c kripke <#Nodes> <#Edges> <#APs> <KripkeID>"
+    print "kripke   %d        %d       %d      0" % (states, edgeCount, APs)
+
+    print "c kedge <KripkeID> <from> <to> <edgevar>"
+    for x in range(0, states):
+        for y in range(1, states): # skip state 0, the initial state
+            if x in edgeVar and y in edgeVar[x]:
+                print "kedge   0          %d      %d    %d" % (x,y,edgeVar[x][y])
+
+    print "c knodeap <KripkeID> <node> <ap> <nodeapvar>"
+    for s in range(0, states):
+        for pID in range(0, processes):
+            for localS in range(0, localstatesPerProcess):
+                print "knodeap   0          %d      %d    %d" % (s,pID*localstatesPerProcess+localS,localStateVar[s][pID][localS])
+
+    print "c kctl <KripkeID> <initialnode> <ctlvar> <CTL formula>"
+    print("kctl   0          0             %d       True " % (z)),
+
+
+
 ### Printing
 z = initEdgeCounter(z)
 z = initStateCounter(z)
 addClausesDeterminedState()
 addEachProcessInExactlyOneLocalStateConstraint()
 oneProcessMovesUndetermined()
-
-print "c     <#Vars> <#Clauses>"
-print "p cnf %d      %d" % ((z+1), len(clauses))
-
-for clause in clauses:
-    s = ""
-    for literal in clause:
-        s += str(literal) + " "
-    s += "0"
-    print s
-    
-print "%d 0" % (z)
-print "c kripke <#Nodes> <#Edges> <#APs> <KripkeID>"
-print "kripke   %d        %d       %d      0" % (states, edgeCount, APs)
-
-print "c kedge <KripkeID> <from> <to> <edgevar>"
-for x in range(0, states):
-    for y in range(1, states): # skip state 0, the initial state
-        if x in edgeVar and y in edgeVar[x]:
-            print "kedge   0          %d      %d    %d" % (x,y,edgeVar[x][y])
-
-print "c knodeap <KripkeID> <node> <ap> <nodeapvar>"
-for s in range(0, states):
-    for pID in range(0, processes):
-        for localS in range(0, localstatesPerProcess):
-            print "knodeap   0          %d      %d    %d" % (s,pID*localstatesPerProcess+localS,localStateVar[s][pID][localS])
-
-print "c kctl <KripkeID> <initialnode> <ctlvar> <CTL formula>"
-print("kctl   0          0             %d       True " % (z)),
-
+if not displayStatistics:
+    printOutput()
 
 if displayStatistics:
     print "\n\nSTATISTICS: \nGenerated number of clauses"
     print clausesCount
     print "Number of Edges: "
     print edgeCount
+    print "Number of determined States: (including one initial state)"
+    print states-wildcardStates
+    print "Number of wildcard States: "
+    print wildcardStates
+
