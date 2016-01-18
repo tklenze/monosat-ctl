@@ -17,10 +17,6 @@ AND AG (NOT NCS1 OR EX TRY1)
 AND AG (NOT NCS2 OR EX TRY2)
 AND AG (NOT NCS3 OR EX TRY3)
 c
-c 6. we ommit EXi True, since that is guaranteed in 9. for the product automaton. Basically this is similar to 5., but we do not require that eventually CSi is reached
-AND AG (NOT TRY1 OR AX (CS1 OR TRY1))
-AND AG (NOT TRY2 OR AX (CS2 OR TRY2))
-AND AG (NOT TRY3 OR AX (CS3 OR TRY3))
 c
 c 7. Similar to 5.
 AND AG (NOT CS1 OR EX NCS1)
@@ -39,20 +35,20 @@ AND AG (NOT NCS2 OR EX NCS2)
 AND AG (NOT NCS3 OR EX NCS3)
 c
 c don't go directly from NCS to CS, go via TRY.
-AND AG (NCS1 -> AX NOT CS1)
-AND AG (NCS2 -> AX NOT CS2)
-AND AG (NCS3 -> AX NOT CS3)
+cAND AG (NCS1 -> AX NOT CS1)
+cAND AG (NCS2 -> AX NOT CS2)
+cAND AG (NCS3 -> AX NOT CS3)
 c
 c don't go directly from CS to TRY, go via NCS.
-AND AG (CS1 -> AX NOT TRY1)
-AND AG (CS2 -> AX NOT TRY2)
-AND AG (CS3 -> AX NOT TRY3)
+cAND AG (CS1 -> AX NOT TRY1)
+cAND AG (CS2 -> AX NOT TRY2)
+cAND AG (CS3 -> AX NOT TRY3)
 c
+c don't go directly from TRY to NCS, go via CS.
+cAND AG (TRY1 -> AX NOT NCS1)
+cAND AG (TRY2 -> AX NOT NCS2)
+cAND AG (TRY3 -> AX NOT NCS3)
 c
-c another one: you can always go from NCS to TRY
-AND AG (NOT NCS1 OR EX TRY1)
-AND AG (NOT NCS2 OR EX TRY2)
-AND AG (NOT NCS3 OR EX TRY3)
 c
 c
 c from ASP paper
