@@ -11,12 +11,17 @@ if(len(sys.argv)<1):
     print("Please specify ctl formula to encode\n")
     sys.exit(1)
 input_file = sys.argv[1]
-processes = 3
+processes = 4
 localstatesPerProcess = 3 # We assume that each process has the same number of local states (though they might behave differently!). If this does not suit you, re-write the script :)
+# You can give local states names. It is assumed that we loop through them from the first to the last. You can then use the localNames + processNumber to refer to the local state of a process. Process IDs start with 1. For instance, TRY3 will be the second state of the third process.
+localNames = ['NCS','TRY','CS']
 wildcardStates = 7
 
 # We assume that processes loops through their local states, i.e. 0->1, 1->2, ... n-1->0
-enforceLocalStructure = False
+enforceLocalStructure = True
+
+# Mode of enforcement of "only one process moves at a time". Purely an optimization variable, does not change semantics
+usePBConstraints = True
 
 Monosat().init("-use-symmetry-reduction=0 -only-one-process-moves=0")
 ################## SCRIPT
@@ -80,6 +85,7 @@ def initStateCounter():
             localStateVar[s][pID] = dict()
             for localS in range(0, localstatesPerProcess):
                 localStateVar[s][pID][localS] = k.getProperty(s, property)
+                #print("initStateCounter: localStateVar[s: "+str(s)+"][pID: "+str(pID)+"][localS: "+str(localS)+"] := "+str(localStateVar[s][pID][localS]))
                 property+=1
 
 
@@ -127,8 +133,44 @@ def addOneProcessMovesConstraint(s1, s2):
                         onlyOneMoves.append(~edgeVar[s1][s2])
                         AssertClause(onlyOneMoves)
                         #clauses.append(onlyOneMoves)
-                        clausesCount['Only one process moves at a time, for undetermined states'] += 1
                         
+                        
+                        clausesCount['Only one process moves at a time, for undetermined states'] += 1
+    return True
+
+def addOneProcessMovesPBConstraint(s1, s2):
+    onlyOneMovesPB = []
+    onlyOneMovesWeights = []
+    for p in range(0, processes):
+        for localS in range(0, localstatesPerProcess):
+            # newVar is true iff the process p moves from localS to some other local state in the transition s1 to s2
+            # newVar := localStateVar[s1][p][localS] /\ ~localStateVar[s2][p][localS]
+            newVar = Var()
+            # Definition via Tseytin transformation for C:= A /\ B
+            newVarDef1 = list() # C \/ ~A \/ ~B
+            newVarDef1.append(newVar)
+            newVarDef1.append(~localStateVar[s1][p][localS])
+            newVarDef1.append( localStateVar[s2][p][localS])
+            AssertClause(newVarDef1)
+            newVarDef2 = list() # ~C \/ A
+            newVarDef2.append(~newVar)
+            newVarDef2.append( localStateVar[s1][p][localS])
+            AssertClause(newVarDef2)
+            newVarDef3 = list() # ~C \/ B
+            newVarDef3.append(~newVar)
+            newVarDef3.append(~localStateVar[s2][p][localS])
+            AssertClause(newVarDef3)
+            
+            #print("Introducing variable "+str(newVar)+" as a new variable to describe that in " + str(s1) + " -> " + str(s2) + " process " + str(p) + " switches from " + str(localS) + " to some other local state")
+            
+            # Finally, add the newly defined variable to onlyOneMovesPB
+            onlyOneMovesPB.append(newVar)
+            onlyOneMovesWeights.append(1)
+            
+    onlyOneMovesPB.append(~edgeVar[s1][s2])
+    onlyOneMovesWeights.append(-APs)
+    AssertLessEqPB(onlyOneMovesPB, 1, weights=onlyOneMovesWeights)
+    #print("addOneProcessMovesPBConstraint: Only one of these may be true: " + str(onlyOneMovesPB) + ".")
     return True
 
 # Processes' local state can't jump. E.g. you can't go from local state 0 to local state 2, you have to go via local state 1. (for instance, in the mutex, don't go from NCS directly into CS).
@@ -155,7 +197,10 @@ def oneProcessMovesUndetermined():
     for s1 in range(0, states):
         for s2 in range(1, states): # skip state 0, the initial state
             if s1 != s2 and (not determined(s1) or not determined(s2)):
-                addOneProcessMovesConstraint(s1, s2)
+                if usePBConstraints:
+                    addOneProcessMovesPBConstraint(s1, s2)
+                else:
+                    addOneProcessMovesConstraint(s1, s2)
                 if enforceLocalStructure:
                     addLocalStateMovesByOneConstraint(s1, s2)
 
@@ -167,7 +212,7 @@ def oneProcessMoves(s1,s2):
     for pID in range(0, processes):
         if localState[s1][pID] != localState[s2][pID]:
             if enforceLocalStructure and (localState[s1][pID]+1) % localstatesPerProcess != localState[s2][pID]:
-                #print "Not adding edge " + str(s1) + " -> " + str(s2) + " p: " + str(pID) + " local state " + str(localState[s1][pID]) + " moves to " + str(localState[s2][pID]) + " which is different from " + str(((localState[s1][pID]+1) % localstatesPerProcess))
+                #print("Not adding edge " + str(s1) + " -> " + str(s2) + " p: " + str(pID) + " local state " + str(localState[s1][pID]) + " moves to " + str(localState[s2][pID]) + " which is different from " + str(((localState[s1][pID]+1) % localstatesPerProcess)))
                 return False
             numProcessMove += 1
     return numProcessMove == 1
@@ -180,6 +225,7 @@ def addClausesDeterminedState(): # this encodes as unit clauses, the determined 
                     determinedAP = list()
                     if localS == localState[s][pID]:
                         determinedAP.append(localStateVar[s][pID][localS])
+                        #print("addClausesDeterminedState: state " + str(s) + ", process " + str(pID) + " is in local state " + str(localS))
                     else:
                         determinedAP.append(~localStateVar[s][pID][localS])
                     #clauses.append(determinedAP)
@@ -192,6 +238,10 @@ initStateCounter()
 addClausesDeterminedState()
 addEachProcessInExactlyOneLocalStateConstraint()
 oneProcessMovesUndetermined()
+
+# Asserting each state has a successor
+print("asserting CTL formula: AG EX True")
+k.assertCTL("AG EX True", localNames, processes)
 
 #set CTL formula here
 for line in open(input_file,"r"):
@@ -226,7 +276,7 @@ for line in open(input_file,"r"):
         line = line[4:]
         line = line.strip()
     print("asserting CTL formula: " + line)
-    k.assertCTL(line)
+    k.assertCTL(line, localNames, processes)
     
 
 print("Solving...")
