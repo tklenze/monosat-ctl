@@ -1,0 +1,50 @@
+c This example is due to E.A. Emerson and R. Samanta and their 2011 paper "An Algorithmic Framework for Synthesis of Concurrent Programs"
+c
+c Process 1: Reader
+c Process 2: Writer (gets priority access on Mutex)
+c
+c     <#Vars> <#Clauses>
+p cnf 105     1
+105 0
+c kctlsimp <KripkeID> <#Nodes> <#APs> <selfloops> <ctlvar> <CTL formula>"
+kctlsimp   0          8        6      0           105      (NCS1 AND NCS2)
+c 
+c Priority of writer over reader for outstanding requests to enter the critical region:
+AND AG((TRY1 AND TRY2 ) -> (TRY1 AU CS2))
+c 
+c Mutual exclusion
+AND AG NOT (CS1 AND CS2)
+c 
+c Absence of starvation for reader (Process 1), provided that the writer leaves the critical section.
+AND AG (TRY1 -> AF (CS1 OR NOT NCS2))
+c
+c Absence of starvation for writer (Process 2).
+AND AG (TRY2 -> AF CS2)
+c 
+c If you are in the NCS, you can enter the TRY section.
+AND AG (NCS1 -> EX TRY1)
+AND AG (NCS2 -> EX TRY2)
+c 
+c You can always exit the critical section
+AND AG (CS1 -> EX NCS1)
+AND AG (CS2 -> EX NCS2)
+c
+cc no juping constraints
+cc enforced via enforceLocalStructure = True
+c don't jump from the TRY section to the NCS.
+cAND AG (TRY1 ->AX (CS1 OR TRY1))
+cAND AG (TRY2 -> AX (CS2 OR TRY2))
+c
+c don't jump from NCS to CS, go via TRY.
+cAND AG (NCS1 -> AX NOT CS1)
+cAND AG (NCS2 -> AX NOT CS2)
+c
+c don't jump from CS to TRY, go via NCS.
+cAND AG (CS1 -> AX NOT TRY1)
+cAND AG (CS2 -> AX NOT TRY2)
+c 
+c 
+c A process can stay in the NCS
+AND AG (NCS1 -> EX NCS1)
+AND AG (NCS2 -> EX NCS2)
+

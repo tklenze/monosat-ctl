@@ -67,9 +67,15 @@ class KripkeStructure():
         for n in range(nStates):
             self._addState()
     
-    def assertCTL(self,formula, start_state=None):
+    def assertCTL(self,formula, localNames=[], processes=0, start_state=None):
         if start_state is None:
-            start_state = 0            
+            start_state = 0    
+        # We here replace the local names with their appropriate APs, e.g. CS1 by AP 2 and NCS2 by AP 3 (assuming three local states)
+        for pID in range(1, processes+1):
+            for i in range(0,len(localNames)):
+                #print("Replacing " + localNames[i] + str(pID) + " by " + str((pID-1)*len(localNames) + i))
+                formula = formula.replace((localNames[i] + str(pID)), str((pID-1)*len(localNames) + i))
+        #print(formula)
         self._monosat.assertKripkeFormula(self.kripke,start_state,formula)
         
     
