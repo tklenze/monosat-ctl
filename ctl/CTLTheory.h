@@ -961,7 +961,7 @@ public:
 		// Enforce that on every transition, exactly one process-state changes
 		if (opt_ctl_only_one_process_moves > 0 && processes > 0) {
 			processConflict.clear();
-			checkProcessInSingleState(processConflict);
+			checkExactlyOneProcessChangesOnTransition(processConflict);
 			if (processConflict.size() > 0) {
 				if (opt_verb>1) {
 					printf("Process in Single State:\n");
@@ -1188,7 +1188,10 @@ public:
     	ps.shrink(i - j);
 	}
 
-	void checkProcessInSingleState(vec<Lit> & conflict) {
+	/*
+	 * Make sure that exactly one process changes its local state on a transition, and all other processes stay the same.
+	 */
+	void checkExactlyOneProcessChangesOnTransition(vec<Lit> & conflict) {
 		//printf("checkProcessInSingleState\n");
 		int from, to;
 		DynamicGraph<int>::FullEdge e;
@@ -1202,6 +1205,11 @@ public:
 				assert (edge == e.id);
 				from = e.from;
 				to = e.to;
+
+				// Check if both state labels are completely determined, and also completely equivalent. If so, then no process moves, which is a violation
+				if (g_under->statelabel[from]->Equiv(*g_over->statelabel[to]) && g_under->statelabel[from]->Equiv(*g_over->statelabel[to])) {
+					learnAtLeastOneProcessChangesOnTransition(conflict, e.id, from, to);
+				}
 
 				//printf("checkProcessInSingleState: edge %d->%d\n", from, to);
 
@@ -1249,7 +1257,7 @@ public:
 						if (fromP2 >= 0 && toP2 >= 0 && fromP2 != toP2) {
 							//printf("checkProcessInSingleState: edge %d->%d. SECOND move in process %d that went from %d to %d\n", from, to, p, fromP2, toP2);
 							// we know there is a conflict. Learn it
-							learnProcessInSingleState(conflict, e.id, processThatMoved, fromP, toP, p, fromP2, toP2);
+							learnAtMostOneProcessChangesOnTransition(conflict, e.id, processThatMoved, fromP, toP, p, fromP2, toP2);
 							return;
 						}
 					}
@@ -1259,7 +1267,28 @@ public:
 		}
 	}
 
-	void learnProcessInSingleState(vec<Lit> & conflict, int eid, int p, int fromP, int toP, int p2, int fromP2, int toP2) {
+	/*
+	 * Both states have exactly the same label. We learn that one of the enabled APs has to be disabled (which translates to one process being in a different local state)
+	 */
+	void learnAtLeastOneProcessChangesOnTransition(vec<Lit> & conflict, int eid, int from, int to) {
+		for (int i = 0; i < g_under->statelabel[from]->size(); i++) {
+			if (g_under->isAPinStateLabel(from, i)) {
+				Lit l1 = ~mkLit(getNodeAPVar(from, i), false);
+				conflict.push(l1);
+				assert(value(l1)==l_False);
+
+				Lit l2 = ~mkLit(getNodeAPVar(to, i), false);
+				conflict.push(l2);
+				assert(value(l2)==l_False);
+			}
+		}
+
+		Lit l = ~mkLit(getTransitionVar(eid), false);
+		conflict.push(l);
+		assert(value(l)==l_False);
+	}
+
+	void learnAtMostOneProcessChangesOnTransition(vec<Lit> & conflict, int eid, int p, int fromP, int toP, int p2, int fromP2, int toP2) {
 		Lit l1 = ~mkLit(getNodeAPVar(g_under->getEdge(eid).from, p*statesperprocess + fromP), false);
 		conflict.push(l1);
 		assert(value(l1)==l_False);
