@@ -96,6 +96,5 @@ namespace Monosat {
 
 	std::string getFormulaCTLSATFormat(CTLFormula* foo);
 
-
 }
 #endif /* CTL_FORMULA_H_ */

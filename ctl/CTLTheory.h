@@ -764,6 +764,7 @@ public:
 		}
 		*/
 
+
 		printf("OPTIMIZING FORMULA\n");
 		optimizeFormula();
 
@@ -817,8 +818,9 @@ public:
 		optimizeFormulaRec(position);
 	}
 	void optimizeFormulaRec(CTLFormula* position) {
-		if (position->isPropositional())
-			printf("optimizeFormulaRec: is propositional"); printFormula(position); printf("\n");
+		if (position->op == NEG) {
+			printf("optimizeFormulaRec: has neg: "); printFormula(position); printf("\n");
+		}
 		if (position->op == AND) {
 			optimizeFormulaRec(position->operand1);
 			optimizeFormulaRec(position->operand2);
@@ -832,7 +834,7 @@ public:
 			}
 		}
 		// AG phi = ~EG~ phi
-		if (position->op == NEG && position->operand1->op == EG && position->operand1->operand1->op == NEG &&  position->operand1->operand1->operand1->isPropositional()) {
+		if (position->op == NEG && position->operand1->op == EF && position->operand1->operand1->op == NEG &&  position->operand1->operand1->operand1->isPropositional()) {
 			printf("optimizeFormulaRec: optimizing \n"); printFormula(position);
 			for (int s = 0; s<g_over->statecount; s++) {
 				Circuit<Solver> c(*S);
