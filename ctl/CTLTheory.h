@@ -101,6 +101,7 @@ public:
 	CTLSolverStandalone* ctl_standalone_over;
 
 	CTLFormula* f;
+	CTLFormula * original_f;//copy of original formula, without any preprocessing or transformations, for checking the solution
 	int initialNode=0; // Start state
 	Lit ctl_lit; // the Lit corresponding to the ctl formula
 
@@ -738,9 +739,7 @@ public:
 			}
 	}
 	void preprocess() {
-		if(opt_ctl_learn_cache){
-			prepare_ids(f);
-		}
+		original_f = f->copy();
 		if(opt_ctl_symmetry_cnf>0){
 			cnfSymmetryBreaking();
 		}
@@ -766,12 +765,10 @@ public:
 
 		if(opt_optimize_formula){
 			printf("OPTIMIZING FORMULA\n");
-			printFormula(f);
-			printf("\nprinted\n");
+			printFormula(f);printf("\n");
 			optimizeFormula();
 			printf("Done optimizing\n");
-			printFormula(f);
-			printf("\nprinted\n");
+			printFormula(f);printf("\n");
 		}
 
 		// Each process is in exactly one process-state
@@ -808,6 +805,10 @@ public:
 					}
 				}
 			}
+		}
+
+		if(opt_ctl_learn_cache){
+			prepare_ids(f);
 		}
 
 		if (opt_verb > 0) {
@@ -2911,8 +2912,9 @@ public:
 		}
 
 		// Check solution against our own standalone CTL solver.
-		Bitset* bit_standalone_over = ctl_standalone_over->solveFormula(*f);
-		Bitset* bit_standalone_under = ctl_standalone_under->solveFormula(*f);
+		//important change here - checking against the original formula, before any preprocessing or transformations!
+		Bitset* bit_standalone_over = ctl_standalone_over->solveFormula(*original_f);
+		Bitset* bit_standalone_under = ctl_standalone_under->solveFormula(*original_f);
 		if(opt_verb>1)
 			printf("check_solved making sure that solution agrees with standalone CTL solver...\n");
 
@@ -3038,7 +3040,7 @@ SPEC
 		}
 
 		nuSMVInput += "\nSPEC\n  ";
-		nuSMVInput += getFormulaNuSMVFormat(*f);
+		nuSMVInput += getFormulaNuSMVFormat(*original_f);
 		nuSMVInput += "\n";
 		return nuSMVInput;
 	}

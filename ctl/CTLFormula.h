@@ -77,6 +77,26 @@ namespace Monosat {
 		std::vector<CTLFormula*> & getFairnessConstraints(){
 			return fairnessConstraints;
 		}
+
+		//Create a copy of this formula
+		CTLFormula * copy(){
+			CTLFormula * f = new CTLFormula(this->op,nullptr,nullptr,this->value);
+
+			f->id = this->id;
+
+			if(this->operand1){
+				f->operand1=this->operand1->copy();
+			}
+
+			if(this->operand2){
+				f->operand2=this->operand2->copy();
+			}
+
+			for(CTLFormula * fairness:this->fairnessConstraints){
+				f->fairnessConstraints.push_back(fairness->copy());
+			}
+			return f;
+		}
 	};
 
 	CTLFormula* newCTLFormula() ;
