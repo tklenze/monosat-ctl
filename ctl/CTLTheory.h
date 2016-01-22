@@ -781,7 +781,7 @@ public:
 			}
 		}
 
-		if(opt_optimize_formula){
+		if(opt_optimize_formula>=1){
 			if(opt_verb>1){
 				printf("OPTIMIZING FORMULA\n");
 				printFormula(f);printf("\n");
@@ -845,20 +845,20 @@ public:
 	void optimizeFormula(bool all_nodes_reachable) {
 		CTLFormula* position = f;
 		Circuit<Solver> c(*S);
-		optimizeFormulaRec(position,c,all_nodes_reachable);
+		optimizeFormulaRec(position,c,all_nodes_reachable,opt_optimize_formula>=2);
 	}
-	bool optimizeFormulaRec(CTLFormula* position,Circuit<Solver>  & c, bool all_nodes_reachable) {
+	bool optimizeFormulaRec(CTLFormula* position,Circuit<Solver>  & c, bool all_nodes_reachable, bool clausify_non_nested_x) {
 /*		if (position->op == NEG) {
 			printf("optimizeFormulaRec: has neg: "); printFormula(position); printf("\n");
 		}*/
 		bool removed=false;
 		//This code should really be generalized to allow an arbitrary propositional CTL formula above AG/EF statements
-		if (position->isPropositional()){
+		if (position->isPropositional(clausify_non_nested_x)){
 			//purely propositional statements hold on the intitial node only
 			Lit result = AGtoCNF(position, initialNode, &c);
 			S->addClause(result);
 			removed=true;
-		}else if (position->op == AG && position->operand1->isPropositional()) {
+		}else if (position->op == AG && position->operand1->isPropositional(clausify_non_nested_x)) {
 			if(opt_verb>1){
 				printf("optimizeFormulaRec: optimizing \n"); printFormula(position);
 			}
@@ -867,7 +867,7 @@ public:
 				S->addClause(result);
 			}
 			removed=true;
-		}else if (all_nodes_reachable && position->op == NEG && position->operand1->op == AG &&  position->operand1->operand1->isPropositional() ) {
+		}else if (all_nodes_reachable && position->op == NEG && position->operand1->op == AG &&  position->operand1->operand1->isPropositional(clausify_non_nested_x) ) {
 
 				if(opt_verb>1){
 					printf("optimizeFormulaRec: optimizing \n"); printFormula(position);
@@ -881,7 +881,7 @@ public:
 				S->addClause(tmp);
 				removed=true;
 
-		}else if (position->op == NEG && position->operand1->op == EF &&  position->operand1->operand1->isPropositional()) {
+		}else if (position->op == NEG && position->operand1->op == EF &&  position->operand1->operand1->isPropositional(clausify_non_nested_x)) {
 			// AG phi = ~EF~ phi
 			if(opt_verb>1){
 				printf("optimizeFormulaRec: optimizing \n"); printFormula(position);
@@ -891,7 +891,7 @@ public:
 				S->addClause(result);
 			}
 			removed=true;
-		}else if (all_nodes_reachable && position->op == EF &&  position->operand1->isPropositional()) {
+		}else if (all_nodes_reachable && position->op == EF &&  position->operand1->isPropositional(clausify_non_nested_x)) {
 			// AG phi = ~EF~ phi
 			if(opt_verb>1){
 				printf("optimizeFormulaRec: optimizing \n"); printFormula(position);
@@ -905,8 +905,8 @@ public:
 			S->addClause(tmp);
 			removed=true;
 		}else if (position->op == AND) {
-			removed = optimizeFormulaRec(position->operand1,c,all_nodes_reachable);
-			removed &= optimizeFormulaRec(position->operand2,c,all_nodes_reachable);
+			removed = optimizeFormulaRec(position->operand1,c,all_nodes_reachable,clausify_non_nested_x);
+			removed &= optimizeFormulaRec(position->operand2,c,all_nodes_reachable,clausify_non_nested_x);
 		}
 
 		if(removed){
@@ -920,6 +920,7 @@ public:
 		}
 		return removed;
 	}
+	vec<Lit> ag_to_cnf_tmp;
 	// AG phi for phi propositional. Convert this into a literal using the given circuit.
 	Lit AGtoCNF(CTLFormula* inner, int state, Circuit<Solver>* c) {
 		if (opt_verb>1){
@@ -935,7 +936,27 @@ public:
 			return c->True();
 		} else if (inner->op == ID) {
 			return toSolver(mkLit(getNodeAPVar(state, inner->value)));//Sam: Changed this from mkLit(v, True), as that creates a negated literal. Also translating the variable from the theory's to the solver's namespace.
-		} else {
+		}else if (inner->op == EX) {
+			assert(inner->operand1->isPropositional());
+			ag_to_cnf_tmp.clear();
+			for(int i = 0;i<g_over->nIncident(state);i++){
+				int edgeID = g_over->incident(state,i).id;
+				int to = g_over->incident(state,i).node;
+				Lit l =toSolver( mkLit(this->getTransitionVar(edgeID)));
+				ag_to_cnf_tmp.push(c->And(l,AGtoCNF(inner->operand1,to,c)));
+			}
+			return c->Or(ag_to_cnf_tmp);
+		}else if (inner->op == AX) {
+			assert(inner->operand1->isPropositional());
+			ag_to_cnf_tmp.clear();
+			for(int i = 0;i<g_over->nIncident(state);i++){
+				int edgeID = g_over->incident(state,i).id;
+				int to = g_over->incident(state,i).node;
+				Lit l =toSolver( mkLit(this->getTransitionVar(edgeID)));
+				ag_to_cnf_tmp.push(c->And(l,AGtoCNF(inner->operand1,to,c)));
+			}
+			return c->And(ag_to_cnf_tmp);
+		}  else {
 			assert(false); // we only wanted propositional formulas!
 		}
 	}
@@ -3116,7 +3137,7 @@ SPEC
 	void printPctlOutput() {
 		// This should probably not be here, but I can't figure out a better place:
 		// Generate input file for PCTL-SMT
-		std::string pctlInput = getFormulaPctlFormat(*f);
+		std::string pctlInput = getFormulaPctlFormat(*original_f);
 
 		// dirty hack to remove double negations, since PCTL-SMT doesn't like it in its input
 		std::string notnot = "not not";
@@ -3150,7 +3171,7 @@ SPEC
 	}
 
 	void printCTLSATOutput() {
-		std::string CTLSATInput = getFormulaCTLSATFormat(f);
+		std::string CTLSATInput = getFormulaCTLSATFormat(original_f);
 		std::ofstream inputConvertedToCTLSAT;
 
 		inputConvertedToCTLSAT.open("regression-testing/inputConvertedToCTLSAT.txt", std::ios_base::out);

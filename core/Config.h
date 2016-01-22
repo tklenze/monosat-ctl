@@ -205,6 +205,7 @@ extern IntOption opt_ctl_only_one_process_moves;
 extern IntOption opt_optimize_formula;
 extern BoolOption opt_force_all_states_reachable;
 
+
 enum class PointInPolygonAlg {
 	ALG_FULL, ALG_RECURSIVE_SPLIT
 };

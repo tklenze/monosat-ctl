@@ -61,7 +61,10 @@ namespace Monosat {
 			else
 				return true;
 		}
-		bool isPropositional(){
+		bool isPropositional(bool allow_nestedX=false){
+			if(allow_nestedX){
+				return isPropositionalWithNoNestedX();
+			}
 			if (this->op == EX || this->op == EF || this->op == EG || this->op == EU || this->op == EW || this->op == AX || this->op == AF || this->op == AG || this->op == AU || this->op == AW)
 				return false;
 			if (this->op == ID || this->op == True)
@@ -70,6 +73,32 @@ namespace Monosat {
 				return this->operand1->isPropositional() && this->operand2->isPropositional();
 			else
 				return this->operand1->isPropositional();
+		}
+		//True if this formula is propositional, or has no nested EX/AX constraints
+		bool isPropositionalWithNoNestedX(){
+			return isPropositionalWithNoNestedX_helper(0);
+		}
+		bool isPropositionalWithNoNestedX_helper(int x_count){
+			if (this->op == EF || this->op == EG || this->op == EU || this->op == EW || this->op == AX || this->op == AF || this->op == AG || this->op == AU || this->op == AW)
+				return false;
+			if (this->op == ID || this->op == True)
+				return true;
+			else if (this->op==EX){
+				if(x_count>0)
+					return false;//found nexted ex/ax
+				else{
+					return this->operand1->isPropositionalWithNoNestedX_helper(x_count+1);
+				}
+			}else if (this->op==AX && x_count>0){
+				if(x_count>0)
+					return false;//found nexted ex/ax
+				else{
+					return this->operand1->isPropositionalWithNoNestedX_helper(x_count+1);
+				}
+			}else if (this->isBinaryPredicate())
+				return this->operand1->isPropositionalWithNoNestedX_helper(x_count) && this->operand2->isPropositionalWithNoNestedX_helper(x_count);
+			else
+				return this->operand1->isPropositionalWithNoNestedX_helper(x_count);
 		}
 		void addFairnessConstraint(CTLFormula*f){
 			fairnessConstraints.push_back(f);

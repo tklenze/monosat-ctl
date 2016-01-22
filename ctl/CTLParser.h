@@ -55,8 +55,8 @@ class CTLParser: public Parser<B, Solver> {
 	int edgeCount = 0;
 	int nodeCount = 0;
 	vec<char> tmp;
-	int currentKripkeID; // when reading multiple lines, we have to keep track of which Kripke structure we are talking about.
-	int currentInitialNode;
+	int currentKripkeID=-1; // when reading multiple lines, we have to keep track of which Kripke structure we are talking about.
+	int currentInitialNode=0;
 	CTLFormula* f; // when reading multiple lines, keep track of the already passed subformula
 
 
