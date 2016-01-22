@@ -764,9 +764,15 @@ public:
 		}
 		*/
 
-
-		printf("OPTIMIZING FORMULA\n");
-		optimizeFormula();
+		if(opt_optimize_formula){
+			printf("OPTIMIZING FORMULA\n");
+			printFormula(f);
+			printf("\nprinted\n");
+			optimizeFormula();
+			printf("Done optimizing\n");
+			printFormula(f);
+			printf("\nprinted\n");
+		}
 
 		// Each process is in exactly one process-state
 		int ap;
@@ -812,35 +818,40 @@ public:
 	}
 
 	// Does optimizations on the formula
-	// Right now, it considers all top-level AG phi constraints for phi propositional. Top level means that the parent operators are only AND
+	// Right now, it considers all top-level AG phi constraints where phi is propositional. Top level means that the parent operators are only AND
 	void optimizeFormula() {
 		CTLFormula* position = f;
-		optimizeFormulaRec(position);
+		Circuit<Solver> c(*S);
+		optimizeFormulaRec(position,c);
 	}
-	void optimizeFormulaRec(CTLFormula* position) {
+	void optimizeFormulaRec(CTLFormula* position,Circuit<Solver>  & c) {
 		if (position->op == NEG) {
 			printf("optimizeFormulaRec: has neg: "); printFormula(position); printf("\n");
 		}
 		if (position->op == AND) {
-			optimizeFormulaRec(position->operand1);
-			optimizeFormulaRec(position->operand2);
-		}
-		if (position->op == AG && position->operand1->isPropositional()) {
+			optimizeFormulaRec(position->operand1,c);
+			optimizeFormulaRec(position->operand2,c);
+		}else if (position->op == AG && position->operand1->isPropositional()) {
 			printf("optimizeFormulaRec: optimizing \n"); printFormula(position);
 			for (int s = 0; s<g_over->statecount; s++) {
 				Circuit<Solver> c(*S);
 				Lit result = AGtoCNF(position->operand1, s, &c);
 				S->addClause(result);
 			}
-		}
-		// AG phi = ~EG~ phi
-		if (position->op == NEG && position->operand1->op == EF && position->operand1->operand1->op == NEG &&  position->operand1->operand1->operand1->isPropositional()) {
+			position->op = True;
+			delete(position->operand1);position->operand1=nullptr;
+			delete(position->operand2);position->operand2=nullptr;
+		}else if (position->op == NEG && position->operand1->op == EF && position->operand1->operand1->op == NEG &&  position->operand1->operand1->operand1->isPropositional()) {
+			// AG phi = ~EF~ phi
 			printf("optimizeFormulaRec: optimizing \n"); printFormula(position);
 			for (int s = 0; s<g_over->statecount; s++) {
-				Circuit<Solver> c(*S);
+
 				Lit result = AGtoCNF(position->operand1->operand1->operand1, s, &c);
 				S->addClause(result);
 			}
+			position->op = True;
+			delete(position->operand1);position->operand1=nullptr;
+			delete(position->operand2);position->operand2=nullptr;
 		}
 	}
 	// AG phi for phi propositional. Convert this into a literal using the given circuit.
@@ -855,7 +866,7 @@ public:
 		} else if (inner->op == True) {
 			return c->True();
 		} else if (inner->op == ID) {
-			return mkLit(getNodeAPVar(state, inner->value), true);
+			return toSolver(mkLit(getNodeAPVar(state, inner->value)));//Sam: Changed this from mkLit(v, True), as that creates a negated literal. Also translating the variable from the theory's to the solver's namespace.
 		} else {
 			assert(false); // we only wanted propositional formulas!
 		}

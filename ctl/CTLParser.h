@@ -227,7 +227,9 @@ class CTLParser: public Parser<B, Solver> {
 		int node = parseInt(in);
 		int ap = parseInt(in);
 		int nodeVar = parseInt(in) - 1;
-
+		nodeVar = mapVar(S,nodeVar);
+		while (nodeVar >= S.nVars())
+			S.newVar();
 		kripkes[kripkeID]->newNodeAP(node, ap, nodeVar);
 	}
 
