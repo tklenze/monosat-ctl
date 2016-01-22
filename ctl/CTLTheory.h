@@ -764,6 +764,9 @@ public:
 		}
 		*/
 
+		printf("OPTIMIZING FORMULA\n");
+		optimizeFormula();
+
 		// Each process is in exactly one process-state
 		int ap;
 		if (opt_ctl_process_in_single_state && processes > 0) {
@@ -806,6 +809,56 @@ public:
 			printf("\n");
 		}
 	}
+
+	// Does optimizations on the formula
+	// Right now, it considers all top-level AG phi constraints for phi propositional. Top level means that the parent operators are only AND
+	void optimizeFormula() {
+		CTLFormula* position = f;
+		optimizeFormulaRec(position);
+	}
+	void optimizeFormulaRec(CTLFormula* position) {
+		if (position->isPropositional())
+			printf("optimizeFormulaRec: is propositional"); printFormula(position); printf("\n");
+		if (position->op == AND) {
+			optimizeFormulaRec(position->operand1);
+			optimizeFormulaRec(position->operand2);
+		}
+		if (position->op == AG && position->operand1->isPropositional()) {
+			printf("optimizeFormulaRec: optimizing \n"); printFormula(position);
+			for (int s = 0; s<g_over->statecount; s++) {
+				Circuit<Solver> c(*S);
+				Lit result = AGtoCNF(position->operand1, s, &c);
+				S->addClause(result);
+			}
+		}
+		// AG phi = ~EG~ phi
+		if (position->op == NEG && position->operand1->op == EG && position->operand1->operand1->op == NEG &&  position->operand1->operand1->operand1->isPropositional()) {
+			printf("optimizeFormulaRec: optimizing \n"); printFormula(position);
+			for (int s = 0; s<g_over->statecount; s++) {
+				Circuit<Solver> c(*S);
+				Lit result = AGtoCNF(position->operand1->operand1->operand1, s, &c);
+				S->addClause(result);
+			}
+		}
+	}
+	// AG phi for phi propositional. Convert this into a literal using the given circuit.
+	Lit AGtoCNF(CTLFormula* inner, int state, Circuit<Solver>* c) {
+		printf("optimizeFormulaRec: at  \n"); printFormula(inner);
+		if (inner->op == AND) {
+			return c->And(AGtoCNF(inner->operand1, state, c), AGtoCNF(inner->operand2, state, c));
+		} else if (inner->op == OR) {
+			return c->Or(AGtoCNF(inner->operand1, state, c), AGtoCNF(inner->operand2, state, c));
+		} else if (inner->op == NEG) {
+			return ~AGtoCNF(inner->operand1, state, c);
+		} else if (inner->op == True) {
+			return c->True();
+		} else if (inner->op == ID) {
+			return mkLit(getNodeAPVar(state, inner->value), true);
+		} else {
+			assert(false); // we only wanted propositional formulas!
+		}
+	}
+
 	void setLiteralOccurs(Lit l, bool occurs) {
 		if (isEdgeVar(var(l))) {
 			//don't do anything

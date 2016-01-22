@@ -55,6 +55,22 @@ namespace Monosat {
 		int getID(){
 			return id;
 		}
+		bool isBinaryPredicate() {
+			if (this->op == ID || this->op == True || this->op == NEG || this->op == EX || this->op == EF || this->op == EG || this->op == AX || this->op == AF || this->op == AG)
+				return false;
+			else
+				return true;
+		}
+		bool isPropositional(){
+			if (this->op == EX || this->op == EF || this->op == EG || this->op == EU || this->op == EW || this->op == AX || this->op == AF || this->op == AG || this->op == AU || this->op == AW)
+				return false;
+			if (this->op == ID || this->op == True)
+				return true;
+			if (this->isBinaryPredicate())
+				return this->operand1->isPropositional() && this->operand2->isPropositional();
+			else
+				return this->operand1->isPropositional();
+		}
 		void addFairnessConstraint(CTLFormula*f){
 			fairnessConstraints.push_back(f);
 		}

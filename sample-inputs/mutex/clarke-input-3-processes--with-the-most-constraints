@@ -69,3 +69,7 @@ c Maximal Reactivity: if process P_i is in the waiting section and all others ar
 AND AG (((TRY1 AND NCS2) AND NCS3) -> EX CS1)
 AND AG (((TRY2 AND NCS1) AND NCS3) -> EX CS2)
 AND AG (((TRY3 AND NCS1) AND NCS2) -> EX CS3)
+c
+c Second fix
+AND AG ((((~CS1 AND ~CS2) AND ~CS3) AND ((TRY1 OR TRY2) OR TRY3)) -> EX ((CS1 OR CS2) OR CS3))
+
