@@ -782,11 +782,24 @@ public:
 		}
 
 		if(opt_optimize_formula>=1){
+			Circuit<Solver> c(*S);
+			Lit hasSomeIncomingEdgeLit[g_over->statecount];
+			for (int s = 0; s<g_over->statecount; s++) {
+				vec<Lit> incomingEdges;
+				printf("hasSomeIncomingEdgeLit[%d] = ", s);
+				for(int i = 0;i<g_over->nIncoming(s);i++){
+					int edgeID = g_over->incoming(s,i).id;
+					incomingEdges.push( toSolver( mkLit(this->getTransitionVar(edgeID))) );
+						printf("%d (%d) %d -> %d || ", toSolver( mkLit(this->getTransitionVar(edgeID))) , this->getTransitionVar(edgeID), g_over->getEdge(edgeID).from, g_over->getEdge(edgeID).to);
+				}
+				hasSomeIncomingEdgeLit[s] = c.Or(incomingEdges);
+				printf("  has var %d\n", hasSomeIncomingEdgeLit[s]);
+			}
 			if(opt_verb>1){
 				printf("OPTIMIZING FORMULA\n");
 				printFormula(f);printf("\n");
 			}
-			optimizeFormula(opt_force_all_states_reachable);
+			optimizeFormula(opt_force_all_states_reachable, c, hasSomeIncomingEdgeLit);
 			if(opt_verb>1){
 				printf("Done optimizing\n");
 				printFormula(f);printf("\n");
@@ -842,12 +855,11 @@ public:
 
 	// Does optimizations on the formula
 	// Right now, it considers all top-level AG phi constraints where phi is propositional. Top level means that the parent operators are only AND
-	void optimizeFormula(bool all_nodes_reachable) {
+	void optimizeFormula(bool all_nodes_reachable, Circuit<Solver>  & c, Lit hasSomeIncomingEdgeLit[]) {
 		CTLFormula* position = f;
-		Circuit<Solver> c(*S);
-		optimizeFormulaRec(position,c,all_nodes_reachable,opt_optimize_formula>=2);
+		optimizeFormulaRec(position,c,all_nodes_reachable,opt_optimize_formula>=2, hasSomeIncomingEdgeLit);
 	}
-	bool optimizeFormulaRec(CTLFormula* position,Circuit<Solver>  & c, bool all_nodes_reachable, bool clausify_non_nested_x) {
+	bool optimizeFormulaRec(CTLFormula* position,Circuit<Solver>  & c, bool all_nodes_reachable, bool clausify_non_nested_x, Lit hasSomeIncomingEdgeLit[]) {
 /*		if (position->op == NEG) {
 			printf("optimizeFormulaRec: has neg: "); printFormula(position); printf("\n");
 		}*/
@@ -864,7 +876,10 @@ public:
 			}
 			for (int s = 0; s<g_over->statecount; s++) {
 				Lit result = AGtoCNF(position->operand1, s, &c);
-				S->addClause(result);
+				if (opt_optimize_formula == 3 && s != initialNode)
+					S->addClause( c.Or(result, ~hasSomeIncomingEdgeLit[s]) );
+				else
+					S->addClause(result);
 			}
 			removed=true;
 		}else if (all_nodes_reachable && position->op == NEG && position->operand1->op == AG &&  position->operand1->operand1->isPropositional(clausify_non_nested_x) ) {
@@ -888,7 +903,11 @@ public:
 			}
 			for (int s = 0; s<g_over->statecount; s++) {
 				Lit result = ~AGtoCNF(position->operand1->operand1, s, &c);
-				S->addClause(result);
+				if (opt_optimize_formula == 3 && s != initialNode) {
+					printf("Added clause: %d or ~ %d\n ", result.x, (~hasSomeIncomingEdgeLit[s]).x);
+					S->addClause( c.Or(result, ~hasSomeIncomingEdgeLit[s]) );
+				} else
+					S->addClause(result);
 			}
 			removed=true;
 		}else if (all_nodes_reachable && position->op == EF &&  position->operand1->isPropositional(clausify_non_nested_x)) {
@@ -905,8 +924,8 @@ public:
 			S->addClause(tmp);
 			removed=true;
 		}else if (position->op == AND) {
-			removed = optimizeFormulaRec(position->operand1,c,all_nodes_reachable,clausify_non_nested_x);
-			removed &= optimizeFormulaRec(position->operand2,c,all_nodes_reachable,clausify_non_nested_x);
+			removed = optimizeFormulaRec(position->operand1,c,all_nodes_reachable,clausify_non_nested_x, hasSomeIncomingEdgeLit);
+			removed &= optimizeFormulaRec(position->operand2,c,all_nodes_reachable,clausify_non_nested_x, hasSomeIncomingEdgeLit);
 		}
 
 		if(removed){

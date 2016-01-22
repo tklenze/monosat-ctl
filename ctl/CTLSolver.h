@@ -26,6 +26,7 @@
 using namespace dgl;
 namespace Monosat {
 
+
 class CTLSolver {
 public:
 	DynamicKripke* k;

@@ -19,6 +19,7 @@
  OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  **************************************************************************************************/
 
+
 #include "Config.h"
 
 using namespace Monosat;
@@ -358,8 +359,7 @@ IntOption Monosat::opt_ctl_only_one_process_moves(_cat_ctl, "only-one-process-mo
 BoolOption Monosat::opt_force_all_states_reachable(_cat_ctl,"ctl-force-reachable","Force all states to be reachable in the kripke structure\n",false);
 
 
-IntOption Monosat::opt_optimize_formula(_cat_ctl,"preprocess-ctl","Preprocess the CTL formula to convert some constraints into CNF (0=Disable, 1=Convert Top-level AG, 2= Also clausify non-nested EX/AX)\n",0,IntRange(0,3));
-
+IntOption Monosat::opt_optimize_formula(_cat_ctl,"preprocess-ctl","Preprocess the CTL formula to convert some constraints into CNF (0=Disable, 1=Convert Top-level AG, 2= Also clausify non-nested EX/AX, 3= like 2, but only constrain reachable states)\n",0,IntRange(0,3));
 
 IntOption Monosat::opt_width("GRAPH", "width", "Width of graph.\n", 0, IntRange(0, INT32_MAX));
 IntOption Monosat::opt_height("GRAPH", "height", "Height of graph.\n", 0, IntRange(0, INT32_MAX));
