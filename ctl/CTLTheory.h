@@ -763,12 +763,34 @@ public:
 		}
 		*/
 
+		if(opt_force_all_states_reachable){
+			if (initialNode!=0){
+				throw std::runtime_error("Enforcing that all nodes are reachable currently requires the initial node to be 0.");
+			}
+			//Enforcing that every node is reachable by forcing all nodes to have at least one incoming transition from a lower
+			//indexed node. Watchout - this may interact incorrectly with symmetry breaking!
+			vec<Lit> tmp;
+			for(int i = 1;i<g_over->states();i++){
+				tmp.clear();
+				for(int j = 0;j<g_over->nIncoming(i);j++){
+					int edgeID = g_over->incoming(i,j).id;
+					Lit l = mkLit(getTransitionVar(edgeID));
+					tmp.push(toSolver(l));
+				}
+				S->addClause(tmp);
+			}
+		}
+
 		if(opt_optimize_formula){
-			printf("OPTIMIZING FORMULA\n");
-			printFormula(f);printf("\n");
-			optimizeFormula();
-			printf("Done optimizing\n");
-			printFormula(f);printf("\n");
+			if(opt_verb>1){
+				printf("OPTIMIZING FORMULA\n");
+				printFormula(f);printf("\n");
+			}
+			optimizeFormula(opt_force_all_states_reachable);
+			if(opt_verb>1){
+				printf("Done optimizing\n");
+				printFormula(f);printf("\n");
+			}
 		}
 
 		// Each process is in exactly one process-state
@@ -820,44 +842,89 @@ public:
 
 	// Does optimizations on the formula
 	// Right now, it considers all top-level AG phi constraints where phi is propositional. Top level means that the parent operators are only AND
-	void optimizeFormula() {
+	void optimizeFormula(bool all_nodes_reachable) {
 		CTLFormula* position = f;
 		Circuit<Solver> c(*S);
-		optimizeFormulaRec(position,c);
+		optimizeFormulaRec(position,c,all_nodes_reachable);
 	}
-	void optimizeFormulaRec(CTLFormula* position,Circuit<Solver>  & c) {
-		if (position->op == NEG) {
+	bool optimizeFormulaRec(CTLFormula* position,Circuit<Solver>  & c, bool all_nodes_reachable) {
+/*		if (position->op == NEG) {
 			printf("optimizeFormulaRec: has neg: "); printFormula(position); printf("\n");
-		}
-		if (position->op == AND) {
-			optimizeFormulaRec(position->operand1,c);
-			optimizeFormulaRec(position->operand2,c);
+		}*/
+		bool removed=false;
+		//This code should really be generalized to allow an arbitrary propositional CTL formula above AG/EF statements
+		if (position->isPropositional()){
+			//purely propositional statements hold on the intitial node only
+			Lit result = AGtoCNF(position, initialNode, &c);
+			S->addClause(result);
+			removed=true;
 		}else if (position->op == AG && position->operand1->isPropositional()) {
-			printf("optimizeFormulaRec: optimizing \n"); printFormula(position);
+			if(opt_verb>1){
+				printf("optimizeFormulaRec: optimizing \n"); printFormula(position);
+			}
 			for (int s = 0; s<g_over->statecount; s++) {
-				Circuit<Solver> c(*S);
 				Lit result = AGtoCNF(position->operand1, s, &c);
 				S->addClause(result);
 			}
-			position->op = True;
-			delete(position->operand1);position->operand1=nullptr;
-			delete(position->operand2);position->operand2=nullptr;
-		}else if (position->op == NEG && position->operand1->op == EF && position->operand1->operand1->op == NEG &&  position->operand1->operand1->operand1->isPropositional()) {
-			// AG phi = ~EF~ phi
-			printf("optimizeFormulaRec: optimizing \n"); printFormula(position);
-			for (int s = 0; s<g_over->statecount; s++) {
+			removed=true;
+		}else if (all_nodes_reachable && position->op == NEG && position->operand1->op == AG &&  position->operand1->operand1->isPropositional() ) {
 
-				Lit result = AGtoCNF(position->operand1->operand1->operand1, s, &c);
+				if(opt_verb>1){
+					printf("optimizeFormulaRec: optimizing \n"); printFormula(position);
+				}
+				vec<Lit> tmp;
+				for (int s = 0; s<g_over->statecount; s++) {
+					Lit result = ~AGtoCNF(position->operand1, s, &c);
+					tmp.push(result);
+				}
+				//WARNING: this is only safe if we also enforce that all nodes are reachable
+				S->addClause(tmp);
+				removed=true;
+
+		}else if (position->op == NEG && position->operand1->op == EF &&  position->operand1->operand1->isPropositional()) {
+			// AG phi = ~EF~ phi
+			if(opt_verb>1){
+				printf("optimizeFormulaRec: optimizing \n"); printFormula(position);
+			}
+			for (int s = 0; s<g_over->statecount; s++) {
+				Lit result = ~AGtoCNF(position->operand1->operand1, s, &c);
 				S->addClause(result);
 			}
-			position->op = True;
-			delete(position->operand1);position->operand1=nullptr;
-			delete(position->operand2);position->operand2=nullptr;
+			removed=true;
+		}else if (all_nodes_reachable && position->op == EF &&  position->operand1->isPropositional()) {
+			// AG phi = ~EF~ phi
+			if(opt_verb>1){
+				printf("optimizeFormulaRec: optimizing \n"); printFormula(position);
+			}
+			vec<Lit> tmp;
+			for (int s = 0; s<g_over->statecount; s++) {
+				Lit result = AGtoCNF(position->operand1, s, &c);
+				tmp.push(result);
+			}
+			//WARNING: this is only safe if we also enforce that all nodes are reachable
+			S->addClause(tmp);
+			removed=true;
+		}else if (position->op == AND) {
+			removed = optimizeFormulaRec(position->operand1,c,all_nodes_reachable);
+			removed &= optimizeFormulaRec(position->operand2,c,all_nodes_reachable);
 		}
+
+		if(removed){
+			position->op = True;
+			if(position->operand1){
+				delete(position->operand1);position->operand1=nullptr;
+			}
+			if(position->operand2){
+				delete(position->operand2);position->operand2=nullptr;
+			}
+		}
+		return removed;
 	}
 	// AG phi for phi propositional. Convert this into a literal using the given circuit.
 	Lit AGtoCNF(CTLFormula* inner, int state, Circuit<Solver>* c) {
-		printf("optimizeFormulaRec: at  \n"); printFormula(inner);
+		if (opt_verb>1){
+			printf("optimizeFormulaRec: at  \n"); printFormula(inner);
+		}
 		if (inner->op == AND) {
 			return c->And(AGtoCNF(inner->operand1, state, c), AGtoCNF(inner->operand2, state, c));
 		} else if (inner->op == OR) {
