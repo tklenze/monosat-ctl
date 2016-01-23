@@ -55,7 +55,7 @@ class Circuit{
 		store.push(a);
 	}
 
-
+	//Note: a vector of size zero will always return lit_True
 	Lit bin_op(vec<Lit> & store,Lit (Circuit::*f)(Lit,Lit)){
 		int n = store.size();
 		while(n>1){
@@ -69,8 +69,13 @@ class Circuit{
 			}
 			n=p;
 		}
-		Lit a = store[0];
-		store.clear();
+		Lit a;
+		if(store.size()){
+			a = store[0];
+			store.clear();
+		}else{
+			a = lit_True;
+		}
 		return a;
 	}
 public:
