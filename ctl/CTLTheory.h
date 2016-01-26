@@ -920,7 +920,7 @@ public:
 			for (int s = 0; s<g_over->statecount; s++) {
 				Lit result = ~AGtoCNF(position->operand1->operand1, s, &c);
 				if (opt_optimize_formula == 3 && s != initialNode) {
-					printf("Added clause: %d or ~ %d\n ", result.x, (~hasSomeIncomingEdgeLit[s]).x);
+					//printf("Added clause: %d or ~ %d\n ", result.x, (~hasSomeIncomingEdgeLit[s]).x);
 					S->addClause( c.Or(result, ~hasSomeIncomingEdgeLit[s]) );
 				} else
 					S->addClause(result);
