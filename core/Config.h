@@ -203,8 +203,9 @@ extern IntOption opt_ctl_symmetry_statelabelandedges;
 extern IntOption opt_all_solutions;
 extern IntOption opt_ctl_only_one_process_moves;
 extern IntOption opt_optimize_formula;
+extern IntOption opt_ctl_override_states;
 extern BoolOption opt_force_all_states_reachable;
-
+extern BoolOption opt_optimize_ctl;
 
 enum class PointInPolygonAlg {
 	ALG_FULL, ALG_RECURSIVE_SPLIT

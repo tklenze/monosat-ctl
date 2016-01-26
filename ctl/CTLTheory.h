@@ -55,7 +55,7 @@ using namespace dgl;
 namespace Monosat {
 
 
-class CTLTheorySolver;
+
 
 class CTLTheorySolver: public Theory {
 public:
@@ -94,6 +94,8 @@ public:
 	vec<FSMAcceptDetector *> accepts;
 	vec<FSMGeneratesDetector *> generates;
 	vec<FSMTransducesDetector *> transduces;
+
+	vec<Lit> state_reachable;
 
 	CTLSolver* ctl_under; //one for each over and under
 	CTLSolver* ctl_over;
@@ -749,8 +751,9 @@ public:
 
 		// AG EX True
 		// This is somewhat slow, but whatever. Only done once in preprocessing
-		vec<Lit> c;
+
 		/*
+		 * vec<Lit> c;
 		for (int i = 0; i < g_over->states(); i++) { // iterate over neighbours of current front of queue
 			for (int j = 0; j < g_over->nIncident(i); j++) { // iterate over neighbours of current front of queue
 				e = g_over->incident(i, j);
@@ -781,13 +784,16 @@ public:
 			}
 		}
 
-		if(opt_optimize_formula>=1){
+		if(opt_optimize_formula>=1 || opt_optimize_ctl){
 			Circuit<Solver> c(*S);
-			Lit hasSomeIncomingEdgeLit[g_over->statecount];
+			state_reachable.growTo(g_over->states(),lit_Undef);
+			//Lit hasSomeIncomingEdgeLit[g_over->statecount];
 			for (int s = 0; s<g_over->statecount; s++) {
 				if(s!=initialNode){
 					vec<Lit> incomingEdges;
-					printf("hasSomeIncomingEdgeLit[%d] = ", s);
+					if(opt_verb>1){
+						printf("hasSomeIncomingEdgeLit[%d] = ", s);
+					}
 					for(int i = 0;i<g_over->nIncoming(s);i++){
 						int edgeID = g_over->incoming(s,i).id;
 						incomingEdges.push( toSolver( mkLit(this->getTransitionVar(edgeID))) );
@@ -795,25 +801,27 @@ public:
 							printf("%d (%d) %d -> %d || ", toSolver( mkLit(this->getTransitionVar(edgeID))) , this->getTransitionVar(edgeID), g_over->getEdge(edgeID).from, g_over->getEdge(edgeID).to);
 						}
 					}
-					hasSomeIncomingEdgeLit[s] = c.Or(incomingEdges);
+					state_reachable[s] = c.Or(incomingEdges);
 				}else{
-					hasSomeIncomingEdgeLit[s]=c.True();//the initial node is always reachable.
+					state_reachable[s]=c.True();//the initial node is always reachable.
 				}
 				if(opt_verb>1){
-					printf("  has var %d\n", hasSomeIncomingEdgeLit[s]);
+					printf("  has var %d\n", state_reachable[s]);
 				}
 			}
-			if(opt_verb>1){
-				printf("OPTIMIZING FORMULA\n");
-				printFormula(f);printf("\n");
-			}
-			optimizeFormula(opt_force_all_states_reachable, c, hasSomeIncomingEdgeLit);
-			if(opt_verb>1){
-				printf("Done optimizing\n");
-				printFormula(f);printf("\n");
+			if(opt_optimize_formula>=1){
+				if(opt_verb>1){
+					printf("OPTIMIZING FORMULA\n");
+					printFormula(f);printf("\n");
+				}
+				optimizeFormula(opt_force_all_states_reachable, c, state_reachable);
+				if(opt_verb>1){
+					printf("Done optimizing\n");
+					printFormula(f);printf("\n");
+				}
 			}
 		}
-
+		vec<Lit> c;
 		// Each process is in exactly one process-state
 		int ap;
 		if (opt_ctl_process_in_single_state && processes > 0) {
@@ -863,11 +871,11 @@ public:
 
 	// Does optimizations on the formula
 	// Right now, it considers all top-level AG phi constraints where phi is propositional. Top level means that the parent operators are only AND
-	void optimizeFormula(bool all_nodes_reachable, Circuit<Solver>  & c, Lit hasSomeIncomingEdgeLit[]) {
+	void optimizeFormula(bool all_nodes_reachable, Circuit<Solver>  & c, vec<Lit> & hasSomeIncomingEdgeLit) {
 		CTLFormula* position = f;
 		optimizeFormulaRec(position,c,all_nodes_reachable,opt_optimize_formula>=2, hasSomeIncomingEdgeLit);
 	}
-	bool optimizeFormulaRec(CTLFormula* position,Circuit<Solver>  & c, bool all_nodes_reachable, bool clausify_non_nested_x, Lit hasSomeIncomingEdgeLit[]) {
+	bool optimizeFormulaRec(CTLFormula* position,Circuit<Solver>  & c, bool all_nodes_reachable, bool clausify_non_nested_x, vec<Lit> & hasSomeIncomingEdgeLit) {
 /*		if (position->op == NEG) {
 			printf("optimizeFormulaRec: has neg: "); printFormula(position); printf("\n");
 		}*/

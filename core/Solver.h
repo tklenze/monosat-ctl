@@ -39,7 +39,7 @@
 template<unsigned int D, class T> class GeometryTheorySolver;
 template<typename Weight> class GraphTheorySolver;
 class FSMTheorySolver;
-class CTLTheorySolver;
+
 namespace Monosat {
 class DimacsMap;
 //=================================================================================================
@@ -54,7 +54,7 @@ public:
 	template<typename Weight> friend class GraphTheorySolver;
 	//template<unsigned int D, class T> friend class GeometryTheorySolver;
 	friend class FSMTheorySolver;
-	friend class CTLTheorySolver;
+
 	friend class LSystemSolver;
 
 
@@ -749,7 +749,7 @@ public:
 
 
 
-protected:
+
 
 
 	CRef propagate(bool propagate_theories = true);    // Perform unit propagation. Returns possibly conflicting clause.
@@ -771,7 +771,7 @@ public:
 			assert(theory_queue.size() <= theories.size());
 		}
 	}
-protected:
+
 	void analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel);    // (bt = backtrack)
 	void analyzeFinal(CRef confl, Lit skip_lit, vec<Lit>& out_conflict);
 	void analyzeFinal(Lit p, vec<Lit>& out_conflict); // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?

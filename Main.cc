@@ -56,6 +56,7 @@
 #include "geometry/GeometryTheory.h"
 #include "geometry/GeometryParser.h"
 #include "ctl/DynamicKripke.h"
+#include "ctl/CTLTheory.h"
 #include "mtl/Bitset.h"
 #include "bv/BVParser.h"
 #include "amo/AMOTheory.h"
@@ -696,6 +697,19 @@ int main(int argc, char** argv) {
 					S.setFrozen(v, true);
 				}
 			}
+
+			if(opt_optimize_ctl){
+				CTLTheorySolver * t =(CTLTheorySolver *) S.theories[0];
+				for(int i = 0;i<t->state_reachable.size();i++){
+					Lit l = t->state_reachable[i];
+					if (!S.isFrozen(var(l))) {
+						// Freeze and store.
+						S.setFrozen(var(l), true);
+					}
+				}
+
+			}
+
 			S.eliminate(true);
 			//in principle, should unfreeze these lits after solving...
 		}
@@ -710,10 +724,26 @@ int main(int argc, char** argv) {
 			printf("solving:\n");
 			fflush(stdout);
 		}
+		lbool ret=l_Undef;
+		if(opt_optimize_ctl){
+			CTLTheorySolver * t =(CTLTheorySolver *) S.theories[0];
+			ret = S.solve(parser.assumptions)?l_True:l_False;
+			vec<Lit> & reachable = t->state_reachable;
+			if(ret==l_True){
+				for(int i = 0;i<reachable.size();i++){
+					Lit l = reachable[reachable.size()- i-1];
+					parser.assumptions.push(~l);
+					if(S.modelValue(l)==l_False)
+						continue;//the previous solution happened to assign this lit to false already, no need to solve again
+					if(! S.solve(parser.assumptions))
+						break;
+				}
+			}
+		}else{
 
 
-
-		lbool ret = optimize_and_solve(S,parser.assumptions,parser.bv_minimize);
+			ret = optimize_and_solve(S,parser.assumptions,parser.bv_minimize);
+		}
 		double solving_time = rtime(0) - after_preprocessing;
 		if (opt_verb > 0) {
 			printf("Solving time = %f\n", solving_time);

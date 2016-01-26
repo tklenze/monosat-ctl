@@ -70,6 +70,9 @@ class CTLParser: public Parser<B, Solver> {
 		int a, g, n, e, ev;
 
 		n = parseInt(in); //num nodes
+		if(opt_ctl_override_states>0){
+			n=opt_ctl_override_states;
+		}
 		e = parseInt(in); //num edges (I'm ignoring this currently)
 		//  ev = parseInt(in);//the variable of the first graph edge.
 		a = parseInt(in);  //number of APs
@@ -103,6 +106,9 @@ class CTLParser: public Parser<B, Solver> {
 
 		int kripkeID = parseInt(in);
 		int n = parseInt(in); //num node
+		if(opt_ctl_override_states>0){
+			n=opt_ctl_override_states;
+		}
 		int a = parseInt(in);  //number of APs
 		int loops = parseInt(in);  //loops: 0 or 1
 		int ctlVar = parseInt(in) - 1;
@@ -165,6 +171,9 @@ class CTLParser: public Parser<B, Solver> {
 
 		int kripkeID = parseInt(in);
 		int n = parseInt(in); //num node
+		if(opt_ctl_override_states>0){
+			n=opt_ctl_override_states;
+		}
 		int p = parseInt(in);  //number of Processes
 		int s = parseInt(in);  //number of States per Process
 		int a = p * s;

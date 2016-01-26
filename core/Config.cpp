@@ -357,7 +357,9 @@ BoolOption Monosat::opt_ctl_process_in_single_state(_cat_ctl,"ctl-single-state-p
 IntOption Monosat::opt_ctl_only_one_process_moves(_cat_ctl, "only-one-process-moves",
 		"Enforce that only one process moves at a time. Only used when kctlsinglestate is used for specification. When set, you may omit from the CTL formula that for every transition, only one process changes its process-state. 0: Turn off, 1: Always prefer this clause to other clauses (w/o symmetry learning or clause learning), 2: choose clause that is minimal)", 2, IntRange(0,INT32_MAX));
 BoolOption Monosat::opt_force_all_states_reachable(_cat_ctl,"ctl-force-reachable","Force all states to be reachable in the kripke structure\n",false);
+BoolOption Monosat::opt_optimize_ctl(_cat_ctl,"ctl-optimize","Optimize for a minimal-state solution\n",false);
 
+IntOption Monosat::opt_ctl_override_states(_cat_ctl,"ctl-states","Set the (maximum) number of states in the CTL solver's solution (-1 to use the formula's setting)\n",-1,IntRange(-1,INT32_MAX));
 
 IntOption Monosat::opt_optimize_formula(_cat_ctl,"preprocess-ctl","Preprocess the CTL formula to convert some constraints into CNF (0=Disable, 1=Convert Top-level AG, 2= Also clausify non-nested EX/AX, 3= like 2, but only constrain reachable states)\n",0,IntRange(0,3));
 
