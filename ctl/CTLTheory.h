@@ -791,13 +791,17 @@ public:
 					for(int i = 0;i<g_over->nIncoming(s);i++){
 						int edgeID = g_over->incoming(s,i).id;
 						incomingEdges.push( toSolver( mkLit(this->getTransitionVar(edgeID))) );
+						if(opt_verb>1){
 							printf("%d (%d) %d -> %d || ", toSolver( mkLit(this->getTransitionVar(edgeID))) , this->getTransitionVar(edgeID), g_over->getEdge(edgeID).from, g_over->getEdge(edgeID).to);
+						}
 					}
 					hasSomeIncomingEdgeLit[s] = c.Or(incomingEdges);
 				}else{
 					hasSomeIncomingEdgeLit[s]=c.True();//the initial node is always reachable.
 				}
-				printf("  has var %d\n", hasSomeIncomingEdgeLit[s]);
+				if(opt_verb>1){
+					printf("  has var %d\n", hasSomeIncomingEdgeLit[s]);
+				}
 			}
 			if(opt_verb>1){
 				printf("OPTIMIZING FORMULA\n");
@@ -2935,6 +2939,18 @@ public:
 		bool ret = propagateTheory(conflict,true);
 		//Under normal conditions, this should _always_ hold (as propagateTheory should have been called and checked by the parent solver before getting to this point).
 		assert(ret);
+		if(ret){
+			//This is a last minute hack to print out the number of states, remove this later!
+			int infinitePaths = ctl_over->getReachableStates(initialNode);
+			Bitset & reachable = *ctl_over->bitsets[infinitePaths];
+			int n_reachable=0;
+			for (int i = 0; i < g_over->states(); i++) {
+				if (reachable[i]) {
+					n_reachable++;
+				}
+			}
+			printf("\nCTL Solver solution has %d reachable states\n",n_reachable);
+		}
 		return ret;
 	}
 	;
@@ -3322,7 +3338,17 @@ SPEC
 	}
 
 	void printSolution() {
+		int infinitePaths = ctl_over->getReachableStates(initialNode);
+		Bitset & reachable = *ctl_over->bitsets[infinitePaths];
+		int n_reachable=0;
+		for (int i = 0; i < g_over->states(); i++) {
+			if (reachable[i]) {
+				n_reachable++;
+			}
+		}
 
+
+		printf("\nCTL Solver Solution has %d reachable states\n",n_reachable);
 		for (auto * d : detectors) {
 			assert(d);
 			d->printSolution();
