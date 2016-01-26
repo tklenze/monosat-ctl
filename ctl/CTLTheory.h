@@ -787,17 +787,17 @@ public:
 			for (int s = 0; s<g_over->statecount; s++) {
 				if(s!=initialNode){
 					vec<Lit> incomingEdges;
-					printf("hasSomeIncomingEdgeLit[%d] = ", s);
+					//printf("hasSomeIncomingEdgeLit[%d] = ", s);
 					for(int i = 0;i<g_over->nIncoming(s);i++){
 						int edgeID = g_over->incoming(s,i).id;
 						incomingEdges.push( toSolver( mkLit(this->getTransitionVar(edgeID))) );
-							printf("%d (%d) %d -> %d || ", toSolver( mkLit(this->getTransitionVar(edgeID))) , this->getTransitionVar(edgeID), g_over->getEdge(edgeID).from, g_over->getEdge(edgeID).to);
+							//printf("%d (%d) %d -> %d || ", toSolver( mkLit(this->getTransitionVar(edgeID))) , this->getTransitionVar(edgeID), g_over->getEdge(edgeID).from, g_over->getEdge(edgeID).to);
 					}
 					hasSomeIncomingEdgeLit[s] = c.Or(incomingEdges);
 				}else{
 					hasSomeIncomingEdgeLit[s]=c.True();//the initial node is always reachable.
 				}
-				printf("  has var %d\n", hasSomeIncomingEdgeLit[s]);
+				//printf("  has var %d\n", hasSomeIncomingEdgeLit[s]);
 			}
 			if(opt_verb>1){
 				printf("OPTIMIZING FORMULA\n");
@@ -908,7 +908,7 @@ public:
 			for (int s = 0; s<g_over->statecount; s++) {
 				Lit result = ~AGtoCNF(position->operand1->operand1, s, &c);
 				if (opt_optimize_formula == 3 && s != initialNode) {
-					printf("Added clause: %d or ~ %d\n ", result.x, (~hasSomeIncomingEdgeLit[s]).x);
+					//printf("Added clause: %d or ~ %d\n ", result.x, (~hasSomeIncomingEdgeLit[s]).x);
 					S->addClause( c.Or(result, ~hasSomeIncomingEdgeLit[s]) );
 				} else
 					S->addClause(result);
