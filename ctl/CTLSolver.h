@@ -514,6 +514,8 @@ public:
 	// An edge is suitable if its origin and destination satisfies the formula and it is enabled
 	// This represents a graph restricted to vertices that satisfy the formula
 	bool suitable(int edgeID, Bitset& inner) {
+		if(edgeID<0)
+			return -1;
 		return (k->edgeEnabled(edgeID)) && inner.operator [](k->getEdge(edgeID).from) && inner.operator [](k->getEdge(edgeID).to);
 	}
 
