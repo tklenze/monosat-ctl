@@ -380,13 +380,14 @@ public:
 		if (opt_verb > 1) {
 			printf("solveEGwithFairness, formula: ");
 			printFormula(&f);
-			printf("\nComponents: \n");
 		}
 		DynamicGraph<int> & g = k->g;
 
 		int innerBitset = solve(*f.operand1);
 		tarjan->setInnerFormula(*bitsets[innerBitset]);
+		tarjan->updateForced(); // force update
 		if (opt_verb > 1) {
+			printf("\nFormula true in states: ");
 			printStateSet(*bitsets[innerBitset]);
 			printf("\n");
 		}
@@ -402,12 +403,11 @@ public:
 		for (int i = 0; i < innerFair.size(); i ++) {
 			innerFair[i] = solve(*f.fairnessConstraints.operator [](i));
 			if (opt_verb > 1) {
-				printf("Fairness constraint and set of states in which it is true: ");
+				printf("Fairness constraint #%d and set of states in which it is true: ", i);
 				printFormula(f.fairnessConstraints.operator [](i));
 				printStateSet(*bitsets[innerFair[i]]);
 			}
 		}
-
 
 		seen.clear();
 		seen.resize(g.nodes(),false);
@@ -418,7 +418,7 @@ public:
 			// Makes sure that we skip over lone vertices that have no self loop.
 			if (tarjan->getComponentSize(i) > 1 || suitable(k->getEdge(node, node),*bitsets[innerBitset])) {
 				if (opt_verb > 1)
-					printf("Component %d:",i);
+					printf("Component #%d:\n",i);
 				assert(q.size()==0);
 				comp.clear();
 				q.push_back(node);
@@ -430,16 +430,16 @@ public:
 					int u = q.back();
 					q.pop_back();
 					comp.push_back(u);
+					if (opt_verb > 1)
+						printf("  Considering state %d\n",u);
 					// Go through all fairness constraints. If a fairness constraint is satisfied in this state, then mark it satisfied for the entire SCC in fairnessConstraintsSat
 					for (int j = 0; j < innerFair.size(); j ++) {
 						if (bitsets[innerFair[j]]->operator [](u)) {
 							fairnessConstraintsSat->set(j);
 							if (opt_verb > 1)
-								printf("\nSCC satisfies fairness constraint %d, because state %d satisfies it\n", j, u);
+								printf("    SCC satisfies fairness constraint #%d, because state %d satisfies it\n", j, u);
 						}
 					}
-					if (opt_verb > 1)
-						printf(" %d",u);
 					for(int j = 0;j<g.nIncident(u);j++){
 						int edgeID = g.incident(u,j).id;
 						int to = g.incident(u,j).node;
@@ -454,10 +454,12 @@ public:
 					if (!fairnessConstraintsSat->operator [](j)) {
 						fairSCC = false;
 						if (opt_verb > 1)
-							printf("\nUnfair SCC due to fairness constraint #%d\n", j);
+							printf("  Unfair SCC due to fairness constraint #%d\n", j);
 					}
 				}
 				if (fairSCC) {
+					if (opt_verb > 1)
+						printf("  SCC #%d is fair\n", i);
 					for (int j=0; j<comp.size(); j++) {
 						bitsets[st]->set(j);
 					}
@@ -490,7 +492,7 @@ public:
 			bitsets[x]->Or(*bitsets[prex], *bitsets[orst]); // orst := x ∪ prex
 			bitsets[orst]->And(*bitsets[innerBitset], *bitsets[andst]); // andst := x ∩ prex
 
-			if (bitsets[x]->Equiv(*bitsets[orst])) {
+			if (bitsets[x]->Equiv(*bitsets[andst])) {
 				freeBitset(x);
 				freeBitset(innerBitset);
 				freeBitset(prex);
@@ -514,8 +516,8 @@ public:
 	// An edge is suitable if its origin and destination satisfies the formula and it is enabled
 	// This represents a graph restricted to vertices that satisfy the formula
 	bool suitable(int edgeID, Bitset& inner) {
-		if(edgeID<0)
-			return -1;
+		if(edgeID<0) // Edge does not exist
+			return false;
 		return (k->edgeEnabled(edgeID)) && inner.operator [](k->getEdge(edgeID).from) && inner.operator [](k->getEdge(edgeID).to);
 	}
 
