@@ -349,7 +349,7 @@ IntOption Monosat::opt_ctl_symmetry(_cat_ctl, "use-symmetry-reduction",
 IntOption Monosat::opt_ctl_symmetry_statelabelandedges(_cat_ctl, "symmetry-labelandedges",
 		"This variable may be used to enforce symmetry reduction strictly only on the state label and not on edges for similar-labelled states. 0: No edge symmetry reduction. 1: Edge reduction in case of strict label equivalence. 2: Edge reduction in case of possible label equivalence", 1, IntRange(0,INT32_MAX));
 IntOption Monosat::opt_all_solutions(_cat_ctl, "all-solutions",
-		"0: standard mode, just one solution. 1: all solutions, print all satisfying assignment spaces", 0, IntRange(0,INT32_MAX));
+		"THIS OPTION IS BROKEN! 0: standard mode, just one solution. 1: all solutions, print all satisfying assignment spaces", 0, IntRange(0,INT32_MAX));
 IntOption Monosat::opt_ctl_skip_prop(_cat_ctl,"ctl-skip", "Only check CTL theory propagation every NTH round (1 to check all rounds)",1, IntRange(1,INT32_MAX));
 
 BoolOption Monosat::opt_ctl_learn_cache(_cat_ctl,"ctl-cache","Cache CTL computations during clause learning\n",true);
@@ -357,11 +357,10 @@ BoolOption Monosat::opt_ctl_process_in_single_state(_cat_ctl,"ctl-single-state-p
 IntOption Monosat::opt_ctl_only_one_process_moves(_cat_ctl, "only-one-process-moves",
 		"Enforce that only one process moves at a time. Only used when kctlsinglestate is used for specification. When set, you may omit from the CTL formula that for every transition, only one process changes its process-state. 0: Turn off, 1: Always prefer this clause to other clauses (w/o symmetry learning or clause learning), 2: choose clause that is minimal)", 2, IntRange(0,INT32_MAX));
 BoolOption Monosat::opt_force_all_states_reachable(_cat_ctl,"ctl-force-reachable","Force all states to be reachable in the kripke structure\n",false);
+
 BoolOption Monosat::opt_optimize_ctl(_cat_ctl,"ctl-optimize","Optimize for a minimal-state solution\n",false);
-
 IntOption Monosat::opt_ctl_override_states(_cat_ctl,"ctl-states","Set the (maximum) number of states in the CTL solver's solution (-1 to use the formula's setting)\n",-1,IntRange(-1,INT32_MAX));
-
-IntOption Monosat::opt_optimize_formula(_cat_ctl,"preprocess-ctl","Preprocess the CTL formula to convert some constraints into CNF (0=Disable, 1=Convert Top-level AG, 2= Also clausify non-nested EX/AX, 3= like 2, but only constrain reachable states)\n",0,IntRange(0,3));
+IntOption Monosat::opt_optimize_formula(_cat_ctl,"preprocess-ctl","Preprocess the CTL formula to convert some constraints into CNF (0=Disable, 1=Convert Top-level AG, 2= Also clausify non-nested EX/AX (unsafe in certain circumstances), 3= like 2, but only constrain reachable states)\n",3,IntRange(0,3));
 
 IntOption Monosat::opt_width("GRAPH", "width", "Width of graph.\n", 0, IntRange(0, INT32_MAX));
 IntOption Monosat::opt_height("GRAPH", "height", "Height of graph.\n", 0, IntRange(0, INT32_MAX));

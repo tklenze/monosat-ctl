@@ -140,7 +140,14 @@ public:
 		}
 
 		// If v is a root node, pop the stack and generate an SCC
-		if (lowlink[node] == indices[node]) {
+		// Do not so if fromEdge = -1, i.e. if this is the highest call in the hierarchy. This would mean that no edge leads here, i.e. a SCC with just the initial node and no incoming transition from itself.
+		if (opt_verb > 2) {
+			if (fromEdge < 0)
+				printf("Tarjan: Ignoring this node %d, since fromEdge is negative: %d\n", node, fromEdge);
+			else
+				printf("Tarjan: node %d, fromEdge %d (%d -> %d)\n", node, fromEdge, k.getEdge(fromEdge).from, k.getEdge(fromEdge).to);
+		}
+		if (lowlink[node] == indices[node] && fromEdge >= 0) {
 			int sccID = scc_set.size();
 			int sz = 0;
 			assert(q.size());
@@ -165,7 +172,7 @@ public:
 				}
 				scc[n]= {sccID,next};
 				if (scc_out && (n != node)) {
-					if(curEdge!=-1)
+					if(curEdge!=-1 && suitable(curEdge))
 						scc_out->push_back(curEdge);
 					else{
 						int a=1;
@@ -198,21 +205,27 @@ public:
 
 	// An edge is suitable if its origin and destination satisfies the formula and it is enabled
 	bool suitable(int edgeID) {
-		return (k.edgeEnabled(edgeID)) && inner->operator [](k.getEdge(edgeID).from) && inner->operator [](k.getEdge(edgeID).to);
+		if ((k.edgeEnabled(edgeID)) && inner->operator [](k.getEdge(edgeID).from) && inner->operator [](k.getEdge(edgeID).to)) {
+			if (opt_verb > 2)
+				printf("  Tarjan: %d -> %d is suitable\n", k.getEdge(edgeID).from, k.getEdge(edgeID).to);
+			return true;
+		} else {
+			if (opt_verb > 2)
+				printf("  Tarjan: %d -> %d is NOT suitable (enabled? %d)\n", k.getEdge(edgeID).from, k.getEdge(edgeID).to, k.edgeEnabled(edgeID));
+			return false;
+		}
 	}
 
 	void setInnerFormula (Bitset& in) {
 		inner = &in;
 	}
 
-	void update() {
+	// Force update, no caching
+	void updateForced() {
+
 		static int iteration = 0;
 		int local_it = ++iteration;
 
-		if (last_modification > 0 && k.modifications > 0 && g.modifications == last_modification && k.modifications == last_k_modification) {
-			stats_skipped_updates++;
-			return;
-		}
 		stats_full_updates++;
 
 		if (last_deletion == g.deletions) {
@@ -229,7 +242,7 @@ public:
 		}
 		int index = 0;
 		for (int i = 0; i < g.nodes(); i++) {
-			if (indices[i] < 0) {
+			if (indices[i] < 0 && inner->operator [](i)) { // restrict graph to states satisfying the inner formula
 				strongConnect(i,-1, index);
 			}
 		}
@@ -243,6 +256,15 @@ public:
 		history_qhead = g.historySize();
 		last_history_clear = g.historyclears;
 		;
+	}
+
+	// makes use of caching
+	void update() {
+		if (last_modification > 0 && k.modifications > 0 && g.modifications == last_modification && k.modifications == last_k_modification) {
+			stats_skipped_updates++;
+			return;
+		}
+		updateForced();
 	}
 
 	bool connected(int from, int to) {

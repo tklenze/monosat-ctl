@@ -90,6 +90,16 @@ static void matchFairness(B& in, CTLFormula* f) {
 			f->value = 15;
 			return f;
 		}
+		if (match(in, "NCS7")) {
+			f->op = ID;
+			f->value = 18;
+			return f;
+		}
+		if (match(in, "NCS8")) {
+			f->op = ID;
+			f->value = 21;
+			return f;
+		}
 		if (match(in, "TRY1")) {
 			f->op = ID;
 			f->value = 1;
@@ -120,6 +130,16 @@ static void matchFairness(B& in, CTLFormula* f) {
 			f->value = 16;
 			return f;
 		}
+		if (match(in, "TRY7")) {
+			f->op = ID;
+			f->value = 19;
+			return f;
+		}
+		if (match(in, "TRY8")) {
+			f->op = ID;
+			f->value = 22;
+			return f;
+		}
 		if (match(in, "CS1")) {
 			f->op = ID;
 			f->value = 2;
@@ -148,6 +168,16 @@ static void matchFairness(B& in, CTLFormula* f) {
 		if (match(in, "CS6")) {
 			f->op = ID;
 			f->value = 17;
+			return f;
+		}
+		if (match(in, "CS7")) {
+			f->op = ID;
+			f->value = 20;
+			return f;
+		}
+		if (match(in, "CS8")) {
+			f->op = ID;
+			f->value = 23;
 			return f;
 		}
 
