@@ -141,7 +141,7 @@ public:
 
 		// If v is a root node, pop the stack and generate an SCC
 		// Do not so if fromEdge = -1, i.e. if this is the highest call in the hierarchy. This would mean that no edge leads here, i.e. a SCC with just the initial node and no incoming transition from itself.
-		if (opt_verb > 1) {
+		if (opt_verb > 2) {
 			if (fromEdge < 0)
 				printf("Tarjan: Ignoring this node %d, since fromEdge is negative: %d\n", node, fromEdge);
 			else
@@ -206,11 +206,11 @@ public:
 	// An edge is suitable if its origin and destination satisfies the formula and it is enabled
 	bool suitable(int edgeID) {
 		if ((k.edgeEnabled(edgeID)) && inner->operator [](k.getEdge(edgeID).from) && inner->operator [](k.getEdge(edgeID).to)) {
-			if (opt_verb > 1)
+			if (opt_verb > 2)
 				printf("  Tarjan: %d -> %d is suitable\n", k.getEdge(edgeID).from, k.getEdge(edgeID).to);
 			return true;
 		} else {
-			if (opt_verb > 1)
+			if (opt_verb > 2)
 				printf("  Tarjan: %d -> %d is NOT suitable (enabled? %d)\n", k.getEdge(edgeID).from, k.getEdge(edgeID).to, k.edgeEnabled(edgeID));
 			return false;
 		}
@@ -242,7 +242,7 @@ public:
 		}
 		int index = 0;
 		for (int i = 0; i < g.nodes(); i++) {
-			if (indices[i] < 0) {
+			if (indices[i] < 0 && inner->operator [](i)) { // restrict graph to states satisfying the inner formula
 				strongConnect(i,-1, index);
 			}
 		}

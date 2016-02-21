@@ -1512,7 +1512,7 @@ public:
 		for (int i = 0; i < g_over->states(); i++) {
 			for (int j = i+1; j < g_over->states(); j++) {
 				if (i != startNode && j != startNode) {
-					if(opt_verb>1) {
+					if(opt_verb>2) {
 						printf("SYMMETRY: checking %d > %d\n", i, j);
 					}
 					// Reduce on edges in case of state label equivalence
@@ -1695,7 +1695,7 @@ public:
 			printf(", for startNode %d\n", startNode);
 		}
 
-		if (subf.fairnessConstraints.size() > 0 && subf.op != EG) {
+		if (subf.fairnessConstraints.size() > 0 && subf.op != EG && subf.op != AF) {
 			if(opt_verb>1)
 				printf("Learning naive clause, since we don't support clause learning with fairness constraints on this operator yet...\n");
 			learnNaiveClause(conflict, initialNode);
@@ -1737,22 +1737,22 @@ public:
 				CTLFormula outer {AND, &inner1, &inner2, 0};
 				learnClausePos(conflict, outer, startNode);
 			} else if (subf.operand1->op == AX) {
-				CTLFormula outer {EX, &inner1, NULL, 0};
+				CTLFormula outer {EX, &inner1, NULL, 0, subf.operand1->fairnessConstraints};
 				learnClausePos(conflict, outer, startNode);
 			} else if (subf.operand1->op == EX) {
-				CTLFormula outer {AX, &inner1, NULL, 0};
+				CTLFormula outer {AX, &inner1, NULL, 0, subf.operand1->fairnessConstraints};
 				learnClausePos(conflict, outer, startNode);
 			} else if (subf.operand1->op == AG) {
-				CTLFormula outer {EF, &inner1, NULL, 0};
+				CTLFormula outer {EF, &inner1, NULL, 0, subf.operand1->fairnessConstraints};
 				learnClausePos(conflict, outer, startNode);
 			} else if (subf.operand1->op == EG) {
-				CTLFormula outer {AF, &inner1, NULL, 0};
+				CTLFormula outer {AF, &inner1, NULL, 0, subf.operand1->fairnessConstraints};
 				learnClausePos(conflict, outer, startNode);
 			} else if (subf.operand1->op == EF) {
-				CTLFormula outer {AG, &inner1, NULL, 0};
+				CTLFormula outer {AG, &inner1, NULL, 0, subf.operand1->fairnessConstraints};
 				learnClausePos(conflict, outer, startNode);
 			} else if (subf.operand1->op == AF) {
-				CTLFormula outer {EG, &inner1, NULL, 0};
+				CTLFormula outer {EG, &inner1, NULL, 0, subf.operand1->fairnessConstraints};
 				learnClausePos(conflict, outer, startNode);
 			} else if (subf.operand1->op == ID) {
 				int p = subf.operand1->value;
@@ -1764,22 +1764,22 @@ public:
 			} else if (subf.operand1->op == AU) { // ~(Ï†_1 AU Ï†_2) â‰¡ ~Ï†_2 EW ( ~Ï†_1 ^ ~Ï†_2 )
 				CTLFormula inner2 {NEG, subf.operand1->operand2, NULL, 0};
 				CTLFormula outer1 {AND, &inner1, &inner2, 0};
-				CTLFormula outer2 {EW, &inner2, &outer1, 0};
+				CTLFormula outer2 {EW, &inner2, &outer1, 0, subf.operand1->fairnessConstraints};
 				learnClausePos(conflict, outer2, startNode);
 			} else if (subf.operand1->op == AW) { // ~(Ï†_1 AW Ï†_2) â‰¡ ~Ï†_2 EU ( ~Ï†_1 ^ ~Ï†_2 )
 				CTLFormula inner2 {NEG, subf.operand1->operand2, NULL, 0};
 				CTLFormula outer1 {AND, &inner1, &inner2, 0};
-				CTLFormula outer2 {EU, &inner2, &outer1, 0};
+				CTLFormula outer2 {EU, &inner2, &outer1, 0, subf.operand1->fairnessConstraints};
 				learnClausePos(conflict, outer2, startNode);
 			} else if (subf.operand1->op == EU) { // ~(Ï†_1 EU Ï†_2) â‰¡ ~Ï†_2 AW ( ~Ï†_1 ^ ~Ï†_2 )
 				CTLFormula inner2 {NEG, subf.operand1->operand2, NULL, 0};
 				CTLFormula outer1 {AND, &inner1, &inner2, 0};
-				CTLFormula outer2 {AW, &inner2, &outer1, 0};
+				CTLFormula outer2 {AW, &inner2, &outer1, 0, subf.operand1->fairnessConstraints};
 				learnClausePos(conflict, outer2, startNode);
 			} else if (subf.operand1->op == EW) { // ~(Ï†_1 EW Ï†_2) â‰¡ ~Ï†_2 AU ( ~Ï†_1 ^ ~Ï†_2 )
 				CTLFormula inner2 {NEG, subf.operand1->operand2, NULL, 0};
 				CTLFormula outer1 {AND, &inner1, &inner2, 0};
-				CTLFormula outer2 {AU, &inner2, &outer1, 0};
+				CTLFormula outer2 {AU, &inner2, &outer1, 0, subf.operand1->fairnessConstraints};
 				learnClausePos(conflict, outer2, startNode);
 			} else {
 				assert (false); // we should not have missed anything
@@ -1815,14 +1815,16 @@ public:
 
 			learnAX(conflict, *subf.operand1, startNode);
 		}
-		else if (subf.op == EG) {
-			if(opt_verb>1)
-				printf("Clause learning case EG...\n");
-
-			if (subf.fairnessConstraints.size() > 0)
+		else if (subf.op == EG) { // FIXME I think clause learning for fair EG might be broken right now (2016-02-21)
+			if (subf.fairnessConstraints.size() > 0) {
+				if(opt_verb>1)
+					printf("Clause learning case EGFair...\n");
 				learnEGFair(conflict, subf, startNode); // Note that we are calling it with subf, not subf.operand1
-			else
+			} else {
+				if(opt_verb>1)
+					printf("Clause learning case EG...\n");
 				learnEG(conflict, *subf.operand1, startNode);
+			}
 		}
 		else if (subf.op == AG) {
 			if(opt_verb>1)
@@ -1837,10 +1839,15 @@ public:
 			learnEF(conflict, *subf.operand1, startNode);
 		}
 		else if (subf.op == AF) {
-			if(opt_verb>1)
-				printf("Clause learning case AF...\n");
-
-			learnAF(conflict, *subf.operand1, startNode);
+			if (subf.fairnessConstraints.size() > 0) {
+				if(opt_verb>1)
+					printf("Clause learning case AFFair...\n");
+				learnAFFair(conflict, subf, startNode); // Note that we are calling it with subf, not subf.operand1
+			} else {
+				if(opt_verb>1)
+					printf("Clause learning case AF (normal)...\n");
+				learnAF(conflict, *subf.operand1, startNode);
+			}
 		}
 		else if (subf.op == EW) {
 			if(opt_verb>1)
@@ -2276,7 +2283,7 @@ public:
 			s.pop();
 			ctl_over->bitsets[visited]->set(from);
 			if(opt_verb>1)
-				printf("learnAG: Considering state %d\n", from);
+				printf("learnAF: Considering state %d\n", from);
 
 			for (int i = 0; i < g_under->nIncident(from) && !done; i++) { // iterate over neighbours of current front of queue
 				e = g_under->incident(from, i);
@@ -2362,6 +2369,214 @@ public:
 		}
 		ctl_over->freeBitset(visited);
 		ctl_over->freeBitset(phi_over);
+	}
+
+
+
+	// Find lasso of states that satisfy not phi, at least one of them should satisfy phi OR one of the edges of the lasso should become disabled
+	// Additionally, to account for fairness: the lasso we need to find has to satisfy all fairness conditions. We add to the clause the possibility that one of the fairness conditions becomes false
+	void learnAFFair(vec<Lit> & conflict, CTLFormula &thisf, int startNode) {
+		int phi_over = ctl_over->solveFormula(*thisf.operand1); // Solve the inner subformula of the entire formula
+		if(opt_verb>1) {
+			printf("learnAFFair CALLED. Formula (incl. AF): ");
+			printFormula(&thisf);
+			printf(". Overapprox of where the inner formula holds: ");
+			ctl_over->printStateSet(*ctl_over->bitsets[phi_over]);
+		}
+		int fairnessCount = thisf.fairnessConstraints.size();
+		std::vector<int> cSet(fairnessCount); // Stores the results of the fairness constraints computations
+		std::vector<bool> satisfiedFairnessConstraints(fairnessCount);
+		for (int c = 0; c < fairnessCount; c ++) {
+			cSet[c] = ctl_under->solveFormula(*thisf.fairnessConstraints[c],opt_ctl_learn_cache);
+			if(opt_verb>1) {
+				printf("learnAFFair: Fairness constraint #%d: ", c);
+				printFormula(thisf.fairnessConstraints[c]);
+				printf(" satisfied in ");
+				ctl_under->printStateSet(*ctl_under->bitsets[cSet[c]]);
+			}
+		}
+		DynamicGraph<int>::Edge e;
+		int from, to, eid, pred, predpred, to1, from1;
+
+		std::stack <int> s;
+		s.push(startNode);
+		std::map <int,int> parent; // from this we retreive the path of edges from start state to some state that doesn't satisfy phi
+		int visited = ctl_over->getFreshBitset();
+		ctl_over->bitsets[visited]->set(startNode);
+		bool done = false;
+		bool skip = false;
+		while (s.size() > 0 && !done) { // stack of visited elements
+			from = s.top();
+			s.pop();
+			ctl_over->bitsets[visited]->set(from);
+			if(opt_verb>1) {
+				printf("learnAFFair: Considering state %d. Current stack: ", from);
+				for (std::stack<int> t = s; !t.empty(); t.pop())
+					std::cout << t.top() << ', ';
+				printf("\n");
+			}
+
+			for (int i = 0; i < g_under->nIncident(from) && !done; i++) { // iterate over neighbours of current front of queue
+				e = g_under->incident(from, i);
+				eid = e.id;
+				to = g_under->getEdge(eid).to;
+				if(opt_verb>2)
+					printf("learnAFFair: Neighbour no %d, edgeid: %d, from: %d, to: %d\n", i, e.id, from, to);
+
+
+				if (g_under->edgeEnabled(eid) && !ctl_over->bitsets[phi_over]->operator [](to)) {
+					if (!ctl_over->bitsets[visited]->operator [](to)) { // explore new state in graph
+					if(opt_verb>1)
+						printf("learnAFFair: Adding map parent(%d) = %d. phi_over(to): %d, visited: %d. putting %d in queue\n", to, from, ctl_over->bitsets[phi_over]->operator [](to),  ctl_over->bitsets[visited]->operator [](to), to);
+
+						s.push(to);
+						parent[to] = from;
+					} else { // check if this next state is part of the current path, in this case we have found a lasso
+						if(opt_verb>1)
+							printf("learnAFFair: Checking if %d makes a loop in current path\n", to);
+
+						pred = to;
+						predpred = from;
+						if (predpred == to) {
+							if(opt_verb>1)
+								printf("learnAFFair: %d does make a self loop in current path (via %d). Now checking if it is fair...\n", to, from);
+							skip = false; // assume that the self loop is fair
+							for (int i=0; i<cSet.size(); i++) {
+								if (!ctl_under->bitsets[cSet[i]]->operator [](to)) {
+									skip = true; // this loop violates a fairness condition
+									if(opt_verb>1)
+										printf("learnAFFair: %d self loop is NOT fair (due to fairness constraint #%d)\n", to, i);
+								}
+							}
+							if (!skip) {
+								done = true; // We have found a lasso
+								if(opt_verb>1)
+									printf("learnAFFair: %d self loop IS fair. Using this loop", to, i);
+							}
+						}
+
+						// The current path is not a self loop. Still, check if the current head makes a loop
+						// Also check if all fairness conditions are satisfied in that loop
+
+						if (!done) {
+							if(opt_verb>1)
+								printf("learnAFFair: Looking for a loop which is not a self loop\n");
+							for (int i=0; i<cSet.size(); i++) {
+								satisfiedFairnessConstraints[i] = false;
+								if (ctl_under->bitsets[cSet[i]]->operator [](to)) {
+									satisfiedFairnessConstraints[i] = true;
+									if(opt_verb>1)
+										printf("learnAFFair: Final state %d satisfies fairness constraint #%d\n", to, i);
+								}
+							}
+						}
+
+						bool unfair = false; // assume the current path is part of a fair loop
+						while (predpred != startNode && !done && !unfair) {
+							to1 = g_under->getEdge(eid).to;
+							from1 = g_under->getEdge(eid).from;
+							if(opt_verb>1)
+								printf("learnAFFair: %d -> %d\n", from1, to1);
+
+							for (int i=0; i<cSet.size(); i++) {
+								if (ctl_under->bitsets[cSet[i]]->operator [](to)) {
+									satisfiedFairnessConstraints[i] = true;
+									if(opt_verb>1)
+										printf("learnAFFair: %d -> %d: Marking %d as satisfying fairness condition #%d\n", from1, to1, i);
+								}
+							}
+
+							Lit l = ~mkLit(getTransitionVar(eid), false);
+							assert(value(l)==l_False);
+
+							pred = predpred;
+							predpred = parent[predpred];
+							eid = g_under->getEdge(predpred, pred);
+
+							if (predpred == to) {
+								if(opt_verb>1)
+									printf("learnAFFair: %d does make a loop in current path (via %d). Now checking if it is fair...\n", to, from);
+								for (int i=0; i<cSet.size(); i++) {
+									if (satisfiedFairnessConstraints[i] ) {
+										unfair = true;
+										if(opt_verb>1)
+											printf("learnAFFair: %d does make a loop in current path (via %d). But fairness condition %d is not satisfied!\n", to, from, i);
+									}
+								}
+								if (!unfair) {
+									if(opt_verb>1)
+										printf("learnAFFair: %d does make a loop in current path (via %d). And it's fair, too! We use this lasso for our clause\n", to, from);
+									done = true; // We have found a lasso
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		assert(done);
+		if (!done)
+			throw std::runtime_error("learnAFFair: no lasso found");
+
+
+		if(opt_verb>1)
+			printf("learnAFFair: reconstructing path from %d to %d\n", startNode, to);
+
+		// First, get the very last edge in the path accounted for (the one that completes the loop of the lasso)
+		eid = g_under->getEdge(from, to);
+		Lit l = ~mkLit(getTransitionVar(eid), false);
+		conflict.push(l);
+		assert(value(l)==l_False);
+		learnClausePos(conflict, *thisf.operand1, from); // learn that this reachable node satisfy phi
+		for (int i =0; i<cSet.size(); i++) {
+			if (ctl_under->bitsets[cSet[i]]->operator [](to)) {
+				CTLFormula negC {NEG, thisf.fairnessConstraints[i], NULL, 0};
+				learnClausePos(conflict, negC, to); // learn that this reachable node NOT satisfy the fairness constraint
+				if(opt_verb>1) {
+					printf("learnAFFair: learning that %d should NOT satisfy fairness constraint #%d. I.e. clause learn: ...", to, i);\
+					printf("\n");
+				}
+			}
+		}
+		to = from;
+		from = parent[to];
+		eid = g_under->getEdge(from, to);
+
+		while (to != startNode) {
+			int to1 = g_under->getEdge(eid).to;
+			int from1 = g_under->getEdge(eid).from;
+			if(opt_verb>1)
+				printf("learnAFFair: %d -> %d\n", from1, to1);
+
+			// Learn that the edge might be turned off
+			Lit l = ~mkLit(getTransitionVar(eid), false);
+			conflict.push(l);
+			assert(value(l)==l_False);
+
+			learnClausePos(conflict, *thisf.operand1, from); // learn that this reachable node satisfy phi
+			for (int i =0; i<cSet.size(); i++) {
+				if (ctl_under->bitsets[cSet[i]]->operator [](to)) {
+					CTLFormula negC {NEG, thisf.fairnessConstraints[i], NULL, 0};
+					learnClausePos(conflict, negC, to); // learn that this reachable node NOT satisfy the fairness constraint
+					if(opt_verb>1) {
+						printf("learnAFFair: learning that %d should NOT satisfy fairness constraint #%d. I.e. clause learn: ...", to, i);\
+						printf("\n");
+					}
+				}
+			}
+
+			to = from;
+			from = parent[to];
+			eid = g_under->getEdge(from, to);
+		}
+		ctl_over->freeBitset(visited);
+		ctl_over->freeBitset(phi_over);
+		for (int i =0; i<cSet.size(); i++)
+			ctl_under->freeBitset(cSet[i]);
+
+		if(opt_verb>1)
+			printf("learnAFFair: DONE\n");
 	}
 
 
@@ -3055,7 +3270,7 @@ public:
 
 		if (value(ctl_lit)==l_True &&
 				(!bit_standalone_over->operator [](initialNode) || !bit_standalone_under->operator [](initialNode))) {
-			throw std::runtime_error("Solution found does not agree with standalone CTL model checker!");
+			throw std::runtime_error("Solution found does not agree with standalone CTL model checker! (This might be due to fairness constraints, which are not supported by the standalone CTL model checker)");
 		}
 		if (value(ctl_lit)==l_False &&
 				(bit_standalone_over->operator [](initialNode) || bit_standalone_under->operator [](initialNode))) {

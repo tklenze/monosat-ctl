@@ -461,14 +461,13 @@ public:
 					if (opt_verb > 1)
 						printf("  SCC #%d is fair\n", i);
 					for (int j=0; j<comp.size(); j++) {
-						bitsets[st]->set(j);
+						bitsets[st]->set(comp[j]);
 					}
 				}
 
 			}
 		}
 		if (opt_verb > 1) {
-			printf("\n");
 			printf("Nodes belonging to an SCCs that we are backtracking from in EGFair: ");
 			printStateSet(*bitsets[st]);
 			printf("\n");
@@ -504,7 +503,7 @@ public:
 				if (opt_verb > 1) {
 					printf("Solution to EGFair: ");
 					printStateSet(*bitsets[andst]);
-					printf("\n\n");
+					printf("\n");
 				}
 				return andst; // fixpoint reached
 			}
