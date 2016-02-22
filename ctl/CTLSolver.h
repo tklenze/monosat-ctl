@@ -38,6 +38,7 @@ public:
 	vec<bool> bitsetsAvail;
 
 	bool isover; // indicates that this is the solver for the Overapprox., not the Underapprox.
+	bool originalisover;
 
 	int bitsetcounter;
 	int bitsetsmax;
@@ -47,6 +48,11 @@ public:
 	bool use_cache=false;
 	// Used for Tarjan's SCC algorithm
 	CTLTarjansSCC<int>* tarjan;
+	CTLTarjansSCC<int>* othertarjan;
+	CTLTarjansSCC<int>* tmptarjan;
+	CTLTarjansSCC<int>* originaltarjan;
+	CTLTarjansSCC<int>* originalothertarjan;
+	CTLTarjansSCC<int>* originaltmptarjan;
 	std::vector<int> q;
 	std::vector<int> comp;
 	std::vector<int> innerFair;
@@ -60,9 +66,14 @@ public:
 		originalotherk = &myotherk;
 		tmpk = NULL;
 		isover = myisover;
+		originalisover = myisover;
+		myk.isover = isover;
 		bitsetcounter = 0;
 		bitsetsmax = 0;
 		tarjan = new CTLTarjansSCC<int>(myk.g, myk);
+		othertarjan = new CTLTarjansSCC<int>(myotherk.g, myotherk);
+		originaltarjan = tarjan;
+		originalothertarjan = othertarjan;
 
 	};
 	~CTLSolver() {};
@@ -166,12 +177,19 @@ public:
 		tmpk = k;
 		k = otherk;
 		otherk = tmpk;
+		isover = !isover;
+		tmptarjan = tarjan;
+		tarjan = othertarjan;
+		othertarjan = tmptarjan;
 	}
 
 public:
 	void resetSwap() {
 		k = originalk;
 		otherk = originalotherk;
+		isover = originalisover;
+		tarjan = originaltarjan;
+		othertarjan = originalothertarjan;
 	}
 
 	// Predecessors with respect to the Kripke structure's transition system.
@@ -239,6 +257,17 @@ public:
 		return bitset;
 	}
 	int _solve(CTLFormula& f) {
+		if (isover && opt_verb>1) {
+			printf("solve over: ");
+			printFormula( &f );
+			printf("\n");
+		}
+		if (!isover && opt_verb>1) {
+			printf("solve under: ");
+			printFormula( &f );
+			printf("\n");
+		}
+
 		switch (f.op) {
 		case ID : return solveID(f);
 		case True : return solveTrue(f);
@@ -378,8 +407,15 @@ public:
 
 	int solveEGwithFairness(CTLFormula& f) {
 		if (opt_verb > 1) {
-			printf("solveEGwithFairness, formula: ");
+			printf("solveEGwithFairness (isover: %d), formula: ", isover);
 			printFormula(&f);
+			printf("\n");
+			printf("Enabled transitions:");
+			for (int i=0; i<k->transitions.size(); i++)
+				if (k->transitions[i])
+					printf(" %d (%d -> %d),", i, k->getEdge(i).from, k->getEdge(i).to);
+			printf("\n");
+
 		}
 		DynamicGraph<int> & g = k->g;
 

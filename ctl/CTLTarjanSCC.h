@@ -142,12 +142,12 @@ public:
 		// If v is a root node, pop the stack and generate an SCC
 		// Do not so if fromEdge = -1, i.e. if this is the highest call in the hierarchy. This would mean that no edge leads here, i.e. a SCC with just the initial node and no incoming transition from itself.
 		if (opt_verb > 2) {
-			if (fromEdge < 0)
-				printf("Tarjan: Ignoring this node %d, since fromEdge is negative: %d\n", node, fromEdge);
-			else
-				printf("Tarjan: node %d, fromEdge %d (%d -> %d)\n", node, fromEdge, k.getEdge(fromEdge).from, k.getEdge(fromEdge).to);
+		//	if (fromEdge < 0)
+		//		printf("Tarjan: Ignoring this node %d, since fromEdge is negative: %d\n", node, fromEdge);
+		//	else
+				printf("Tarjan: node %d, fromEdge %d (%d -> %d). Working on overapprox? %d\n", node, fromEdge, k.getEdge(fromEdge).from, k.getEdge(fromEdge).to, k.isover);
 		}
-		if (lowlink[node] == indices[node] && fromEdge >= 0) {
+		if (lowlink[node] == indices[node]) { // && fromEdge >= 0) {
 			int sccID = scc_set.size();
 			int sz = 0;
 			assert(q.size());
@@ -206,12 +206,17 @@ public:
 	// An edge is suitable if its origin and destination satisfies the formula and it is enabled
 	bool suitable(int edgeID) {
 		if ((k.edgeEnabled(edgeID)) && inner->operator [](k.getEdge(edgeID).from) && inner->operator [](k.getEdge(edgeID).to)) {
-			if (opt_verb > 2)
-				printf("  Tarjan: %d -> %d is suitable\n", k.getEdge(edgeID).from, k.getEdge(edgeID).to);
+			if (opt_verb > 2) {
+				printf("  Tarjan: %d -> %d is suitable (isover? %d) (enabled? %d) (edgeID: %d)\n", k.getEdge(edgeID).from, k.getEdge(edgeID).to, k.isover ,k.edgeEnabled(edgeID), edgeID);
+				printf("Enabled transitions:");
+				for (int i=0; i<k.transitions.size(); i++)
+					if (k.transitions[i])
+						printf(" %d (%d -> %d),", i, k.getEdge(i).from, k.getEdge(i).to);
+			}
 			return true;
 		} else {
 			if (opt_verb > 2)
-				printf("  Tarjan: %d -> %d is NOT suitable (enabled? %d)\n", k.getEdge(edgeID).from, k.getEdge(edgeID).to, k.edgeEnabled(edgeID));
+				printf("  Tarjan: %d -> %d is NOT suitable (isover? %d) (enabled? %d) (edgeID: %d)\n", k.getEdge(edgeID).from, k.getEdge(edgeID).to, k.isover , k.edgeEnabled(edgeID), edgeID);
 			return false;
 		}
 	}

@@ -51,6 +51,8 @@ public:
 	int apcount = 0;
 	int statecount = 0;
 
+	bool isover; // indicates whether this Kripke structure belongs to the overapprox
+
 	bool adaptive_history_clear = false;
 	long historyClearInterval = 1000;
 	int modifications=0;
@@ -92,8 +94,9 @@ public:
 		return id;
 	}
 
-	bool transitionEnabled(int edgeID)const{
-			return transitions[edgeID];
+	// legacy function
+	bool transitionEnabled(int edgeID) const{
+		return edgeEnabled(edgeID);
 	}
 
 
@@ -250,6 +253,7 @@ public:
 	}
 
 	bool edgeEnabled(int edgeID) const {
+		assert(edgeID>=0);
 		return transitions[edgeID];
 	}
 	bool isEdge(int edgeID) const {

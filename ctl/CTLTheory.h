@@ -3277,8 +3277,9 @@ public:
 			throw std::runtime_error("No solution despite the standalone CTL model checker stating that the current Kripke structure is a solution!");
 		}
 
-		printPctlOutput();
-		printCTLSATOutput();
+		// This is not really being used right now
+		//printPctlOutput();
+		//printCTLSATOutput();
 
 		if(opt_verb>1)
 			printf("check_solved making sure that solution agrees with NuSMV solver...\n");
