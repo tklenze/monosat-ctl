@@ -455,33 +455,20 @@ public:
 			if (tarjan->getComponentSize(i) > 1 || suitable(k->getEdge(node, node),*bitsets[innerBitset])) {
 				if (opt_verb > 1)
 					printf("Component #%d:\n",i);
-				assert(q.size()==0);
 				comp.clear();
-				q.push_back(node);
+				tarjan->getConnectedComponent(node, comp);
 				fairnessConstraintsSat->memset(false);
-				seen[node]=true;
 
-				//do a DFS to recover the connected nodes
-				while(q.size()){
-					int u = q.back();
-					q.pop_back();
-					comp.push_back(u);
+				// go through each element of the connected component, check if all fairness conditions are satisfied
+				for (int elemNum = 0; elemNum < comp.size(); elemNum++){
 					if (opt_verb > 1)
-						printf("  Considering state %d\n",u);
+						printf("  Considering state %d (num %d)\n",comp[elemNum], elemNum);
 					// Go through all fairness constraints. If a fairness constraint is satisfied in this state, then mark it satisfied for the entire SCC in fairnessConstraintsSat
 					for (int j = 0; j < innerFair.size(); j ++) {
-						if (bitsets[innerFair[j]]->operator [](u)) {
+						if (bitsets[innerFair[j]]->operator [](comp[elemNum])) {
 							fairnessConstraintsSat->set(j);
 							if (opt_verb > 1)
-								printf("    SCC satisfies fairness constraint #%d, because state %d satisfies it\n", j, u);
-						}
-					}
-					for(int j = 0;j<g.nIncident(u);j++){
-						int edgeID = g.incident(u,j).id;
-						int to = g.incident(u,j).node;
-						if(suitable(edgeID,*bitsets[innerBitset]) && !seen[to]){//only traverse
-							seen[to]=true;
-							q.push_back(to);
+								printf("    SCC satisfies fairness constraint #%d, because state %d satisfies it\n", j, comp[elemNum]);
 						}
 					}
 				}
