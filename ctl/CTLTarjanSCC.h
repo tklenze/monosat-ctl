@@ -319,10 +319,12 @@ public:
 	//get all the nodes strongly connected to this node (including this one)
 	void getConnectedComponent(int forNode, std::vector<int> & store){
 		update();
+		int sccID = getComponentUnsafe(forNode);
 		store.clear();
 		store.push_back(forNode);
 		int n = nextNodeUnsafe(forNode);
 		while(n!=forNode){
+			assert(sccID == getComponentUnsafe(n));
 			store.push_back(n);
 			n = nextNodeUnsafe(n);
 		}
