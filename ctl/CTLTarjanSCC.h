@@ -147,7 +147,7 @@ public:
 			else
 				printf("Tarjan: node %d, fromEdge %d (%d -> %d)\n", node, fromEdge, k.getEdge(fromEdge).from, k.getEdge(fromEdge).to);
 		}
-		if (lowlink[node] == indices[node] && fromEdge >= 0) {
+		if (lowlink[node] == indices[node]) {// && fromEdge >= 0
 			int sccID = scc_set.size();
 			int sz = 0;
 			assert(q.size());
@@ -201,6 +201,7 @@ public:
 				strict_scc_set.push_back(sccID);
 			}
 		}
+
 	}
 
 	// An edge is suitable if its origin and destination satisfies the formula and it is enabled
@@ -235,6 +236,10 @@ public:
 		setNodes(g.nodes());
 		scc_set.clear();
 		strict_scc_set.clear();
+#ifndef NDEBUG
+		for(int i = 0;i<in_q.size();i++)
+			assert(!in_q[i]);
+#endif
 		q.clear();
 		for (int i = 0; i < g.nodes(); i++) {
 			indices[i] = -1;
@@ -247,6 +252,11 @@ public:
 			}
 		}
 
+
+#ifndef NDEBUG
+		for(int i = 0;i<in_q.size();i++)
+			assert(!in_q[i]);
+#endif
 		status.setComponents(scc_set.size());
 		last_modification = g.modifications;
 		last_k_modification = k.modifications;
@@ -296,6 +306,26 @@ public:
 		update();
 		assert(sccID < scc_set.size());
 		return scc_set[sccID].element;
+	}
+	//Returns the next node in the cyclic linked list representing this scc (in arbitrary order)
+	int nextNode(int node){
+		update();
+		return scc[node].next;
+	}
+	//Returns the next node in the cyclic linked list representing this scc (in arbitrary order). Update() must have been called before this method.
+	int nextNodeUnsafe(int node){
+		return scc[node].next;
+	}
+	//get all the nodes strongly connected to this node (including this one)
+	void getConnectedComponent(int forNode, std::vector<int> & store){
+		update();
+		store.clear();
+		store.push_back(forNode);
+		int n = nextNodeUnsafe(forNode);
+		while(n!=forNode){
+			store.push_back(n);
+			n = nextNodeUnsafe(n);
+		}
 	}
 	int getComponentSize(int sccID) {
 		update();
