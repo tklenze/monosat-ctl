@@ -2146,6 +2146,7 @@ public:
 
 		std::queue <int> s;
 		s.push(startNode);
+		from = startNode;//
 		std::map <int,int> parent; // from this we retreive the path of edges from start state to some state that doesn't satisfy phi
 		int visited = ctl_over->getFreshBitset(); // This bitset denotes all the visited nodes
 		bool done = false;

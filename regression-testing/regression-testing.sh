@@ -14,7 +14,7 @@ for filename in sat-inputs/*; do
 	echo "File $filename has a problem"
     fi
     # Now, let's check the solution with NuSMV
-    bash -c 'NuSMV inputConvertedToNuSMVInput.txt >/tmp/monosat-regression-test-nusmv 2>/tmp/monosat-regression-test-nusmv-errors' $filename >/tmp/monosat-regression-test-nusmv-errors-bash 2>&1
+    bash -c 'NuSMV /tmp/inputConvertedToNuSMVInput.txt >/tmp/monosat-regression-test-nusmv 2>/tmp/monosat-regression-test-nusmv-errors' $filename >/tmp/monosat-regression-test-nusmv-errors-bash 2>&1
     cat /tmp/monosat-regression-test-nusmv* | grep "Counterexample\|Error"
     if [[ $? -ne 1 ]]; then
 	echo "REGRESSION PROBLEM detected in NuSMV"
