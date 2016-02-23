@@ -2452,7 +2452,7 @@ public:
 							if (!skip) {
 								done = true; // We have found a lasso
 								if(opt_verb>1)
-									printf("learnAFFair: %d self loop IS fair. Using this loop", to, i);
+									printf("learnAFFair: %d -> %d self loop IS fair. Using this loop", to, i);
 							}
 						}
 
@@ -2462,12 +2462,12 @@ public:
 						if (!done) {
 							if(opt_verb>1)
 								printf("learnAFFair: Looking for a loop which is not a self loop\n");
-							for (int i=0; i<cSet.size(); i++) {
-								satisfiedFairnessConstraints[i] = false;
-								if (ctl_under->bitsets[cSet[i]]->operator [](to)) {
-									satisfiedFairnessConstraints[i] = true;
+							for (int con=0; con<cSet.size(); con++) {
+								satisfiedFairnessConstraints[con] = false;
+								if (ctl_under->bitsets[cSet[con]]->operator [](to)) {
+									satisfiedFairnessConstraints[con] = true;
 									if(opt_verb>1)
-										printf("learnAFFair: Final state %d satisfies fairness constraint #%d\n", to, i);
+										printf("learnAFFair: Final state %d satisfies fairness constraint #%d\n", to, con);
 								}
 							}
 						}
@@ -2479,11 +2479,11 @@ public:
 							if(opt_verb>1)
 								printf("learnAFFair: %d -> %d\n", from1, to1);
 
-							for (int i=0; i<cSet.size(); i++) {
-								if (ctl_under->bitsets[cSet[i]]->operator [](to)) {
-									satisfiedFairnessConstraints[i] = true;
+							for (int con=0; con<cSet.size(); con++) {
+								if (ctl_under->bitsets[cSet[con]]->operator [](from1)) {
+									satisfiedFairnessConstraints[con] = true;
 									if(opt_verb>1)
-										printf("learnAFFair: %d -> %d: Marking %d as satisfying fairness condition #%d\n", from1, to1, i);
+										printf("learnAFFair: %d -> %d: Marking %d as satisfying fairness condition #%d\n", from1, to1, from1, con);
 								}
 							}
 
@@ -2497,11 +2497,11 @@ public:
 							if (predpred == to) {
 								if(opt_verb>1)
 									printf("learnAFFair: %d does make a loop in current path (via %d). Now checking if it is fair...\n", to, from);
-								for (int i=0; i<cSet.size(); i++) {
-									if (satisfiedFairnessConstraints[i] ) {
+								for (int con=0; con<cSet.size(); con++) {
+									if ( !satisfiedFairnessConstraints[con] ) {
 										unfair = true;
 										if(opt_verb>1)
-											printf("learnAFFair: %d does make a loop in current path (via %d). But fairness condition %d is not satisfied!\n", to, from, i);
+											printf("learnAFFair: %d does make a loop in current path (via %d). But fairness condition %d is not satisfied!\n", to, from, con);
 									}
 								}
 								if (!unfair) {

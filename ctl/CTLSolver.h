@@ -257,12 +257,12 @@ public:
 		return bitset;
 	}
 	int _solve(CTLFormula& f) {
-		if (isover && opt_verb>1) {
+		if (isover && opt_verb>2) {
 			printf("solve over: ");
 			printFormula( &f );
 			printf("\n");
 		}
-		if (!isover && opt_verb>1) {
+		if (!isover && opt_verb>2) {
 			printf("solve under: ");
 			printFormula( &f );
 			printf("\n");
