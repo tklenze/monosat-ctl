@@ -1695,7 +1695,8 @@ public:
 			printf(", for startNode %d\n", startNode);
 		}
 
-		if (subf.fairnessConstraints.size() > 0 && subf.op != EG && subf.op != AF) {
+		// Only naive clause learning for fairness constraints
+		if (subf.fairnessConstraints.size() > 0 && subf.op != EG ) { //&& subf.op != AF) {
 			if(opt_verb>1)
 				printf("Learning naive clause, since we don't support clause learning with fairness constraints on this operator yet...\n");
 			learnNaiveClause(conflict, initialNode);
@@ -1815,7 +1816,7 @@ public:
 
 			learnAX(conflict, *subf.operand1, startNode);
 		}
-		else if (subf.op == EG) { // FIXME I think clause learning for fair EG might be broken right now (2016-02-21)
+		else if (subf.op == EG) {
 			if (subf.fairnessConstraints.size() > 0) {
 				if(opt_verb>1)
 					printf("Clause learning case EGFair...\n");
@@ -2427,8 +2428,8 @@ public:
 
 				if (g_under->edgeEnabled(eid) && !ctl_over->bitsets[phi_over]->operator [](to)) {
 					if (!ctl_over->bitsets[visited]->operator [](to)) { // explore new state in graph
-					if(opt_verb>1)
-						printf("learnAFFair: Adding map parent(%d) = %d. phi_over(to): %d, visited: %d. putting %d in queue\n", to, from, ctl_over->bitsets[phi_over]->operator [](to),  ctl_over->bitsets[visited]->operator [](to), to);
+						if(opt_verb>1)
+							printf("learnAFFair: Adding map parent(%d) = %d. phi_over(to): %d, visited: %d. putting %d in queue\n", to, from, ctl_over->bitsets[phi_over]->operator [](to),  ctl_over->bitsets[visited]->operator [](to), to);
 
 						s.push(to);
 						parent[to] = from;
