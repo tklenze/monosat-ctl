@@ -1,11 +1,9 @@
 /*
  * CTLSolver.h
  *
- *  Created on: Mar 26, 2015
- *      Author: tobias k
+ * Written by Tobias Klenze and Sam Bayless
  *
- *      TODO Implement changes outlined in fbb8e4d. Basically, only have a constant
- *      number of Bitsets, instead of creating and deleting them on the fly.
+ *
  */
 
 #ifndef CTL_CTLSOLVER_H_

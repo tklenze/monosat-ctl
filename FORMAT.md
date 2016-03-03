@@ -1,5 +1,7 @@
 # MonoSAT File Format
 
+(see below for CTL syntax)
+
 MonoSAT is a SAT Modulo Theory solver for Boolean Monotonic Theories, featuring support for a wide set of graph properties, as well as a number of other theories, including some limited geometric properties (currently, for convex hulls), and finite state machine synthesis (still experimental).
 
 This file documents MonoSAT's __*.GNF__ file format, which is a superset of the common [DIMACS CNF format](http://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/satformat.ps) (specifically, a superset of DIMACS as parsed by Minisat).
@@ -113,6 +115,35 @@ kedge 0 1 0 2
 kedge 0 1 2 3 
 kctl 0 0 4 EX (4 EW EG 2)
 ```
+
+kctlsimp is another input format, in which state properties (nodeap) and transitions (edges) are created automatically. You can also spread the an ANDed CTL formula over multiple lines (without using brackets on the first AND in each newline).
+
+```
+c     <#Vars> <#Clauses>
+p cnf 1000     1
+1000 0
+c kctlsimp <KripkeID> <#Nodes> <#APs> <selfloops> <ctlvar> <CTL formula>"
+kctlsimp   0          13       9      0           1000        (0 AND EF 4)
+AND (AG 0 OR EF 1)
+AND EG EX 3
+```
+
+For the synthesis of synchronization skeletons, one can also use the following input format:
+
+```
+c     <#Vars> <#Clauses>
+p cnf 1000     1
+1000 0
+c kctlsinglestate <KripkeID> <#Nodes> <#Processes> <States/Process> <selfloops> <ctlvar> <CTL formula>"
+kctlsinglestate   0          9        2            3                0           1000     (0 AND EF 4)
+AND (AG 0 OR EF 1)
+AND EG EX 3
+```
+
+NCS1, TRY1, CS1, NCS2, TRY2, CS2, ... are shortcuts for the APs 0, 1, 2, 3, 4, 5, ...
+
+
+Finally, there is a perprocess encoding available in the folder regression-testing, which is even more optimized to work for the synthesis of synchronization skeletons, and runs using MonoSAT's python API.
 
 
 

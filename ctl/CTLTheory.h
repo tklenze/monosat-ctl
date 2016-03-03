@@ -19,6 +19,10 @@
  OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  **************************************************************************************************/
 
+/*
+ * Written by Tobias Klenze and Sam Bayless
+ */
+
 #ifndef CTL_THEORY_H_
 #define CTL_THEORY_H_
 
@@ -3281,7 +3285,7 @@ public:
 
 		// This is not really being used right now
 		//printPctlOutput();
-		//printCTLSATOutput();
+		printCTLSATOutput();
 
 		if(opt_verb>1)
 			printf("check_solved making sure that solution agrees with NuSMV solver...\n");

@@ -19,6 +19,11 @@
  OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  **************************************************************************************************/
 
+/*
+ * Written by Tobias Klenze and Sam Bayless
+ */
+
+
 #ifndef CTL_PARSER_H_
 #define CTL_PARSER_H_
 

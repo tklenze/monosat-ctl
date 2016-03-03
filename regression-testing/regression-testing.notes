@@ -1,0 +1,1 @@
+regression testing is expected to fail for formulas with fairness constraints, since witness checking has no support for fairness, and will thus fail in many cases to confirm the solution

@@ -1,3 +1,9 @@
+/*
+
+This is a deprecated testing function that was used early in the development.
+
+*/
+
 /*****************************************************************************************[Main.cc]
  The MIT License (MIT)
 

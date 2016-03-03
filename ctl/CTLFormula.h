@@ -1,8 +1,8 @@
 /*
  * CTLFormula.h
  *
- *  Created on: Apr 13, 2015
- *      Author: tobias k
+ * Written by Tobias Klenze and Sam Bayless
+ *
  *
  */
 

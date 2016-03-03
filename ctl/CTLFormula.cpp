@@ -1,3 +1,7 @@
+/*
+ * Written by Tobias Klenze and Sam Bayless
+ */
+
 #include "CTLFormula.h"
 namespace Monosat{
 CTLFormula* newCTLFormula() {
@@ -182,12 +186,27 @@ CTLFormula* newCTLFormula() {
 		std::string s;
 		switch (f.op) {
 		case ID : switch (f.value) {
-		case 0 : s = "p"; break;
-		case 1 : s = "q"; break;
-		case 2 : s = "r"; break;
-		case 3 : s = "s"; break;
-		case 4 : s = "u"; break;
-		case 5 : s = "w"; break;
+		case  0 : s = "p"; break;
+		case  1 : s = "q"; break;
+		case  2 : s = "r"; break;
+		case  3 : s = "s"; break;
+		case  4 : s = "u"; break;
+		case  5 : s = "w"; break;
+		case  6 : s = "a"; break;
+		case  7 : s = "b"; break;
+		case  8 : s = "c"; break;
+		case  9 : s = "d"; break;
+		case 10 : s = "e"; break;
+		case 11 : s = "f"; break;
+		case 12 : s = "g"; break;
+		case 13 : s = "h"; break;
+		case 14 : s = "i"; break;
+		case 15 : s = "j"; break;
+		case 16 : s = "k"; break;
+		case 17 : s = "l"; break;
+		case 18 : s = "m"; break;
+		case 19 : s = "n"; break;
+		case 20 : s = "o"; break;
 		default : s = "ERROR: too many atomic propositions in formula";
 		} break;
 		case True :  s+="T"; break;

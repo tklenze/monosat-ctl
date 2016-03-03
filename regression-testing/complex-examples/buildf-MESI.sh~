@@ -1,0 +1,9 @@
+# this is extremely hackish and requires some on-hand work to make the brackets match up afterwards
+
+#just the formula, without and
+cat clarke-input | grep "(" | sed 's/NCS1/0/g' | sed 's/TRY1/1/g' | sed 's/CS1/2/g' | sed 's/NCS2/3/g' | sed 's/TRY2/4/g' | sed 's/CS2/5/g'
+
+echo ""
+
+#AND it together. Will require adding more brackets
+cat clarke-input | grep "(" | sed 's/NCS1/0/g' | sed 's/TRY1/1/g' | sed 's/CS1/2/g' | sed 's/NCS2/3/g' | sed 's/TRY2/4/g' | sed 's/CS2/5/g' | sed 's/AG\ /AND\ (AG\ /g'

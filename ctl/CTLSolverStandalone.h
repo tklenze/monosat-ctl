@@ -8,6 +8,11 @@
  *      number of Bitsets, instead of creating and deleting them on the fly.
  */
 
+/*
+ * Written by Tobias Klenze and Sam Bayless
+ */
+
+
 #ifndef CTL_CTLSolverStandalone_H_
 #define CTL_CTLSolverStandalone_H_
 

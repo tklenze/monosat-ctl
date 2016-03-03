@@ -1,7 +1,0 @@
-c this is unsat...
-c     <#Vars> <#Clauses>
-p cnf 1000    1
-1000 0
-c kctlsinglestate <KripkeID> <#Nodes> <#Processes> <States/Process> <selfloops> <ctlvar> <CTL formula>"
-kctlsinglestate   0          6        3            4                1           1000     (AG 0 EU 1)
-

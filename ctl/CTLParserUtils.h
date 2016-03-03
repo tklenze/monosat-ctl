@@ -1,10 +1,7 @@
-/****************************************************************************************
+/*
+ * Written by Tobias Klenze and Sam Bayless
+ */
 
-ATTENTION: This file is not in use, currently. It was planned to put some things from CTLParser into this static
-           lump of functions, but it didn't work out. Oct 25, 2015
-
-
- **************************************************************************************************/
 
 #ifndef CTL_PARSERUTILS_H_
 #define CTL_PARSERUTILS_H_
