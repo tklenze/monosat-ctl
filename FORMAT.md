@@ -93,42 +93,43 @@ These are the graph properties that are currently well-supported by MonoSAT; man
 
 
 
-The format for using Kripke structures and CTL formulas is as follows:
-kripke 3 4 2 0 -- means three nodes, four edges, two atomic propositions, kripke structure ID is 0.
-knodeap 0 2 1 5-- means in kripke structure 0, node 2, the second AP is tied to the CNF variable 5.
-kedge 0 1 2 7 -- kripke ID, from, to, edgevar. The edgevar must begin with 1 and be increased with every following edge. Consider renaming other variables if they conflict.
-kctl 0 0 9 EX (4 EW EG 2) -- the first int after "kctl" is the kripke structure ID, then comes the initial state and then the variable bound to the CTL formula. After those three integers comes the CTL formula. All predicates taking two arguments have brackets in the form (phi1 op phi2)
+*CTL*
 
-Warning: the input is NOT checked for correctness
 
-```
-p cnf 5 6
-5 6 0
--5 -6 0
-1 0
-2 3 0
--2 -3 0
-kripke 3 4 2 0
-knodeap 0 2 1 5
-kedge 0 0 1 1
-kedge 0 1 0 2
-kedge 0 1 2 3 
-kctl 0 0 4 EX (4 EW EG 2)
-```
+The format for synthesis of Kripke structures by CTL formulas is described in the following. We use the terms "node" and "state" interchangeably, equally "edge" and "transition". In order to synthesize a CTL formula, a "dynamic" Kripke structure has to be created, which serves as a blank piece for the resulting structure. The dynamic Kripke structure can turn off/on transitions and remove/add atomic propositions in states. However, since this is a bounded approach, the number of states, and the number of atomic propositions of the formula has to be fixed in advance.
 
-kctlsimp is another input format, in which state properties (nodeap) and transitions (edges) are created automatically. You can also spread the an ANDed CTL formula over multiple lines (without using brackets on the first AND in each newline).
+
+There are a number of ways to define Kripke structures and CTL formulas, ranging from the most powerful with explicit construction of variables for each atomic proposition and transition, to simplified versions, where a Kripke structure's variables are created automatically given a certain number of states.
+
+Warning: the input is generally NOT checked for correctness/completeness.
+
+
+== INPUT METHOD 0: The Performant ==
+     NOTE: This is the method referred to in the paper as "MonoSAT-structural"
+
+The most performant option for CTL synthesis with an application to synchronization. You specify a number of processes, a number of "wildcard" states (effectively the upper bound of the problem) and a CTL formula which should hold. The input method enforces that each global state specifies the local states for each process and that only one process' local state changes on each local transition.
+
+
+This method uses MonoSAT's python API, though more out of convenience and not due to performance benefits (MonoSAT is written in C++).
+To use it, you first have to compile and install MonoSAT's python API (see the README file for instructions).
+
+You then create a formula file, with the CTL formula as specified below. You then create a script file with the following contents:
 
 ```
-c     <#Vars> <#Clauses>
-p cnf 1000     1
-1000 0
-c kctlsimp <KripkeID> <#Nodes> <#APs> <selfloops> <ctlvar> <CTL formula>"
-kctlsimp   0          13       9      0           1000        (0 AND EF 4)
-AND (AG 0 OR EF 1)
-AND EG EX 3
+#       script                         formula file      #processes, #wildcards, enforceLocalStructure, usePBConstraints
+python3 path/to/perprocessAutomated.py path/to/CTL-input 2           1           True                   True
 ```
 
-For the synthesis of synchronization skeletons, one can also use the following input format:
+#processes specifies (unsurprisingly) the number of processes, and #wildcards the number of "wildcard" states, whose local states and transitions are free to assign by the solver. Leave enforceLocalStructure, and usePBConstraints set to "True".
+
+For the formula file, simple use the same format as described in INPUT METHOD 1 but be advised that everything except for the formula will be ignored.
+
+
+== INPUT METHOD 1: The Non-Invasive Process Encoding ==
+     NOTE: This approach offers little benefits towards the one described above ("The Performant"), while having similar restrictions. It is generally slower, so there is no good reason to use it, unless your instances are small enough and you prefer the touch of a pure text input over installing pythons APIs.
+
+For the synthesis of Kripke structures in parallel processes, the following provides some simple format. It creates a certain number of processes, each with its own local transition system of fixed (or rather: bound) size (<States/Process>).
+You might want to enforce the following, either via CNF or CTL: In the global transition system that's being synthesized, each transition can only change one process' local state (called process-state from here on). Local states are identified by a <States/Process> atomic propositions per process, which act as indicator variables. Each global state makes for each process exactly one of the atomic proposition belonging to this process true, i.e. its atomic propositions determine the local states of all processes.
 
 ```
 c     <#Vars> <#Clauses>
@@ -140,10 +141,81 @@ AND (AG 0 OR EF 1)
 AND EG EX 3
 ```
 
-NCS1, TRY1, CS1, NCS2, TRY2, CS2, ... are shortcuts for the APs 0, 1, 2, 3, 4, 5, ...
+- <KripkeID> is always set to 0
+- <#Nodes> is the number of states in the resulting structure (can be thought of as an upper bound, since superflous states can be made unreachable, and unreachable states will be automatically removed from the result)
+- <#Processes> is the number of parallel processes. They DO NOT have to be identical processes.
+- <States/Process> is the maximum number of internal states per process. Note that in total <States/Process>*<#Processes> states will be created, so setting this too high will make the problem much harder to solve.
+- <selfloops> set to 1 if you want loops from states to themselves
+- <ctlvar> set to a high enough number so that it does not interfere with the variable naming scheme (1000, 10000, ...). This variable is tied to "CTL formula is being satisfied by the Kripke structure".
+- <CTL formula> the CTL formula in infix notation. A number in the formula refers to an atomic proposition, which start at 0 and go up to (<#Processes>*<States/Process> - 1). An atomic proposition in a global state corresponds to a certain process being in a certain process-state. The atomic propositions are numbered in the following way: "process x (range 0 to <#Processes>-1) is in process-state y (range 0 to <States/Process> - 1)" is the atomic proposition x * <States/Process> + y. For instance, the second process (process 1) is in the third state (state 2) in a global state iff the atomic proposition 5 is true in this global state.
+    Concerning the syntax of the CTL formula: All binary operators must be bracketed in the form (phi1 op phi2). To make things more readable, you can use a newline and start it with "AND", omitting the brakets for the "AND". Note that to enforce the CTL formula on the Kripke structure, you have to add its <ctlvar> as a unit clause to the set of CNF clauses.
 
 
-Finally, there is a perprocess encoding available in the folder regression-testing, which is even more optimized to work for the synthesis of synchronization skeletons, and runs using MonoSAT's python API.
+For the special case that you have three states per process, you might want to use the following shortcuts, which were created due to the Mutex problem (in which you have a Non-critical section, a Try section and a Critical section): NCS1, TRY1, CS1, NCS2, TRY2, CS2, ... are shortcuts for the APs 0, 1, 2, 3, 4, 5, ... (only to a certain constant). So "(NCS1 AND NCS2) -> EX TRY1" means that if both processes are in the first initial process-state, the first process can transition to the second process-state.
+
+For a realisitc scenario of how this is being used, see the specification of a 2-process Mutex (benchmarks/generic-ctl/mutex/2-mutex-Original/monosat/input).
+
+
+
+== INPUT METHOD 2: The Pure ==
+     NOTE: This is the method referred to in the paper as "MonoSAT-generic"
+kctlsimp is a more powerful input format than kctlsinglestate, in which the instance is oblivious to processes and process-states. You can thus synthesize based on any CTL formula, not knowing about processes, and simply require an upper bound of states.
+
+In contrast to the "kripke" input format specified below, state properties (nodeap) and transitions (edges) are created automatically. It thus really is quite easy to understand and the closest to pure CTL synthesis without looking at any application-specific optimizations and simplifications in the input format.
+
+```
+c     <#Vars> <#Clauses>
+p cnf 1000     1
+1000 0
+c kctlsimp <KripkeID> <#Nodes> <#APs> <selfloops> <ctlvar> <CTL formula>"
+kctlsimp   0          13       9      0           1000     (0 AND EF 4)
+AND (AG 0 OR EF 1)
+AND EG EX 3
+```
+
+
+== INPUT METHOD 3: The Powerful ==
+Create state properties and transitions manually. If you have some kind of insight on how the resulting structure should look like, you might be able to use this approach more efficiently than a naive creating of N^2 transitions for N states. (The more simplified input formats simply do: "create N states, have M atomic propositions, thus create N^2 transitions and N*M state properties".)
+
+c kripke <#Nodes> <#Edges> <#APs> <KripkeID>
+kripke   3        4        2      0            -- means three states, there are at maximum four transitions in the resulting structure (which the solver can turn off/on), there are at maximum two atomic propositions in the formula, and this structure is assigned the ID 0 (note that currently, only synthesis of a single structure within one SMT instance is supported, so leave this at 0).
+
+c kedge <KripkeID> <from> <to> <edgevar>
+kedge   0          1      2    7               -- kripke structure ID, from, to, transition SAT solver variable. The transition SAT solver variable must begin with 1 and be increased with every following edge. Consider renaming other variables if they conflict. You can reference the transition SAT solver in CNF clauses: a variable is true iff its transition is enabled (i.e. present) in the structure.
+
+c knodeap <KripkeID> <node> <ap> <nodeapvar>
+knodeap   0          2      1    5             -- means in kripke structure 0, node 2, the second AP is tied to the CNF (SAT solver) variable 5. You can reference the <nodeapvar> SAT solver variable in CNF clauses: a variable is true iff for the corresponding (state,ap) pair, the AP is part of the state.
+
+c kctl <KripkeID> <initialnode> <ctlvar> <CTL formula>
+kctl   0          0             9        EX (4 EW EG 2) -- the first int after "kctl" is the kripke structure ID, then comes the initial state and then the variable bound to the CTL formula (just pick any variable high enough so that it isn't used elsewhere). After those three integers comes the CTL formula in infix notation. A number in the formula refers to an atomic proposition, which start at 0 and go up to (<#APs> - 1). All binary operators must be bracketed in the form (phi1 op phi2). Note that to enforce the CTL formula on the Kripke structure, you have to add its <ctlvar> as a unit clause to the set of CNF clauses.
+
+```
+c     <#Vars> <#Clauses>
+p cnf 10      6
+-1 -2 0
+-4 -3 0
+-6 -5 0
+-9 -8 0
+-6 0
+10 0
+c kripke <#Nodes> <#Edges> <#APs> <KripkeID>
+kripke   3        6        2      0
+c kedge <KripkeID> <from> <to> <edgevar>
+kedge   0          0      1    1
+kedge   0          1      0    2
+kedge   0          0      2    3
+kedge   0          1      2    4
+kedge   0          2      2    5
+kedge   0          2      0    6
+c knodeap <KripkeID> <node> <ap> <nodeapvar>
+knodeap   0          0      0    7
+knodeap   0          1      0    8
+knodeap   0          2      0    9
+c kctl <KripkeID> <initialnode> <ctlvar> <CTL formula>
+kctl   0          0             10     EG 0
+```
+
+
 
 
 
