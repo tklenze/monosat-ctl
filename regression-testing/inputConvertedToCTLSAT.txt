@@ -1,1 +1,0 @@
-(~ EF ~ EX T ^ ((((EG p v E(p U q )) ^ (EG q v E(q U r ))) ^ (EG r v E(r U p ))) ^ ((EG ~ p v E(~ p U ~ q )) ^ (EG ~ q v E(~ q U ~ r )))))

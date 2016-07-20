@@ -1,3 +1,8 @@
+
+NOTE: This tutorial is not specific for CTL synthesis, but a generic description of the Python Library. The CTL part of the Python Library is undocumented as of 2016-07-20.
+
+
+
 # MonoSAT Python Tutorial
 
 This is a brief introduction to MonoSAT's Z3-inspired Python 3 library, which you can use to

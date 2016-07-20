@@ -1,1 +1,0 @@
-(not P>0/1 (true U not P>0/1 (X true)) and ((((not P>=1/1 (true U not v0 ) or P>0/1 (v0 U v1 )) and (not P>=1/1 (true U not v1 ) or P>0/1 (v1 U v2 ))) and (not P>=1/1 (true U not v2 ) or P>0/1 (v2 U v0 ))) and ((not P>=1/1 (true U v0 ) or P>0/1 (not v0 U not v1 )) and (not P>=1/1 (true U v1 ) or P>0/1 (not v1 U not v2 )))))
