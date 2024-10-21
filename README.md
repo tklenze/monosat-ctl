@@ -1,4 +1,13 @@
-(see in Format.md for CTL input syntax)
+# MonoSAT-CTL
+
+MonoSAT-CTL is a CTL (Computation Tree Logic) theory for the SMT solver MonoSAT. The input is a temporal logics formula in CTL and a bound, and the output is either a solution of the formula in the form of a Kripke structure, or no solution. In the latter case, it can be concluded that no solution exists within the bound given. While this is not sufficient to prove a formula UNSAT, it can be used very efficiently to synthesize Kripke structures for formulas that do have solutions. In our paper, we show that this tool outperforms all prior tools by a factor of around 100 in terms of processing time.
+
+This file generically describes the MonoSAT tool (on which MonoSAT-CTL is built) and how to set it up. For the CTL-specific input syntax used, please see the FORMAT.md file. Examples are provided in the regression-testing directory, in particular the sat-inputs and unsat-inputs subdirectories.
+
+For more information, please see the publication belonging to this tool: 
+Tobias Klenze, Sam Bayless and Alan J. Hu
+Fast, Flexible, and Minimal CTL Synthesis via SMT
+CAV 2016 (Computer Aided Verification: 28th International Conference, Toronto, ON, Canada, July 17-23, 2016, Proceedings, Part I 28)
 
 # MonoSAT
 MonoSAT is a SAT Modulo Theory solver for *[monotonic theories]*, over Booleans and bitvectors. It supports a wide set of graph predicates (including reachability, shortest paths, maximum *s-t* flow, minimum spanning tree, and acyclicity constraints) as well as CTL model checking. MonoSAT also has limited support for geometric constraints involving convex hulls of point sets, and experimental support for constraints on finite state machines. 
